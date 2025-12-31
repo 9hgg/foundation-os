@@ -1,0 +1,335 @@
+@let conversation = conversation$$$.$ | async;
+@let paginatorState = messagesPaginator.state$ | async;
+@let isFromCurrentUserFn = isFromCurrentUser();
+
+<span id="top-anchor"></span>
+@if (conversation) {
+	<section
+		id="comment"
+		class="flex-1 py-8 pb-32 antialiased"
+	>
+		<div class="mx-auto max-w-3xl px-4">
+			@if (paginatorState) {
+				@if (commentTitle()) {
+					<div class="mb-6 flex items-center justify-between">
+						<h2 class="text-base-content text-lg font-bold lg:text-2xl">
+							<span [translate]>{{ commentTitle() }}</span> ({{ paginatorState.totalNumberOfItems }})
+						</h2>
+					</div>
+				}
+
+				<!-- Show More Button -->
+				@if (hasMoreMessages()) {
+					<div class="mb-4 flex justify-center">
+						<button
+							type="button"
+							class="btn btn-ghost btn-sm"
+							(click)="showMoreMessages()"
+						>
+							<span [translate]>Show more messages</span>
+						</button>
+					</div>
+				}
+
+				<div
+					class="flex flex-col-reverse gap-4"
+					#commentsContainer
+				>
+					@for (message of processedMessages(); track message?.id) {
+						@if (message) {
+							@let isOwnMessage = isFromCurrentUserFn(message.authorId);
+
+							<div
+								class="chat group"
+								[ngClass]="isOwnMessage ? 'chat-end' : 'chat-start'"
+								[id]="'message-' + message.id"
+							>
+								<!-- Avatar -->
+								<div class="chat-image avatar">
+									<div class="w-10 rounded-full">
+										@if (message.avatarUrl) {
+											<img
+												[src]="message.avatarUrl"
+												[alt]="message.authorPublicName"
+											/>
+										} @else {
+											<div class="bg-neutral text-neutral-content grid h-full w-full place-items-center">
+												<span class="text-xs">{{ message.authorPublicName | slice: 0 : 2 }}</span>
+											</div>
+										}
+									</div>
+								</div>
+
+								<!-- Header: Name & Time -->
+								<div class="chat-header mb-1">
+									<span class="mr-2 font-semibold opacity-70">{{ message.authorPublicName }}</span>
+									<time class="text-xs opacity-50">{{ message.timeCreated | dateAsAgo }}</time>
+								</div>
+
+								<!-- Bubble -->
+								<div
+									class="chat-bubble relative pr-10"
+									[ngClass]="isOwnMessage ? 'chat-bubble-primary text-primary-content' : 'chat-bubble-base-200 text-base-content'"
+								>
+									<!-- Replying To Config -->
+									@if (message.replyTo) {
+										<div class="border-base-content/20 bg-base-100/10 mb-2 rounded border-l-4 p-2 text-xs">
+											<p class="font-bold opacity-70">{{ message.replyTo.authorPublicName }}</p>
+											<p class="line-clamp-2 opacity-80">{{ message.replyTo.content }}</p>
+										</div>
+									}
+
+									<!-- Content -->
+									<div class="whitespace-pre-wrap">
+										@if (message.content && message.content.length > COMMENT_LENGTH_COLLAPSE && !expandedComments.isSelected(message)) {
+											<span [innerHTML]="message.content.slice(0, COMMENT_LENGTH_COLLAPSE) + '...' | newlinesToBr"></span>
+											<button
+												class="link link-hover mt-1 block text-xs opacity-70"
+												(click)="expandedComments.toggle(message)"
+												[translate]
+											>
+												Read more
+											</button>
+										} @else {
+											<span [innerHTML]="message.content | newlinesToBr"></span>
+											@if (message.content && message.content.length > COMMENT_LENGTH_COLLAPSE) {
+												<button
+													class="link link-hover mt-1 block text-xs opacity-70"
+													(click)="expandedComments.toggle(message)"
+													[translate]
+												>
+													Read less
+												</button>
+											}
+										}
+									</div>
+
+									<!-- Actions (Hover) -->
+									<!-- Positioned absolute inside bubble or outside? Standard is outside or contextual menu. 
+                                         Let's put them 'near' the bubble. Actually, cleaner inside for now or using standard chat footer -->
+								</div>
+
+								<!-- Footer: Reactions & Actions -->
+								<div class="chat-footer mt-1 flex min-h-[1.5rem] items-center gap-2 opacity-80">
+									<!-- Reactions -->
+									@if (message.reactionsSummary.length > 0) {
+										<div class="flex flex-wrap gap-1">
+											@for (summary of message.reactionsSummary; track summary.emoji) {
+												<button
+													(click)="setReaction(message, summary.emoji)"
+													class="badge badge-sm hover:badge-outline gap-1 transition-all"
+													[ngClass]="summary.userReacted ? 'badge-primary' : 'badge-ghost'"
+												>
+													{{ summary.emoji }} {{ summary.count > 1 ? summary.count : '' }}
+												</button>
+											}
+										</div>
+									}
+
+									<!-- Action Buttons (Visible on Group Hover) -->
+									<div class="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+										<button
+											class="btn btn-ghost btn-xs btn-square"
+											title="Reply"
+											(click)="initiateReply(message)"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke-width="1.5"
+												stroke="currentColor"
+												class="h-4 w-4"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
+												/>
+											</svg>
+										</button>
+										<button
+											class="btn btn-ghost btn-xs btn-square"
+											title="React"
+											(click)="toggleReactionPicker(message.id)"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke-width="1.5"
+												stroke="currentColor"
+												class="h-4 w-4"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z"
+												/>
+											</svg>
+										</button>
+
+										<div class="dropdown dropdown-top dropdown-end">
+											<div
+												tabindex="0"
+												role="button"
+												class="btn btn-ghost btn-xs btn-square"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="1.5"
+													stroke="currentColor"
+													class="h-4 w-4"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
+													/>
+												</svg>
+											</div>
+											<ul
+												tabindex="0"
+												class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow"
+											>
+												<li><a (click)="initiateReply(message)">Reply</a></li>
+												<li>
+													<a
+														(click)="removeComment(message.id)"
+														class="text-error"
+														[translate]
+														>Remove</a
+													>
+												</li>
+											</ul>
+										</div>
+									</div>
+								</div>
+
+								<!-- Reaction Picker -->
+								@if (activeReactionPickerMessageId() === message.id) {
+									<div class="chat-footer mt-2 w-full">
+										<div class="join bg-base-100 border-base-200 rounded-full border p-1 shadow-lg">
+											@for (reaction of availableReactions; track reaction) {
+												<button
+													class="btn btn-ghost btn-xs btn-circle text-lg"
+													[class.btn-active]="message.currentUserReactionEmoji === reaction"
+													(click)="setReaction(message, reaction)"
+												>
+													{{ reaction }}
+												</button>
+											}
+										</div>
+									</div>
+								}
+							</div>
+						}
+					}
+				</div>
+			} @else {
+				@if (displayNoCommentsMessage()) {
+					<div class="hero py-12">
+						<div class="hero-content text-center">
+							<div class="max-w-md">
+								<p
+									class="text-base-content/50"
+									[translate]
+								>
+									No messages yet. Start the conversation!
+								</p>
+							</div>
+						</div>
+					</div>
+				}
+			}
+			<span id="bottom-anchor"></span>
+		</div>
+	</section>
+
+	<!-- message input at bottom -->
+	<div class="border-base-200 bg-base-100/95 sticky right-0 bottom-0 left-0 w-full border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] backdrop-blur">
+		<div class="mx-auto max-w-3xl px-4 py-4">
+			<!-- Reply Context -->
+			@if (replyingToMessage(); as activeReplyTarget) {
+				<div class="alert border-base-200 mb-2 border py-2 text-sm shadow-sm">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						class="stroke-info h-6 w-6 shrink-0"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						></path>
+					</svg>
+					<div class="min-w-0 flex-1">
+						<h3 class="text-xs font-bold"><span [translate]>Replying to:</span> {{ activeReplyTarget.authorPublicName }}</h3>
+						<div class="truncate text-xs opacity-70">{{ activeReplyTarget.content }}</div>
+					</div>
+					<button
+						class="btn btn-sm btn-ghost btn-circle"
+						(click)="clearReplyTarget()"
+					>
+						✕
+					</button>
+				</div>
+			}
+
+			<form
+				(submit)="postComment()"
+				class="flex items-end gap-2"
+			>
+				@if (usersRepository.currentProfile()) {
+					@if (conversation && conversation.config && conversation.config.richText) {
+						<span [translate]>not implemented yet</span>
+					} @else {
+						<div class="flex-1">
+							<textarea
+								#commentTextarea
+								id="comment"
+								rows="1"
+								class="textarea textarea-bordered focus:textarea-primary w-full resize-none leading-normal"
+								placeholder="{{ commentPlaceholderText() }}"
+								required
+								name="commentContent"
+								[(ngModel)]="newCommentContent"
+								[maxlength]="MAX_COMMENT_LENGTH"
+								(keydown)="onEnterKeyDown($event)"
+							></textarea>
+						</div>
+					}
+					<button
+						type="submit"
+						class="btn btn-primary"
+						[disabled]="!newCommentContent().trim() || isSubmittingMessage()"
+					>
+						@if (isSubmittingMessage()) {
+							<span class="loading loading-spinner loading-xs"></span>
+						}
+						<span [translate]>{{ commentButtonText() }}</span>
+					</button>
+				} @else {
+					<div class="flex-1">
+						<textarea
+							class="textarea textarea-bordered w-full resize-none"
+							placeholder="You need to be logged in to send messages"
+							disabled
+						></textarea>
+					</div>
+					<button
+						class="btn btn-disabled"
+						disabled
+						[translate]
+					>
+						{{ commentButtonText() }}
+					</button>
+				}
+			</form>
+		</div>
+	</div>
+}

@@ -1,0 +1,256 @@
+<div class="w-full p-4 bg-white rounded-lg shadow-sm">
+	<!-- Question -->
+	<div class="mb-6 flex items-center gap-2">
+		<h3 
+			class="text-lg font-semibold text-gray-700 m-0 leading-snug"
+			[class.border]="canvasManager?.editorMode === 'edit'"
+			[class.border-dashed]="canvasManager?.editorMode === 'edit'"
+			[class.border-gray-400]="canvasManager?.editorMode === 'edit'"
+			[class.p-2]="canvasManager?.editorMode === 'edit'"
+			[class.rounded]="canvasManager?.editorMode === 'edit'"
+			[class.min-h-8]="canvasManager?.editorMode === 'edit'"
+			[class.bg-gray-50]="canvasManager?.editorMode === 'edit'"
+			[class.focus:outline-none]="canvasManager?.editorMode === 'edit'"
+			[class.focus:border-indigo-500]="canvasManager?.editorMode === 'edit'"
+			[class.focus:bg-white]="canvasManager?.editorMode === 'edit'"
+			[contentEditable]="canvasManager?.editorMode === 'edit'"
+			(input)="onQuestionChange($event)"
+		>{{ question() }}</h3>
+		@if (required()) {
+			<span class="text-red-500 font-bold text-xl">*</span>
+		}
+	</div>
+
+	<!-- Options -->
+	<div class="mb-4">
+		<div class="flex flex-col gap-3">
+			@for (option of options(); track option.value; let i = $index) {
+				<div class="flex items-center">
+					<!-- Input (radio or checkbox) -->
+					<label class="flex items-center cursor-pointer p-2 rounded-md transition-colors duration-150 ease-in hover:bg-gray-100 flex-1">
+						@if (isRadioMode()) {
+							<input
+								type="radio"
+								[name]="radioGroupName"
+								[value]="option.value"
+								[checked]="isSelected(option.value)"
+								[disabled]="canvasManager?.editorMode === 'edit'"
+								(change)="onRadioChange(option.value, $event)"
+								class="mr-3 w-4 h-4 accent-indigo-500 cursor-pointer rounded-full"
+							/>
+						} @else {
+							<input
+								type="checkbox"
+								[value]="option.value"
+								[checked]="isSelected(option.value)"
+								[disabled]="canvasManager?.editorMode === 'edit' || (!isSelected(option.value) && !canSelectMore())"
+								(change)="onCheckboxChange(option.value, $event)"
+								class="mr-3 w-4 h-4 accent-indigo-500 cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-50"
+							/>
+						}
+
+						<!-- Option label -->
+						<span class="flex-1 leading-snug text-gray-700 text-sm select-none group-hover:text-indigo-500">{{ option.label }}</span>
+					</label>
+				</div>
+			}
+		</div>
+	</div>
+
+	<!-- Validation message -->
+	@if (!isValid() && selectedValues().length > 0) {
+		<div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+			@if (selectedValues().length < minSelection()) {
+				Please select at least {{ minSelection() }} option(s).
+			} @else if (selectedValues().length > maxSelection()) {
+				Please select no more than {{ maxSelection() }} option(s).
+			}
+		</div>
+	}
+
+	<!-- Selection info (only in view mode) -->
+	@if (canvasManager?.editorMode !== 'edit') {
+		<div class="mt-4 text-sm text-gray-500 text-center p-2 bg-gray-50 rounded">
+			{{ selectedValues().length }} of {{ maxSelection() }} selected
+			@if (minSelection() > 0) {
+				(minimum {{ minSelection() }})
+			}
+		</div>
+	}
+</div>
+
+@if (canvasManager?.editorMode === 'edit') {
+	<ng-template #toolbarPortalTpl>
+		<div
+			#toolbar
+			class="items-left flex h-full w-full flex-wrap content-start overflow-auto p-4 space-y-4"
+		>
+			<!-- Question Configuration -->
+			<div class="w-full">
+				<label class="block text-sm font-medium text-gray-700 mb-2">Question Text:</label>
+				<input
+					type="text"
+					[value]="question()"
+					(input)="onQuestionInputChange($event)"
+					placeholder="Enter the question text..."
+					class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+				/>
+			</div>
+
+			<!-- Selection Configuration -->
+			<div class="w-full grid grid-cols-3 gap-4">
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-2">Min Selection:</label>
+					<input
+						type="number"
+						[value]="minSelection()"
+						(input)="onMinSelectionChange($event)"
+						min="0"
+						class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+					/>
+				</div>
+
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-2">Max Selection:</label>
+					<input
+						type="number"
+						[value]="maxSelection()"
+						(input)="onMaxSelectionChange($event)"
+						min="1"
+						class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+					/>
+				</div>
+
+				<div class="flex items-end">
+					<label class="flex items-center text-sm font-medium text-gray-700">
+						<input
+							type="checkbox"
+							[checked]="required()"
+							(change)="onRequiredChange($event)"
+							class="mr-2"
+						/>
+						Required
+					</label>
+				</div>
+			</div>
+
+			<!-- Mode Indicator -->
+			<div class="w-full">
+				<div class="bg-gray-50 rounded p-3">
+					<span class="text-sm font-medium text-gray-700">
+						Current Mode: 
+						<span class="font-bold text-indigo-600">
+							{{ isRadioMode() ? 'Radio Buttons (Single Selection)' : 'Checkboxes (Multiple Selection)' }}
+						</span>
+					</span>
+					<p class="text-xs text-gray-500 mt-1">
+						Set Max Selection to 1 for radio buttons, or greater than 1 for checkboxes.
+					</p>
+				</div>
+			</div>
+
+			<!-- Options Management -->
+			<div class="w-full">
+				<div class="flex items-center justify-between mb-3">
+					<label class="text-sm font-medium text-gray-700">Options:</label>
+					<button
+						type="button"
+						(click)="addOption()"
+						class="inline-flex items-center px-3 py-2 text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+					>
+						<svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+							<path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/>
+						</svg>
+						Add Option
+					</button>
+				</div>
+
+				<div class="space-y-2 max-h-64 overflow-y-auto">
+					@for (option of options(); track option.value; let i = $index) {
+						<div 
+							class="flex items-center space-x-2 p-3 bg-gray-50 rounded border"
+							draggable="true"
+							(dragstart)="onDragStart($event, i)"
+							(dragend)="onDragEnd($event)"
+							(dragover)="onDragOver($event)"
+							(dragleave)="onDragLeave($event)"
+							(drop)="onDrop($event, i)"
+						>
+							<!-- Reorder controls -->
+							<div class="flex flex-col space-y-1">
+								<!-- Drag handle -->
+								<div class="cursor-grab text-gray-400 hover:text-indigo-500 transition-colors duration-200 flex items-center p-1" title="Drag to reorder">
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+										<path d="M9 3H11V5H9V3ZM13 3H15V5H13V3ZM9 7H11V9H9V7ZM13 7H15V9H13V7ZM9 11H11V13H9V11ZM13 11H15V13H13V11ZM9 15H11V17H9V15ZM13 15H15V17H13V15ZM9 19H11V21H9V19ZM13 19H15V21H13V19Z"/>
+									</svg>
+								</div>
+								<!-- Up/Down arrows -->
+								<div class="flex flex-col gap-0.5">
+									<button
+										type="button"
+										(click)="moveOptionUp(i)"
+										[disabled]="i === 0"
+										class="p-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200 disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-all duration-200"
+										title="Move up"
+									>
+										<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+											<path d="M7 14L12 9L17 14H7Z"/>
+										</svg>
+									</button>
+									<button
+										type="button"
+										(click)="moveOptionDown(i)"
+										[disabled]="i === options().length - 1"
+										class="p-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200 disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-all duration-200"
+										title="Move down"
+									>
+										<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+											<path d="M7 10L12 15L17 10H7Z"/>
+										</svg>
+									</button>
+								</div>
+							</div>
+
+							<!-- Option label -->
+							<div class="flex-1">
+								<label class="block text-xs font-medium text-gray-700 mb-1">Label:</label>
+								<input
+									type="text"
+									[value]="option.label"
+									(input)="onOptionLabelInputChange(i, $event)"
+									placeholder="Option label"
+									class="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+								/>
+							</div>
+
+							<!-- Option value -->
+							<div class="flex-1">
+								<label class="block text-xs font-medium text-gray-700 mb-1">Value:</label>
+								<input
+									type="text"
+									[value]="option.value"
+									(input)="onOptionValueInputChange(i, $event)"
+									placeholder="Option value"
+									class="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+								/>
+							</div>
+
+							<!-- Remove button -->
+							<button
+								type="button"
+								(click)="removeOption(i)"
+								[disabled]="options().length <= 1"
+								class="p-2 text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+								title="Remove option"
+							>
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+									<path d="M19 7L18.1 19H5.9L5 7H19ZM10 4V2H14V4H10ZM3 5V7H21V5H3Z"/>
+								</svg>
+							</button>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	</ng-template>
+}

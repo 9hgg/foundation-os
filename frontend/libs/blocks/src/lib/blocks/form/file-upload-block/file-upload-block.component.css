@@ -1,0 +1,39 @@
+@reference "tailwindcss";
+:host {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+}
+
+/* File Upload Block Component Styles */
+/* Using Tailwind classes in template wherever possible */
+
+.file-upload-block-container {
+	/* Minimum height for the upload area */
+	min-height: 120px;
+}
+
+/* Ensure contentEditable elements have proper cursor and behavior */
+.block-label[contenteditable="true"],
+.upload-description[contenteditable="true"] {
+	cursor: text;
+	min-height: 1rem;
+}
+
+/* Prevent pointer events on upload content to allow drop zone to work */
+.upload-content {
+	pointer-events: none;
+}
+
+/* File name should break words to prevent overflow */
+.file-name {
+	word-break: break-word;
+}
+
+/* File meta should truncate with ellipsis */
+.file-meta {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}

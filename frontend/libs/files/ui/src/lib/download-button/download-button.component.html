@@ -1,0 +1,93 @@
+@let alternatives_ = alternatives();
+
+@if (alternatives_.length === 1) {
+	<!-- Single alternative: direct download button -->
+	<button
+		class="sp-menu-item w-full"
+		(click)="downloadAlternative(alternatives_[0].url, $event)"
+		type="button"
+		[attr.aria-label]="'Download' | translate"
+	>
+		<span [translate]>Download</span>
+		<span class="ml-auto text-xs text-gray-500">
+			{{ alternatives_[0].extension }}
+			@if (alternatives_[0].size !== undefined) {
+				({{ alternatives_[0].size! | octetHumanReadable }})
+			}
+		</span>
+	</button>
+} @else if (alternatives_.length > 1) {
+	<!-- Multiple alternatives: menu trigger with submenu -->
+	<button
+		class="sp-menu-item w-full"
+		[cdkMenuTriggerFor]="downloadMenu"
+		type="button"
+		[attr.aria-label]="'Download options' | translate"
+	>
+		<span [translate]>Download</span>
+		<svg
+			class="ml-3 mt-1 inline-block h-4 w-4"
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 20 20"
+			fill="currentColor"
+		>
+			<path
+				fill-rule="evenodd"
+				d="M15.293 7.293a1 1 0 00-1.414-1.414L11 8.586V2a1 1 0 00-2 0v6.586l-2.293-2.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l4-4z"
+				clip-rule="evenodd"
+			/>
+			<path
+				fill-rule="evenodd"
+				d="M4 13a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1z"
+				clip-rule="evenodd"
+			/>
+		</svg>
+	</button>
+} @else if (entityFileId()) {
+	<!-- Loading state -->
+	<button
+		class="sp-menu-item w-full opacity-60"
+		disabled
+		type="button"
+	>
+		<span class="mr-2 animate-spin">⏳</span>
+		<span [translate]>Loading...</span>
+	</button>
+} @else {
+	<!-- No file state -->
+	<button
+		class="sp-menu-item w-full opacity-60"
+		disabled
+		type="button"
+	>
+		<span class="mr-2 text-base">📥</span>
+		<span [translate]>No file</span>
+	</button>
+}
+
+<ng-template #downloadMenu>
+	<div
+		class="sp-menu"
+		cdkMenu
+	>
+		@for (alternative of alternatives_; track alternative.url) {
+			<button
+				class="sp-menu-item"
+				cdkMenuItem
+				(click)="downloadAlternative(alternative.url, $event)"
+				type="button"
+				[attr.aria-label]="'Download ' + alternative.label"
+			>
+				<div class="flex w-full flex-col gap-0.5">
+					<div class="text-sm font-medium">{{ alternative.label }}</div>
+					<div class="flex items-center gap-2 text-xs text-gray-500">
+						<span class="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs font-medium">{{ alternative.extension }}</span>
+						@if (alternative.size !== undefined) {
+							<span class="text-gray-400">({{ alternative.size! | octetHumanReadable }})</span>
+						}
+					</div>
+				</div>
+			</button>
+		}
+	</div>
+</ng-template>

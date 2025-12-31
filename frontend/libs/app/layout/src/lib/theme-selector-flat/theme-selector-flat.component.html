@@ -1,0 +1,173 @@
+<div class="border-neutral-content/20 flex flex-wrap items-center justify-center gap-3 rounded-full border px-3 py-1 text-xs">
+	<!-- Light Theme Comp -->
+	<div
+		class="flex items-center gap-1 border-b-2 px-1 pb-0.5 transition-colors duration-300"
+		[class.border-primary]="layoutService.mode() === 'system' && layoutService.effectiveMode() === 'light'"
+		[class.border-transparent]="!(layoutService.mode() === 'system' && layoutService.effectiveMode() === 'light')"
+	>
+		<button
+			class="btn btn-circle btn-ghost btn-xs"
+			[class.bg-base-content]="layoutService.mode() === 'light'"
+			[class.text-base-100]="layoutService.mode() === 'light'"
+			(click)="setMode('light')"
+			aria-label="Light Mode"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 0 20 20"
+				fill="currentColor"
+				class="h-4 w-4"
+			>
+				<path
+					fill-rule="evenodd"
+					d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+					clip-rule="evenodd"
+				/>
+			</svg>
+		</button>
+
+		<div class="dropdown dropdown-top dropdown-end">
+			<div
+				tabindex="0"
+				role="button"
+				class="btn btn-ghost btn-xs px-1"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="m6 9 6 6 6-6" />
+				</svg>
+			</div>
+			<ul
+				tabindex="0"
+				class="dropdown-content menu bg-base-100 rounded-box z-50 max-h-60 w-52 flex-nowrap overflow-y-auto p-2 shadow"
+			>
+				@for (theme of themes; track theme) {
+					<li>
+						<button
+							(click)="updateLightTheme(theme)"
+							[class.active]="theme === layoutService.lightThemePref()"
+							[attr.data-theme]="theme"
+							class="bg-base-100 text-base-content hover:bg-base-200 flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 shadow-sm transition-all"
+						>
+							<span class="text-xs font-semibold">{{ theme | titlecase }}</span>
+							<div class="flex shrink-0 gap-1">
+								<div
+									class="bg-primary h-2 w-2 rounded-full"
+									title="Primary"
+								></div>
+								<div
+									class="bg-secondary h-2 w-2 rounded-full"
+									title="Secondary"
+								></div>
+								<div
+									class="bg-neutral h-2 w-2 rounded-full"
+									title="Neutral"
+								></div>
+							</div>
+						</button>
+					</li>
+				}
+			</ul>
+		</div>
+	</div>
+
+	<div class="bg-neutral-content/20 h-4 w-px"></div>
+
+	<!-- Dark Theme Comp -->
+	<div
+		class="flex items-center gap-1 border-b-2 px-1 pb-0.5 transition-colors duration-300"
+		[class.border-primary]="layoutService.mode() === 'system' && layoutService.effectiveMode() === 'dark'"
+		[class.border-transparent]="!(layoutService.mode() === 'system' && layoutService.effectiveMode() === 'dark')"
+	>
+		<button
+			class="btn btn-circle btn-ghost btn-xs"
+			[class.bg-base-content]="layoutService.mode() === 'dark'"
+			[class.text-base-100]="layoutService.mode() === 'dark'"
+			(click)="setMode('dark')"
+			aria-label="Dark Mode"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 0 20 20"
+				fill="currentColor"
+				class="h-4 w-4"
+			>
+				<path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+			</svg>
+		</button>
+
+		<div class="dropdown dropdown-top dropdown-end">
+			<div
+				tabindex="0"
+				role="button"
+				class="btn btn-ghost btn-xs px-1"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="m6 9 6 6 6-6" />
+				</svg>
+			</div>
+			<ul
+				tabindex="0"
+				class="dropdown-content menu bg-base-100 rounded-box z-50 max-h-60 w-52 flex-nowrap overflow-y-auto p-2 shadow"
+			>
+				@for (theme of themes; track theme) {
+					<li>
+						<button
+							(click)="updateDarkTheme(theme)"
+							[class.active]="theme === layoutService.darkThemePref()"
+							[attr.data-theme]="theme"
+							class="bg-base-100 text-base-content hover:bg-base-200 flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 shadow-sm transition-all"
+						>
+							<span class="text-xs font-semibold">{{ theme | titlecase }}</span>
+							<div class="flex shrink-0 gap-1">
+								<div
+									class="bg-primary h-2 w-2 rounded-full"
+									title="Primary"
+								></div>
+								<div
+									class="bg-secondary h-2 w-2 rounded-full"
+									title="Secondary"
+								></div>
+								<div
+									class="bg-neutral h-2 w-2 rounded-full"
+									title="Neutral"
+								></div>
+							</div>
+						</button>
+					</li>
+				}
+			</ul>
+		</div>
+	</div>
+
+	<div class="bg-neutral-content/20 h-4 w-px"></div>
+
+	<!-- Auto Comp -->
+	<button
+		class="btn btn-ghost btn-xs text-xs font-normal normal-case opacity-90 hover:opacity-100"
+		[class.bg-base-content]="layoutService.mode() === 'system'"
+		[class.text-base-100]="layoutService.mode() === 'system'"
+		(click)="setMode('system')"
+	>
+		Auto
+	</button>
+</div>

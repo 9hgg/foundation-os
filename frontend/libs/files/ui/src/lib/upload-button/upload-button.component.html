@@ -1,0 +1,40 @@
+<!-- eslint-disable @angular-eslint/template/interactive-supports-focus -->
+<!-- eslint-disable @angular-eslint/template/click-events-have-key-events -->
+<div
+	class="relative cursor-pointer"
+	[ngClass]="{
+		'bg-gray-300': dropZoneActive() && dropZoneBackground(),
+		'shrink-0 grow-0 overflow-auto': dropZoneActive(),
+	}"
+	[dropZone]
+	(filesDropped)="handleFileInputEvent($any($event))"
+	(click)="simulateClick()"
+	[style.height]="height()"
+	[style.width]="width()"
+>
+	<ng-content>
+		<button
+			class="btn-primary"
+			(click)="simulateClick(); $event.stopPropagation()"
+		>
+			<span [translate]>Upload a new file</span>
+		</button>
+	</ng-content>
+	<div
+		class="hidden"
+		[ngClass]="{
+			isDragging: isDragging(),
+		}"
+	>
+		<span [translate]>Drop your file(s) here</span>
+	</div>
+</div>
+
+<input
+	hidden
+	#browseFileBtn
+	multiple
+	type="file"
+	[accept]="accept()"
+	name="publicname"
+/>

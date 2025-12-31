@@ -1,0 +1,81 @@
+<!-- Root folder -->
+@if (rootFolder$$$.$ | async; as rootFolder) {
+	<div class="flex items-center whitespace-nowrap">
+		<button
+			class="cursor-pointer text-sm italic opacity-50 hover:opacity-90"
+			(click)="setFolderId(null)"
+			title="{{ 'go to root folder' }}"
+		>
+			/<span [translate]>All folders</span>
+		</button>
+		<svg
+			class="inline-block shrink-0 grow-0"
+			width="21"
+			height="21"
+			stroke-width="1.5"
+			viewBox="0 0 24 24"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+		>
+			<path
+				d="M9 6L15 12L9 18"
+				stroke="currentColor"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
+		</svg>
+		@if (parentFolder$ | async; as parentFolder) {
+			<button
+				class="cursor-pointer text-sm italic opacity-50 hover:opacity-90"
+				(click)="setFolderId(parentFolder.parentId ?? null)"
+				title="{{ 'go to parent folder' }}"
+			>
+				...
+			</button>
+			<svg
+				class="inline-block shrink-0 grow-0"
+				width="21"
+				height="21"
+				stroke-width="1.5"
+				viewBox="0 0 24 24"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<path
+					d="M9 6L15 12L9 18"
+					stroke="currentColor"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+			</svg>
+			<button
+				class="cursor-pointer text-sm italic opacity-50 hover:opacity-90"
+				(click)="setFolderId(parentFolder.id)"
+				title="{{ 'go to parent folder' }}"
+			>
+				{{ parentFolder.name }}
+			</button>
+			<svg
+				class="inline-block shrink-0 grow-0"
+				width="21"
+				height="21"
+				stroke-width="1.5"
+				viewBox="0 0 24 24"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<path
+					d="M9 6L15 12L9 18"
+					stroke="currentColor"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+			</svg>
+		}
+		<span class="text-lg">{{ rootFolder.name ?? 'untitled' }}</span>
+	</div>
+} @else {
+	<div class="flex items-center px-1">
+		<span class="text-base-content/50 text-lg font-bold">/</span>
+	</div>
+}

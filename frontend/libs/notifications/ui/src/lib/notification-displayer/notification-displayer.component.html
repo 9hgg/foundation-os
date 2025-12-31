@@ -1,0 +1,7 @@
+@let notification = notification$$$.$ | async;
+
+@if (notification) {
+	{{ { notification } | json }}
+} @else {
+	<span [translate]>Notification not available</span>
+}

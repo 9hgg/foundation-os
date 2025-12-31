@@ -1,0 +1,208 @@
+@if (paginator.state$ | async; as paginatorState) {
+	<div name="table-container">
+		<section name="table-header">
+			<!-- the table header can contains a title, a filter... -->
+		</section>
+
+		<table
+			name="table-body"
+			class="w-full table-fixed border-collapse"
+		>
+			<thead class="lowercase">
+				<tr>
+					<!-- selection header -->
+					<th class="selection-column select-none">
+						<div class="m-2 flex flex-nowrap">
+							{{ itemsSelector.numSelected ? itemsSelector.numSelected : '' }}
+						</div>
+					</th>
+					<!-- item id -->
+					<th class="select-none">
+						<div class="m-2 flex flex-nowrap">
+							<span
+								class="text-nowrap"
+								[translate]
+								>id</span
+							>
+							<button
+								class="cursor-pointer"
+								(click)="paginator.setOrderingBy('id')"
+							>
+								↑↓
+							</button>
+							<button
+								class="cursor-pointer"
+								(click)="toggleSearchByField('id')"
+							>
+								🔎
+							</button>
+						</div>
+
+						@if (displaySearchByFields$_['id']) {
+							<input
+								class="focus:shadow-outline w-full appearance-none border shadow focus:outline-none"
+								type="text"
+								placeholder=""
+								[(ngModel)]="filterByFields$_['id']"
+							/>
+						}
+					</th>
+					<!-- actions header -->
+					<th>
+						<div class="m-2 flex flex-nowrap">
+							<span [translate]>actions</span>
+						</div>
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+				@for (item of paginatorState.itemsOnCurrentPage; track item?.id) {
+					<!--  -->
+
+					@if (item) {
+						<tr
+							class="h-10 cursor-pointer overflow-auto"
+							[ngClass]="{
+								'bg-gray-100': $even,
+								'border border-blue-500': itemsSelector.isSelected(item),
+								'bg-gray-400': openedItems.isSelected(item),
+							}"
+							[tabIndex]="0"
+							(click)="processClick(item)"
+							(keyup.enter)="processClick(item)"
+						>
+							<!-- selection -->
+							<td>
+								<div
+									class="flex h-8 w-8 cursor-pointer items-center justify-center select-none"
+									(click)="$event.stopImmediatePropagation(); itemsSelector.toggle(item)"
+									(keydown)="(undefined)"
+									tabindex="0"
+								>
+									<input
+										class="checkbox checkbox-primary checkbox-sm"
+										[name]="'selectedItems' + item.id"
+										type="checkbox"
+										[checked]="itemsSelector.isSelected(item)"
+										tabindex="0"
+									/>
+								</div>
+							</td>
+							<!-- item id -->
+							<td>
+								<div class="flex h-full w-full items-center justify-center">
+									{{ item.id }}
+								</div>
+							</td>
+
+							<!-- actions -->
+							<td>
+								<button
+									(click)="$event.stopImmediatePropagation()"
+									[cdkMenuTriggerFor]="menu"
+									class="sp-3-dot"
+									[attr.aria-label]="'menu' | translate | async"
+								>
+									<!-- svg three dots more -->
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 1024 1024"
+									>
+										<path
+											fill-rule="evenodd"
+											clip-rule="evenodd"
+											d="M384 512c0 28.3-22.9 51.2-51.2 51.2s-51.2-22.9-51.2-51.2 22.9-51.2 51.2-51.2S384 483.7 384 512zm128-51.2c-28.3 0-51.2 22.9-51.2 51.2s22.9 51.2 51.2 51.2 51.2-22.9 51.2-51.2-22.9-51.2-51.2-51.2zm179.2 0c-28.3 0-51.2 22.9-51.2 51.2s22.9 51.2 51.2 51.2 51.2-22.9 51.2-51.2-22.9-51.2-51.2-51.2z"
+										/>
+									</svg>
+								</button>
+
+								<ng-template #menu>
+									<div
+										class="sp-menu"
+										cdkMenu
+									>
+										<button
+											class="sp-menu-item"
+											cdkMenuItem
+										>
+											<span [translate]>do nothing</span>
+										</button>
+
+										<div
+											cdkMenuItem
+											class="sp-menu-item"
+											[title]="item.id"
+										>
+											<span [translate]>Item id:</span>&nbsp;
+											{{ item.id.substring(0, 8) }}
+										</div>
+									</div>
+								</ng-template>
+							</td>
+						</tr>
+
+						@if (openedItems.isSelected(item)) {
+							<tr
+								class="h-auto w-full"
+								fullSpanRow
+								[ngClass]="{
+									'bg-gray-100': $even,
+								}"
+							>
+								<td class="relative min-w-8 pt-8">
+									<button
+										class="absolute top-0 cursor-pointer"
+										(click)="openedItems.unselect(item)"
+									>
+										<span
+											class="text-sm italic"
+											[translate]
+											>close display</span
+										>
+									</button>
+
+									nothing here
+								</td>
+							</tr>
+						}
+					} @else {
+						<tr>
+							<!--  -->
+
+							loading...
+
+							<!--  -->
+						</tr>
+					}
+				} @empty {
+					<span class="m-2 inline-block w-28">{{ 'Nothing here' | translate | async }}</span>
+				}
+			</tbody>
+		</table>
+
+		@if (paginatorState.totalNumberOfPages > 1) {
+			<section name="table-footer">
+				<!-- Previous Button -->
+				<button
+					(click)="paginatorState.hasPrev ? paginator.previousPage() : null"
+					[translate]
+					[disabled]="!paginatorState.hasPrev"
+					class="btn-primary"
+				>
+					Previous
+				</button>
+				<!-- Pagination Info -->
+				<span class="text-sm text-gray-600"> <span [translate]>Page</span> {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} [ {{ paginatorState.totalNumberOfItems }}] </span>
+				<!-- Next Button -->
+				<button
+					(click)="paginatorState.hasNext ? paginator.nextPage() : null"
+					[translate]
+					[disabled]="!paginatorState.hasNext"
+					class="btn-primary"
+				>
+					Next
+				</button>
+			</section>
+		}
+	</div>
+}

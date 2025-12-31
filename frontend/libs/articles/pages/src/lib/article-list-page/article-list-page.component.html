@@ -1,0 +1,41 @@
+<div class="bg-base-200/50 flex h-full w-full flex-col overflow-auto">
+	<!-- Page Header -->
+	<header class="border-base-300 bg-base-100 flex items-center justify-between border-b px-8 py-6">
+		<div>
+			<h1 class="text-base-content hover:text-primary cursor-default text-3xl font-bold transition-colors">
+				<span [translate]>Your articles</span>
+			</h1>
+			<p class="text-base-content/60 mt-1 text-sm font-medium">Create and manage your blog posts</p>
+		</div>
+
+		<button
+			class="btn btn-primary shadow-lg shadow-violet-500/30"
+			(click)="createNewArticle()"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke-width="2"
+				stroke="currentColor"
+				class="h-5 w-5"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M12 4.5v15m7.5-7.5h-15"
+				/>
+			</svg>
+			<span [translate]>New article</span>
+		</button>
+	</header>
+
+	<!-- Table Content -->
+	<main class="flex-1 p-8">
+		<lib-article-table
+			click-behavior="emit"
+			(rowClicked)="goToArticle($event.id)"
+			[queryForSearchPatternInUrl]="'articles'"
+		></lib-article-table>
+	</main>
+</div>

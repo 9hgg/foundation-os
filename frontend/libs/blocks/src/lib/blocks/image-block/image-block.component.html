@@ -1,0 +1,306 @@
+<!-- eslint-disable @angular-eslint/template/click-events-have-key-events -->
+<img
+	class="h-full w-full"
+	[style.object-fit]="disposition()"
+	[src]="imageUrl()"
+	[alt]="alt()"
+/>
+@if (canvasManager?.editorMode === 'edit') {
+	<div
+		name="image-overlay"
+		class="absolute left-0 top-0 flex h-full w-full opacity-0 hover:opacity-100"
+		role="button"
+		tabindex="0"
+	>
+		<lib-upload-button
+			class="absolute left-0 top-0"
+			(uploadedFiles)="processUploadedFiles($event)"
+			[width]="'100%'"
+			[height]="'100%'"
+			[openOnClick]="false"
+			[accept]="'image/*'"
+			#uploadButton
+			><span></span>
+		</lib-upload-button>
+	</div>
+
+	<ng-template #toolbarPortalTpl>
+		@if (canvasManager) {
+			<lib-dimension-toolbar
+				[(width)]="width"
+				[(widthUnits)]="widthUnits"
+				[(height)]="height"
+				[(heightUnits)]="heightUnits"
+				[(posX)]="posX"
+				[(posXUnits)]="posXUnits"
+				[(posY)]="posY"
+				[(posYUnits)]="posYUnits"
+				[canvasManager]="canvasManager"
+			/>
+		}
+
+		<div class="items-left flex h-full w-full flex-wrap content-start overflow-auto">
+			<!-- source kind selection -->
+			<div class="mb-1 mr-2 flex items-center space-x-2">
+				<label
+					for="imageObjectFitInput"
+					class="text-xs font-medium text-gray-700"
+				>
+					Image source:
+				</label>
+				<button
+					class="flex rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+					[cdkMenuTriggerFor]="imageSourceKindMenu"
+				>
+					@switch (imageSourceKind()) {
+						@case ('url') {
+							<span>url</span>
+						}
+						@case ('entityFile') {
+							<span>uploaded image</span>
+						}
+						@case ('unsplash') {
+							<span>Unsplash</span>
+						}
+						@case ('placeholder') {
+							<span>placeholder</span>
+						}
+					}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						class="h-4 w-4"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M19 9l-7 7-7-7"
+						/>
+					</svg>
+				</button>
+				<ng-template #imageSourceKindMenu>
+					<div
+						class="sp-menu"
+						cdkMenu
+					>
+						<button
+							class="sp-menu-item"
+							cdkMenuItem
+							value="fill"
+							(click)="imageSourceKind.set('url')"
+						>
+							url
+						</button>
+						<button
+							class="sp-menu-item"
+							cdkMenuItem
+							value="contain"
+							(click)="imageSourceKind.set('entityFile')"
+						>
+							uploaded image
+						</button>
+						<button
+							class="sp-menu-item"
+							cdkMenuItem
+							value="cover"
+							(click)="imageSourceKind.set('unsplash')"
+						>
+							Unsplash
+						</button>
+						<button
+							class="sp-menu-item"
+							cdkMenuItem
+							value="none"
+							(click)="imageSourceKind.set('placeholder')"
+						>
+							placeholder
+						</button>
+					</div>
+				</ng-template>
+			</div>
+
+			<!-- source definition -->
+			@switch (imageSourceKind()) {
+				@case ('url') {
+					<div class="mb-1 mr-2 flex items-center space-x-2">
+						<label
+							for="imageSourceUrlInput"
+							class="text-xs font-medium text-gray-700"
+						>
+							URL:
+						</label>
+						<input
+							id="imageSourceUrlInput"
+							type="text"
+							class="w-32 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+							[(ngModel)]="imageSourceUrl"
+							placeholder="https://"
+						/>
+					</div>
+				}
+				@case ('entityFile') {
+					<div class="mb-1 mr-2 flex items-center space-x-2">
+						<label
+							for="imageSourceEntityFileExistingInput"
+							class="text-xs font-medium text-gray-700"
+						>
+							Select:
+						</label>
+						<button
+							class="rounded border border-blue-500 bg-blue-500 px-2 py-1 text-xs text-white transition-colors hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+							(click)="useAnExistingPicture()"
+							id="imageSourceEntityFileExistingInput"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								fill="currentColor"
+								viewBox="0 0 16 16"
+								class="h-4 w-4"
+							>
+								<path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5zM2.5 3a.5.5 0 0 0-.5.5V6h12v-.5a.5.5 0 0 0-.5-.5H9c-.964 0-1.71-.629-2.174-1.154C6.374 3.334 5.82 3 5.264 3zM14 7H2v5.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5z" />
+							</svg>
+						</button>
+					</div>
+
+					<div class="mb-1 mr-2 flex items-center space-x-2">
+						<label
+							for="imageSourceEntityFileUploadInput"
+							class="text-xs font-medium text-gray-700"
+						>
+							Upload:
+						</label>
+						<button
+							class="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+							(click)="uploadButton.simulateClick(true)"
+							id="imageSourceEntityFileUploadInput"
+						>
+							<tw-upload class="h-4 w-4"></tw-upload>
+						</button>
+					</div>
+				}
+				@case ('unsplash') {
+					<span>not implemented yet</span>
+				}
+				@case ('placeholder') {
+					<!-- nothing to do -->
+				}
+				@default {
+					<!-- nothing to do -->
+				}
+			}
+
+			<!-- Resize to aspect ratio -->
+			@if (canResizeToAspectRatio()) {
+				<div class="mb-1 mr-2 flex items-center space-x-2">
+					<label
+						for="resizeToAspectRatioBtn"
+						class="text-xs font-medium text-gray-700"
+					>
+						Resize:
+					</label>
+					<button
+						id="resizeToAspectRatioBtn"
+						type="button"
+						class="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+						(click)="resizeToAspectRatio()"
+						title="Resize block to match image aspect ratio"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="16"
+							height="16"
+							fill="currentColor"
+							viewBox="0 0 16 16"
+							class="h-3 w-3"
+						>
+							<path d="M0 0v16h16V0H0zm15 15H1V1h14v14z" />
+							<path d="M2 2h4v2H4v2H2V2zm8 0h4v4h-2V4h-2V2zM2 10v4h4v-2H4v-2H2zm12 4v-4h-2v2h-2v2h4z" />
+						</svg>
+					</button>
+				</div>
+			}
+			<!-- Object Fit -->
+			<div class="mb-1 mr-2 flex items-center space-x-2">
+				<label
+					for="imageObjectFitInput"
+					class="text-xs font-medium text-gray-700"
+				>
+					Fit:
+				</label>
+				<button
+					id="imageObjectFitInput"
+					class="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+					[cdkMenuTriggerFor]="fitMenu"
+				>
+					<span>{{ disposition() || 'Contain' }}</span>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						class="h-4 w-4"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M19 9l-7 7-7-7"
+						/>
+					</svg>
+				</button>
+				<ng-template #fitMenu>
+					<div
+						class="sp-menu"
+						cdkMenu
+					>
+						<button
+							class="sp-menu-item"
+							cdkMenuItem
+							value="fill"
+							(click)="disposition.set('fill')"
+						>
+							Fill
+						</button>
+						<button
+							class="sp-menu-item"
+							cdkMenuItem
+							value="contain"
+							(click)="disposition.set('contain')"
+						>
+							Contain
+						</button>
+						<button
+							class="sp-menu-item"
+							cdkMenuItem
+							value="cover"
+							(click)="disposition.set('cover')"
+						>
+							Cover
+						</button>
+						<button
+							class="sp-menu-item"
+							cdkMenuItem
+							value="none"
+							(click)="disposition.set('none')"
+						>
+							None
+						</button>
+						<button
+							class="sp-menu-item"
+							cdkMenuItem
+							value="scale-down"
+							(click)="disposition.set('scale-down')"
+						>
+							Scale Down
+						</button>
+					</div>
+				</ng-template>
+			</div>
+		</div>
+	</ng-template>
+}

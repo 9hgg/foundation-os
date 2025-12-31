@@ -1,0 +1,253 @@
+@if (paginator.state$ | async; as state) {
+	<div class="bg-base-100 flex h-full w-full flex-col overflow-x-auto rounded-lg shadow">
+		<table class="table-zebra table-pin-rows text-base-content table w-full">
+			<thead class="bg-base-200/50 z-10 backdrop-blur">
+				<tr>
+					<th>
+						<div class="flex flex-col gap-1">
+							<div class="flex items-center gap-2">
+								<span [translate]>Sentence</span>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="paginator.setOrderingBy('source_content')"
+								>
+									<span class="text-xs">⇅</span>
+								</button>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="toggleSearchByField('source_content')"
+								>
+									<span class="text-xs">🔍</span>
+								</button>
+							</div>
+							@if (displaySearchByFields$_['source_content']) {
+								<input
+									class="input input-xs input-bordered w-full max-w-xs"
+									type="text"
+									[(ngModel)]="filterByFields$_['source_content']"
+									placeholder="Filter..."
+								/>
+							}
+						</div>
+					</th>
+					<th>
+						<div class="flex flex-col gap-1">
+							<div class="flex items-center gap-2">
+								<span [translate]>Context</span>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="paginator.setOrderingBy('translation_context')"
+								>
+									<span class="text-xs">⇅</span>
+								</button>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="toggleSearchByField('translation_context')"
+								>
+									<span class="text-xs">🔍</span>
+								</button>
+							</div>
+							@if (displaySearchByFields$_['translation_context']) {
+								<input
+									class="input input-xs input-bordered w-full max-w-xs"
+									type="text"
+									[(ngModel)]="filterByFields$_['translation_context']"
+									placeholder="Filter..."
+								/>
+							}
+						</div>
+					</th>
+					<th>
+						<div class="flex flex-col gap-1">
+							<div class="flex items-center gap-2">
+								<span [translate]>Target Language</span>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="paginator.setOrderingBy('language_target')"
+								>
+									<span class="text-xs">⇅</span>
+								</button>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="toggleSearchByField('language_target')"
+								>
+									<span class="text-xs">🔍</span>
+								</button>
+							</div>
+							@if (displaySearchByFields$_['language_target']) {
+								<select
+									class="select select-bordered select-xs w-full max-w-xs"
+									[(ngModel)]="filterByFields$_['language_target']"
+								>
+									<option value="">All</option>
+									@for (lang of availableLanguages; track lang) {
+										<option [value]="lang">{{ lang }}</option>
+									}
+								</select>
+							}
+						</div>
+					</th>
+					<th>
+						<div class="flex flex-col gap-1">
+							<div class="flex items-center gap-2">
+								<span [translate]>Translation</span>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="paginator.setOrderingBy('translated_content')"
+								>
+									<span class="text-xs">⇅</span>
+								</button>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="toggleSearchByField('translated_content')"
+								>
+									<span class="text-xs">🔍</span>
+								</button>
+							</div>
+							@if (displaySearchByFields$_['translated_content']) {
+								<input
+									class="input input-xs input-bordered w-full max-w-xs"
+									type="text"
+									[(ngModel)]="filterByFields$_['translated_content']"
+									placeholder="Filter..."
+								/>
+							}
+						</div>
+					</th>
+					<th>
+						<div class="flex flex-col gap-1">
+							<div class="flex items-center gap-2">
+								<span [translate]>Translator</span>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="paginator.setOrderingBy('translator')"
+								>
+									<span class="text-xs">⇅</span>
+								</button>
+								<button
+									class="btn btn-ghost btn-xs btn-circle"
+									(click)="toggleSearchByField('translator')"
+								>
+									<span class="text-xs">🔍</span>
+								</button>
+							</div>
+							@if (displaySearchByFields$_['translator']) {
+								<input
+									class="input input-xs input-bordered w-full max-w-xs"
+									type="text"
+									[(ngModel)]="filterByFields$_['translator']"
+									placeholder="Filter..."
+								/>
+							}
+						</div>
+					</th>
+					<th>
+						<div class="flex items-center gap-2">
+							<span [translate]>Date</span>
+							<button
+								class="btn btn-ghost btn-xs btn-circle"
+								(click)="paginator.setOrderingBy('time_created')"
+							>
+								<span class="text-xs">⇅</span>
+							</button>
+						</div>
+					</th>
+					<th>
+						<div class="flex items-center gap-2">
+							<span [translate]>Actions</span>
+						</div>
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+				@for (item of state.itemsOnCurrentPage; track $index) {
+					@if (item) {
+						<tr class="hover">
+							<td>{{ item.sourceContent }}</td>
+							<td>
+								@if (item.translationContext) {
+									<div class="badge badge-ghost">
+										{{ item.translationContext }}
+									</div>
+								}
+							</td>
+							<td>
+								<div class="badge badge-outline uppercase">{{ item.languageTarget }}</div>
+							</td>
+							<td>
+								@if (item.translatedContent) {
+									{{ item.translatedContent }}
+								} @else {
+									<button
+										class="btn btn-xs btn-primary"
+										(click)="requestTranslation(item)"
+									>
+										Request
+									</button>
+								}
+							</td>
+							<td>{{ item.translator || '-' }}</td>
+							<td class="text-xs opacity-70">{{ item.timeCreated | date: 'shortDate' }}</td>
+							<td>
+								<button
+									class="btn btn-xs btn-outline"
+									(click)="duplicateTranslation(item)"
+									[translate]
+								>
+									Duplicate
+								</button>
+								<button
+									class="btn btn-xs btn-error btn-outline"
+									(click)="deleteTranslation(item)"
+									[translate]
+								>
+									Delete
+								</button>
+							</td>
+						</tr>
+					} @else {
+						<tr>
+							<td
+								colspan="6"
+								class="text-center"
+							>
+								<span class="loading loading-spinner loading-md text-primary"></span>
+							</td>
+						</tr>
+					}
+				} @empty {
+					<tr>
+						<td
+							colspan="6"
+							class="text-base-content/50 py-12 text-center italic"
+						>
+							No translations found.
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+
+	<!-- Paginator -->
+	@if (state.totalNumberOfPages > 1) {
+		<div class="bg-base-100 border-base-200 mt-4 flex items-center justify-between rounded-lg border p-4 shadow-sm">
+			<button
+				class="btn btn-sm btn-outline"
+				[disabled]="!state.hasPrev"
+				(click)="paginator.previousPage()"
+			>
+				<span [translate]>Previous</span>
+			</button>
+			<span class="text-sm font-medium"> <span [translate]>Page</span> {{ state.currentPage }} / {{ state.totalNumberOfPages }} </span>
+			<button
+				class="btn btn-sm btn-outline"
+				[disabled]="!state.hasNext"
+				(click)="paginator.nextPage()"
+			>
+				<span [translate]>Next</span>
+			</button>
+		</div>
+		<div class="text-base-content/40 mt-2 text-center text-xs font-medium tracking-tight uppercase">Total: {{ state.totalNumberOfItems }} items</div>
+	}
+}

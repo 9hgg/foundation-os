@@ -1,0 +1,117 @@
+<div
+	class="flex h-full w-full flex-col overflow-scroll bg-yellow-200"
+	[style.opacity]="canvasManager?.editorMode === 'display' ? '0' : '0.5'"
+>
+	<!-- Header Area (A) -->
+	<section
+		[attr.name]="headerArea()?.name"
+		[attr.data-area-id]="headerArea()?.id"
+		#interactionArea
+		class="h-[200px] w-full border-2 border-dashed border-gray-300 bg-yellow-100"
+	>
+		<div class="flex h-full w-full items-center justify-center">
+			<span class="text-4xl font-bold text-gray-700">{{ headerArea()?.name || 'A' }}</span>
+		</div>
+	</section>
+
+	<!-- Body Section with Intermediary Areas (B) -->
+	<section
+		name="body"
+		class="flex w-full flex-1 flex-col sm:flex-row"
+	>
+		@for (area of intermediaryAreas(); track area.id) {
+			<section
+				[attr.name]="area.name"
+				[attr.data-area-id]="area.id"
+				#interactionArea
+				class="flex-1 border border-black bg-blue-200"
+			>
+				<div class="flex h-full w-full items-center justify-center">
+					<span class="text-4xl font-bold text-gray-700">{{ area.name }}</span>
+				</div>
+			</section>
+		}
+	</section>
+
+	<!-- Footer Area (C) -->
+	<section
+		[attr.name]="footerArea()?.name"
+		[attr.data-area-id]="footerArea()?.id"
+		#interactionArea
+		class="h-[200px] w-full border-2 border-dashed border-gray-300 bg-pink-100"
+	>
+		<div class="flex h-full w-full items-center justify-center">
+			<span class="text-4xl font-bold text-gray-700">{{ footerArea()?.name || 'C' }}</span>
+		</div>
+	</section>
+</div>
+
+@if (canvasManager?.editorMode === 'edit') {
+	<ng-template #toolbarPortalTpl>
+		@if (canvasManager) {
+			<lib-dimension-toolbar
+				[(width)]="width"
+				[(widthUnits)]="widthUnits"
+				[(height)]="height"
+				[(heightUnits)]="heightUnits"
+				[(posX)]="posX"
+				[(posXUnits)]="posXUnits"
+				[(posY)]="posY"
+				[(posYUnits)]="posYUnits"
+				[canvasManager]="canvasManager"
+			/>
+		}
+
+		<div class="flex h-full w-full flex-col space-y-4 overflow-auto p-2">
+			<!-- Areas Management Section -->
+			<div class="border-b border-gray-200 pb-4">
+				<h3 class="mb-3 text-sm font-semibold text-gray-700">Areas Management</h3>
+
+				<!-- Add Intermediary Area Button -->
+				<div class="mb-3">
+					<button
+						(click)="addIntermediaryArea()"
+						class="rounded bg-blue-500 px-3 py-1 text-xs text-white transition-colors hover:bg-blue-600"
+					>
+						+ Add B Area
+					</button>
+				</div>
+
+				<!-- Areas List -->
+				<div class="space-y-2">
+					@for (area of areas(); track area.id) {
+						<div class="flex items-center space-x-2 rounded border bg-gray-50 p-2">
+							<!-- Area Name -->
+							<span class="w-8 text-center text-sm font-medium">{{ area.name }}</span>
+
+							<!-- Target Block Selection -->
+							<div class="flex-1">
+								<select
+									[ngModel]="area.targetBlockId || ''"
+									(ngModelChange)="updateAreaTargetBlock(area.id, $event || null)"
+									class="w-full rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+								>
+									<option value="">No target block</option>
+									@for (blockCandidate of availableBlocks(); track blockCandidate.id) {
+										<option [value]="blockCandidate.id">{{ blockCandidate.name || 'Unnamed Block' }} ({{ blockCandidate.customBuilder || 'Unknown' }})</option>
+									}
+								</select>
+							</div>
+
+							<!-- Delete Button (only for intermediary areas) -->
+							@if (area.name.startsWith('B')) {
+								<button
+									(click)="removeIntermediaryArea(area.id)"
+									class="rounded bg-red-500 px-2 py-1 text-xs text-white transition-colors hover:bg-red-600"
+									title="Delete area"
+								>
+									×
+								</button>
+							}
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	</ng-template>
+}

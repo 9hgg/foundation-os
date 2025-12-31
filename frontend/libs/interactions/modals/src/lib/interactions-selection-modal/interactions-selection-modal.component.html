@@ -1,0 +1,45 @@
+<h2><span [translate]>Interaction selection</span></h2>
+<br />
+<!-- <lib-interaction-table
+	#interactionTable
+	[explicitInteractions]="interactionSelectionModalData.interactions"
+></lib-interaction-table> -->
+
+<hr />
+
+<lib-interaction-table
+	[explicitInteractions]="interactionSelectionModalData.interactions"
+	#interactionTable
+></lib-interaction-table>
+
+<br />
+
+<section
+	name="actions"
+	class="m-auto flex w-32 flex-row items-center justify-between"
+>
+	<!-- create -->
+	<!-- <button
+		class="btn-tertiary"
+		(click)="createNewInteraction()"
+	>
+		new
+	</button> -->
+
+	<!-- cancel -->
+	<button
+		class="btn-secondary"
+		(click)="cancel()"
+	>
+		cancel
+	</button>
+
+	<!-- save button  -->
+	<button
+		class="btn-primary"
+		[disabled]="!interactionTable.selectedInteractions.valid"
+		(click)="save()"
+	>
+		select
+	</button>
+</section>

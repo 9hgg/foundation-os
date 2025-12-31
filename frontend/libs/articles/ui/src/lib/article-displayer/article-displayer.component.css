@@ -1,0 +1,11 @@
+@reference "tailwindcss";
+:host {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	align-items: center;
+}
+
+.no-border {
+	border: none;
+}

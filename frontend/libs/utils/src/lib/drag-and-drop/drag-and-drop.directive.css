@@ -1,0 +1,22 @@
+@reference "tailwindcss";
+/* Default styles for draggable elements */
+[libDragAndDrop] {
+	transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Dragging state styles */
+[libDragAndDrop].dragging {
+	opacity: 0.7;
+	transform: scale(0.95);
+	z-index: 1000;
+}
+
+/* Disabled state */
+[libDragAndDrop][draggingEnabled="false"] {
+	cursor: default !important;
+}
+
+/* Hover effect when drag is enabled */
+[libDragAndDrop]:not([draggingEnabled="false"]):hover {
+	transform: scale(1.02);
+}

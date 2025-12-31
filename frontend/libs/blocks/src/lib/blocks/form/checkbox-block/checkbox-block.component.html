@@ -1,0 +1,67 @@
+<div class="checkbox-container">
+	<label class="checkbox-label">
+		<input
+			type="checkbox"
+			class="checkbox-input"
+			[(ngModel)]="checked"
+			[disabled]="canvasManager?.editorMode === 'edit'"
+			[required]="required()"
+		/>
+		<span
+			class="checkbox-text"
+			[contentEditable]="canvasManager?.editorMode === 'edit'"
+			(input)="onLabelChange($event)"
+			>{{ label() }}</span
+		>
+		@if (required()) {
+			<span class="required-indicator">*</span>
+		}
+	</label>
+</div>
+
+@if (canvasManager?.editorMode === 'edit') {
+	<ng-template #toolbarPortalTpl>
+		<div
+			#toolbar
+			class="items-left flex h-full w-full flex-wrap content-start overflow-auto"
+		>
+			<!-- Label Input -->
+			<div class="mb-1 mr-2 flex items-center space-x-2">
+				<label
+					for="checkboxLabelInput"
+					class="text-xs font-medium text-gray-700"
+				>
+					Label
+				</label>
+				<input
+					id="checkboxLabelInput"
+					type="text"
+					class="w-32 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+					[(ngModel)]="label"
+					placeholder="Checkbox option"
+				/>
+			</div>
+
+			<!-- Required Toggle -->
+			<div class="mb-1 mr-2 flex items-center space-x-2">
+				<label
+					for="checkboxRequiredToggle"
+					class="text-xs font-medium text-gray-700"
+				>
+					Required
+				</label>
+				<input
+					id="checkboxRequiredToggle"
+					type="checkbox"
+					class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+					[(ngModel)]="required"
+				/>
+			</div>
+		</div>
+	</ng-template>
+}
+
+<!-- prevent interaction when in edit mode -->
+@if (canvasManager?.editorMode === 'edit') {
+	<div class="edit-overlay"></div>
+}

@@ -1,0 +1,12 @@
+@if (show()) {
+	<span
+		class="notification-badge cursor-help"
+		[class.badge-sm]="size() === 'sm'"
+		[class.badge-md]="size() === 'md'"
+		[class.badge-lg]="size() === 'lg'"
+		[style.backgroundColor]="backgroundColor()"
+		[style.color]="textColor()"
+		[title]="message()"
+		>!</span
+	>
+}

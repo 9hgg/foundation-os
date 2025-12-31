@@ -1,0 +1,243 @@
+@let featuredArticlesPaginatorState = featuredArticlesPaginator.state$ | async;
+@let allArticlesPaginatorState = allArticlesPaginator.state$ | async;
+
+<!-- Hero / Intro -->
+<section class="from-primary via-secondary to-accent text-primary-content relative overflow-hidden bg-linear-to-br px-6 py-16">
+	<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iNCIvPjwvZz48L2c+PC9zdmc+')] opacity-40"></div>
+	<div class="relative mx-auto max-w-4xl text-center">
+		<h1 class="mb-4 text-4xl font-bold tracking-tight md:text-5xl">{{ listName() }}</h1>
+		<p class="mx-auto max-w-2xl text-lg opacity-80">{{ listDescription() }}</p>
+		<div class="mt-8">
+			<div class="mx-auto max-w-md">
+				<div class="relative">
+					<input
+						type="search"
+						placeholder="Search articles..."
+						class="input input-lg w-full rounded-xl border-none bg-white/20 pl-12 text-white placeholder-white/60 backdrop-blur-sm focus:bg-white/30 focus:outline-none"
+						[(ngModel)]="filterByFields$_['title']"
+					/>
+					<svg
+						class="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-white/60"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+						/>
+					</svg>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<!-- Main Content -->
+<main class="bg-base-100 text-base-content">
+	<!-- Article View with Sidebar (when not searching) -->
+	@if (!filterByFields$_['title']) {
+		<section class="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 lg:flex-row">
+			<!-- Main Article Content -->
+			<div
+				id="article-display"
+				class="w-full lg:w-3/4"
+			>
+				<lib-article-displayer
+					[article]="article()"
+					[commentTitle]="commentTitle()"
+				></lib-article-displayer>
+			</div>
+
+			<!-- Sidebar -->
+			<aside class="w-full space-y-8 lg:w-1/4">
+				@if (featuredArticlesPaginatorState && featuredArticlesPaginatorState.totalNumberOfItems > 0) {
+					<div class="card bg-base-200 border-base-300 border shadow-sm">
+						<div class="card-body p-6">
+							<h3 class="mb-4 flex items-center gap-2 text-sm font-semibold tracking-wider uppercase opacity-50">
+								<span class="text-lg">⭐</span>
+								Featured ({{ featuredArticlesPaginatorState.totalNumberOfItems }})
+							</h3>
+							<ul class="space-y-3">
+								@for (article of featuredArticlesPaginatorState.itemsOnCurrentPage; track article?.id) {
+									@if (article) {
+										<li>
+											<a
+												(click)="goToArticle(article.slug ?? article.id)"
+												class="hover:bg-primary/10 hover:text-primary block cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+												>{{ article.title }}</a
+											>
+										</li>
+									}
+								} @empty {
+									<li
+										class="text-sm opacity-50"
+										[translate]
+									>
+										No featured articles
+									</li>
+								}
+							</ul>
+						</div>
+					</div>
+				}
+
+				@if (allArticlesPaginatorState) {
+					<div class="card bg-base-200 border-base-300 border shadow-sm">
+						<div class="card-body p-6">
+							<h3 class="mb-4 flex items-center gap-2 text-sm font-semibold tracking-wider uppercase opacity-50">
+								<span class="text-lg">📚</span>
+								All Articles ({{ allArticlesPaginatorState.totalNumberOfItems }})
+							</h3>
+							<ul class="space-y-3">
+								@for (article of allArticlesPaginatorState.itemsOnCurrentPage; track article?.id) {
+									@if (article) {
+										<li>
+											<a
+												(click)="goToArticle(article.slug ?? article.id)"
+												class="hover:bg-base-300 hover:text-base-content block cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors"
+												>{{ article.title }}</a
+											>
+										</li>
+									}
+								} @empty {
+									<li
+										class="text-sm opacity-50"
+										[translate]
+									>
+										Nothing here
+									</li>
+								}
+							</ul>
+							<!-- Pagination -->
+							<div class="border-base-300 mt-4 flex items-center justify-between border-t pt-4">
+								<button
+									class="btn btn-ghost btn-xs"
+									[disabled]="!allArticlesPaginatorState.hasPrev"
+									(click)="allArticlesPaginator.previousPage()"
+								>
+									← Prev
+								</button>
+								<span class="text-xs opacity-50">{{ allArticlesPaginatorState.currentPage }}/{{ allArticlesPaginatorState.totalNumberOfPages }}</span>
+								<button
+									class="btn btn-ghost btn-xs"
+									[disabled]="!allArticlesPaginatorState.hasNext"
+									(click)="allArticlesPaginator.nextPage()"
+								>
+									Next →
+								</button>
+							</div>
+						</div>
+					</div>
+				}
+			</aside>
+		</section>
+	}
+
+	<!-- Featured Posts Grid -->
+	@if (featuredArticlesPaginatorState && featuredArticlesPaginatorState.totalNumberOfItems > 0) {
+		<section class="mx-auto max-w-6xl px-6 py-12">
+			<h2 class="mb-8 text-2xl font-bold">
+				<span class="mr-2">⭐</span>
+				<span [translate]>Featured Articles</span>
+			</h2>
+			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+				@for (article of featuredArticlesPaginatorState.itemsOnCurrentPage; track article?.id) {
+					@if (article) {
+						<article
+							class="card card-compact bg-base-200 border-base-300 group cursor-pointer border shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+							(click)="filterByFields$_['title'] = ''; goToArticle(article.slug ?? article.id)"
+						>
+							<div class="card-body">
+								@let pictureId = article.config.images?.['thumbnail']?.entityFileId;
+								@if (pictureId) {
+									<div class="mb-4 h-40 overflow-hidden rounded-xl">
+										<img
+											class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+											[src]="convertToUrl(pictureId)"
+											[alt]="article.title"
+										/>
+									</div>
+								} @else {
+									<div class="from-primary/10 to-secondary/10 mb-4 flex h-40 items-center justify-center rounded-xl bg-linear-to-br">
+										<span class="text-4xl">📄</span>
+									</div>
+								}
+								<h3 class="card-title group-hover:text-primary text-base transition-colors">{{ article.title }}</h3>
+								<p class="line-clamp-2 text-sm opacity-70">{{ article.summary }}</p>
+								<div class="card-actions mt-2 justify-end">
+									<span class="link link-primary text-sm font-medium no-underline"><span [translate]>Read more</span> →</span>
+								</div>
+							</div>
+						</article>
+					}
+				} @empty {
+					<p
+						class="opacity-50"
+						[translate]
+					>
+						No featured articles
+					</p>
+				}
+			</div>
+		</section>
+	}
+
+	<!-- All Posts List -->
+	@if (allArticlesPaginatorState) {
+		<section class="mx-auto max-w-6xl px-6 py-12">
+			<h2 class="mb-8 text-2xl font-bold">
+				<span [translate]>All Articles</span>
+				<span class="opacity-40">({{ allArticlesPaginatorState.totalNumberOfItems }})</span>
+			</h2>
+			<div class="space-y-4">
+				@for (article of allArticlesPaginatorState.itemsOnCurrentPage; track article?.id) {
+					@if (article) {
+						<article
+							class="card card-side bg-base-200 border-base-300 group hover:border-primary compact cursor-pointer border shadow-sm transition-all hover:shadow-md"
+							(click)="filterByFields$_['title'] = ''; goToArticle(article.slug ?? article.id)"
+						>
+							<div class="card-body flex-row items-center justify-between gap-4 p-6">
+								<div class="min-w-0 flex-1">
+									<h3 class="card-title group-hover:text-primary transition-colors">{{ article.title }}</h3>
+									<p class="line-clamp-2 text-sm opacity-70">{{ article.summary }}</p>
+								</div>
+								<time class="shrink-0 font-mono text-xs opacity-50">{{ article.timeUpdated | date: 'MMM d, y' }}</time>
+							</div>
+						</article>
+					}
+				} @empty {
+					<p
+						class="opacity-50"
+						[translate]
+					>
+						Nothing here
+					</p>
+				}
+			</div>
+
+			<!-- Pagination -->
+			<div class="mt-8 flex items-center justify-center gap-4">
+				<button
+					class="btn btn-ghost"
+					[disabled]="!allArticlesPaginatorState.hasPrev"
+					(click)="allArticlesPaginator.previousPage()"
+				>
+					← Previous
+				</button>
+				<span class="text-sm opacity-60"> Page {{ allArticlesPaginatorState.currentPage }} of {{ allArticlesPaginatorState.totalNumberOfPages }} </span>
+				<button
+					class="btn btn-ghost"
+					[disabled]="!allArticlesPaginatorState.hasNext"
+					(click)="allArticlesPaginator.nextPage()"
+				>
+					Next →
+				</button>
+			</div>
+		</section>
+	}
+</main>
+
+<div class="bg-base-100 h-12"></div>

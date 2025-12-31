@@ -1,0 +1,135 @@
+@let message = message$$$.$ | async;
+
+@if (message) {
+	<!-- Main Layout -->
+	<div class="relative flex h-full min-h-96 flex-1 flex-wrap overflow-auto">
+		<!-- Left Column: Sidebar -->
+		<aside
+			class="sp-list relative hidden h-full w-full shrink-0 space-y-4 overflow-auto border border-gray-300 bg-gray-100 transition-all sm:block lg:w-1/3"
+			cdkDropList
+		>
+			<div class="p-2">
+				<div class="mb-4 flex justify-end space-x-2">
+					<a
+						[routerLink]="'/host/dashboard/messages/' + message.id"
+						class="btn-secondary text-xs"
+					>
+						Open
+					</a>
+					<button
+						class="btn-primary text-xs"
+						(click)="editing.set(!editing())"
+					>
+						Toggle Edit
+					</button>
+				</div>
+
+				<label class="block text-sm font-medium text-gray-700">Article title</label>
+				<input
+					type="text"
+					class="mt-1 block w-full rounded border-gray-300 shadow-sm"
+					[value]="message.title"
+					(change)="updateTitle($any($event.target).value)"
+					(keyup)="updateTitle($any($event.target).value)"
+				/>
+			</div>
+		</aside>
+
+		<!-- Right Column: Main Content -->
+		<main class="flex h-full min-h-96 w-full flex-col overflow-auto bg-gray-50 lg:w-2/3">
+			@if (editing()) {
+				<div
+					class="w-full shrink-0 overflow-visible"
+					[attr.data-toolbar-id]="'toolbar-' + message.id"
+					#toolbar
+				>
+					<span class="ql-formats">
+						<select class="ql-font"></select>
+						<select class="ql-size"></select>
+					</span>
+					<span class="ql-formats">
+						<button class="ql-bold"></button>
+						<button class="ql-italic"></button>
+						<button class="ql-underline"></button>
+						<button class="ql-strike"></button>
+					</span>
+					<span class="ql-formats">
+						<select class="ql-color"></select>
+						<select class="ql-background"></select>
+					</span>
+					<span class="ql-formats">
+						<button
+							class="ql-script"
+							value="sub"
+						></button>
+						<button
+							class="ql-script"
+							value="super"
+						></button>
+					</span>
+					<span class="ql-formats">
+						<button
+							class="ql-header"
+							value="1"
+						></button>
+						<button
+							class="ql-header"
+							value="2"
+						></button>
+						<button class="ql-blockquote"></button>
+						<button class="ql-code-block"></button>
+					</span>
+					<span class="ql-formats">
+						<button
+							class="ql-list"
+							value="ordered"
+						></button>
+						<button
+							class="ql-list"
+							value="bullet"
+						></button>
+						<button
+							class="ql-indent"
+							value="-1"
+						></button>
+						<button
+							class="ql-indent"
+							value="+1"
+						></button>
+					</span>
+					<span class="ql-formats">
+						<button
+							class="ql-direction"
+							value="rtl"
+						></button>
+						<select class="ql-align"></select>
+					</span>
+					<span class="ql-formats">
+						<button class="ql-link"></button>
+						<button class="ql-image"></button>
+						<button class="ql-video"></button>
+						<button class="ql-formula hidden"></button>
+					</span>
+					<span class="ql-formats">
+						<button class="ql-clean"></button>
+					</span>
+				</div>
+
+				<div
+					class="text-block-editor h-full w-full flex-1 shrink overflow-auto overflow-x-visible"
+					#quillContainer
+				></div>
+			} @else {
+				<div class="ql-container ql-snow h-full w-full shrink-0 overflow-auto">
+					<div
+						class="ql-editor"
+						[innerHTML]="semanticHTML() | sanitizeHtml"
+						contenteditable="false"
+					></div>
+				</div>
+			}
+		</main>
+	</div>
+} @else {
+	<span [translate]>Article not available</span>
+}

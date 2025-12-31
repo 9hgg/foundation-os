@@ -1,0 +1,43 @@
+<div class="modal-box bg-base-100 w-full max-w-4xl overflow-hidden rounded-2xl p-0 shadow-2xl">
+	<!-- Header -->
+	<div class="bg-base-200/50 border-base-200 flex items-center justify-between border-b px-6 py-4">
+		<h3 class="flex items-center gap-2 text-xl font-bold">
+			<span [translate]>Team selection</span>
+		</h3>
+		<button
+			(click)="cancel()"
+			class="btn btn-sm btn-circle btn-ghost"
+		>
+			✕
+		</button>
+	</div>
+
+	<!-- Content -->
+	<div class="p-0">
+		<lib-team-table
+			class="block h-[400px]"
+			click-behavior="select"
+			#fileTable
+		></lib-team-table>
+	</div>
+
+	<!-- Footer -->
+	<div class="bg-base-200/50 border-base-200 flex justify-end gap-2 border-t px-6 py-4">
+		<button
+			class="btn btn-ghost"
+			(click)="cancel()"
+			[translate]
+		>
+			Cancel
+		</button>
+
+		<button
+			class="btn btn-primary"
+			[disabled]="!fileTable.itemsSelector.valid"
+			(click)="save()"
+			[translate]
+		>
+			Select
+		</button>
+	</div>
+</div>

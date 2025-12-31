@@ -1,0 +1,5 @@
+@reference "tailwindcss";
+:host {
+	display: block;
+	min-height: calc(100% - var(--footer-height));
+}

@@ -1,0 +1,134 @@
+<div class="file-upload-block-container h-full w-full overflow-auto rounded-lg border-2 border-dashed border-gray-300 p-4">
+	<!-- Editable Label -->
+	<div
+		class="block-label mb-2 text-sm font-medium text-gray-700"
+		[contentEditable]="canvasManager?.editorMode === 'edit'"
+		(blur)="onLabelChange($event)"
+		[innerHTML]="label()"
+	></div>
+
+	<!-- Upload Area (shown when no files or multiple allowed) -->
+	@if (!hasFiles() || allowMultiple()) {
+		<div class="upload-area">
+			<lib-upload-button
+				[accept]="acceptedFileTypes()"
+				[height]="'120px'"
+				[width]="'100%'"
+				[openOnClick]="true"
+				[dropZoneActive]="true"
+				[dropZoneBackground]="true"
+				(uploadedFiles)="onFilesUploaded($event)"
+			>
+				<div class="upload-content flex h-full flex-col items-center justify-center text-center">
+					<tw-upload class="mb-2 h-8 w-8 text-gray-400"></tw-upload>
+					<div
+						class="upload-description text-sm text-gray-600"
+						[contentEditable]="canvasManager?.editorMode === 'edit'"
+						(blur)="onDescriptionChange($event)"
+						[innerHTML]="description()"
+					></div>
+					@if (acceptedFileTypes() !== '*') {
+						<div class="mt-1 text-xs text-gray-500">Accepted: {{ acceptedFileTypes() }}</div>
+					}
+					<div class="mt-1 text-xs text-gray-500">Max size: {{ maxFileSize() }}MB</div>
+				</div>
+			</lib-upload-button>
+		</div>
+	}
+
+	<!-- Uploaded Files List -->
+	@if (hasFiles()) {
+		<div class="uploaded-files mt-4">
+			<div class="files-header mb-2 flex items-center justify-between">
+				<span class="text-sm font-medium text-gray-700"> Uploaded Files ({{ fileCount() }}) </span>
+				<span class="text-xs text-gray-500"> Total: {{ getTotalFileSize() | octetHumanReadable }} </span>
+			</div>
+
+			<div class="files-list space-y-2">
+				@for (file of uploadedFiles(); track file.id; let i = $index) {
+					<div class="file-item flex items-center justify-between rounded-md border bg-gray-50 p-3">
+						<div class="file-info flex items-center space-x-3">
+							<span class="file-icon text-lg">{{ getFileIcon(file) }}</span>
+							<div class="file-details">
+								<div class="file-name text-sm font-medium text-gray-900">
+									{{ file.originalFilename || file.publicFilename || 'Unknown file' }}
+								</div>
+								<div class="file-meta text-xs text-gray-500">{{ file.kind }} • {{ file.size || 0 | octetHumanReadable }}</div>
+							</div>
+						</div>
+
+						<div class="file-actions flex items-center space-x-2">
+							<button
+								type="button"
+								class="action-btn p-1 text-blue-600 hover:text-blue-800"
+								(click)="downloadFile(file)"
+								title="Download file"
+							>
+								<tw-download class="h-4 w-4"></tw-download>
+							</button>
+							@if (canvasManager?.editorMode !== 'edit') {
+								<button
+									type="button"
+									class="action-btn p-1 text-red-600 hover:text-red-800"
+									(click)="removeFile(i)"
+									title="Remove file"
+								>
+									<tw-delete class="h-4 w-4"></tw-delete>
+								</button>
+							}
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	}
+
+	<!-- Prevent interaction when in edit mode -->
+	@if (canvasManager?.editorMode === 'edit') {
+		<div
+			class="absolute left-0 top-0 h-full w-full bg-blue-500 opacity-0 hover:opacity-10"
+			role="button"
+			tabindex="0"
+		></div>
+	}
+</div>
+
+<!-- Configuration Panel (Edit Mode) -->
+<ng-template #toolbarPortalTpl>
+	<div class="items-left flex h-full w-full flex-wrap content-start overflow-auto">
+		<!-- Allow Multiple Files -->
+		<div class="mb-1 mr-2 flex items-center space-x-2">
+			<label class="text-xs font-medium text-gray-700">Allow Multiple Files</label>
+			<select
+				class="w-32 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+				[(ngModel)]="allowMultiple"
+			>
+				<option [value]="false">Single File</option>
+				<option [value]="true">Multiple Files</option>
+			</select>
+		</div>
+
+		<!-- Max File Size -->
+		<div class="mb-1 mr-2 flex items-center space-x-2">
+			<label class="text-xs font-medium text-gray-700">Max File Size (MB)</label>
+			<input
+				type="number"
+				class="w-20 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+				[(ngModel)]="maxFileSize"
+				min="1"
+				max="100"
+			/>
+		</div>
+
+		<!-- Accepted File Types -->
+		<div class="mb-1 mr-2 flex items-center space-x-2">
+			<label class="text-xs font-medium text-gray-700">Accepted Types</label>
+			<input
+				type="text"
+				class="w-40 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+				[(ngModel)]="acceptedFileTypes"
+				placeholder="* (all files) or .pdf,.doc,.jpg"
+			/>
+		</div>
+	</div>
+</ng-template>

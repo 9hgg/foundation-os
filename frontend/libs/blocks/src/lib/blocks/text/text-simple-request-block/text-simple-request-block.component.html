@@ -1,0 +1,9 @@
+<textarea
+	class="absolute left-0 top-0 h-full w-full"
+	[(ngModel)]="text"
+></textarea>
+
+<!-- avoid click when edit mode  -->
+@if (canvasManager?.editorMode === 'edit') {
+	<div class="absolute left-0 top-0 h-full w-full"></div>
+}

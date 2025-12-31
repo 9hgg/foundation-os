@@ -1,0 +1,64 @@
+<div
+	[class]="containerClasses()"
+	(click)="onCardClick()"
+>
+	<div class="flex items-start">
+		<!-- Icon - either predefined or custom content -->
+		@if (icon() !== 'custom') {
+			<svg
+				[class]="iconClasses()"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					[attr.d]="getIconPath()"
+				/>
+			</svg>
+		}
+
+		<!-- Custom icon content projection -->
+		@if (icon() === 'custom') {
+			<div [class]="iconClasses()">
+				<ng-content select="[card-icon]"></ng-content>
+			</div>
+		}
+
+		<div class="flex-grow">
+			<div [class]="titleClasses()">
+				<ng-content select="[card-title]"></ng-content>
+			</div>
+			<div [class]="descriptionClasses()">
+				<ng-content select="[card-description]"></ng-content>
+			</div>
+
+			<!-- Additional content projection for badges, etc. -->
+			<ng-content select="[card-extra]"></ng-content>
+
+			@if (displayButton()) {
+				<button
+					[class]="buttonClasses()"
+					(click)="onButtonClick($event)"
+				>
+					<ng-content select="[card-button]"></ng-content>
+					<svg
+						class="ml-2 h-4 w-4"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M9 5l7 7-7 7"
+						/>
+					</svg>
+				</button>
+			}
+		</div>
+	</div>
+</div>

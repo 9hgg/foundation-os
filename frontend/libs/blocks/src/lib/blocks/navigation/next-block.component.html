@@ -1,0 +1,71 @@
+<button
+	type="button"
+	class="h-full w-full inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+	[style.background-color]="backgroundColor()"
+	[style.color]="textColor()"
+	[style.border-radius]="borderRadius() + 'px'"
+	(click)="next()"
+>
+	<tw-chevron-right class="mr-2 h-4 w-4"></tw-chevron-right>
+	{{ buttonText() }}
+</button>
+
+@if (canvasManager?.editorMode === 'edit') {
+	<div
+		name="next-block-overlay"
+		class="absolute left-0 top-0 flex h-full w-full opacity-0 hover:opacity-100 bg-black bg-opacity-10"
+		role="button"
+		tabindex="0"
+	>
+	</div>
+
+	<ng-template #toolbarPortalTpl>
+		<div class="items-left flex h-full w-full flex-wrap content-start overflow-auto">
+			<!-- Button Text -->
+			<div class="mb-1 mr-2 flex items-center space-x-2">
+				<label class="text-xs font-medium text-gray-700">Text:</label>
+				<input
+					type="text"
+					class="rounded border border-gray-300 px-2 py-1 text-xs"
+					[value]="buttonText()"
+					(input)="buttonText.set($any($event.target).value)"
+				/>
+			</div>
+
+			<!-- Background Color -->
+			<div class="mb-1 mr-2 flex items-center space-x-2">
+				<label class="text-xs font-medium text-gray-700">Background:</label>
+				<input
+					type="color"
+					class="rounded border border-gray-300"
+					[value]="backgroundColor()"
+					(input)="backgroundColor.set($any($event.target).value)"
+				/>
+			</div>
+
+			<!-- Text Color -->
+			<div class="mb-1 mr-2 flex items-center space-x-2">
+				<label class="text-xs font-medium text-gray-700">Text Color:</label>
+				<input
+					type="color"
+					class="rounded border border-gray-300"
+					[value]="textColor()"
+					(input)="textColor.set($any($event.target).value)"
+				/>
+			</div>
+
+			<!-- Border Radius -->
+			<div class="mb-1 mr-2 flex items-center space-x-2">
+				<label class="text-xs font-medium text-gray-700">Radius:</label>
+				<input
+					type="number"
+					min="0"
+					max="50"
+					class="rounded border border-gray-300 px-2 py-1 text-xs w-16"
+					[value]="borderRadius()"
+					(input)="borderRadius.set(+$any($event.target).value)"
+				/>
+			</div>
+		</div>
+	</ng-template>
+}

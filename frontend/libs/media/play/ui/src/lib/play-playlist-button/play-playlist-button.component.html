@@ -1,0 +1,19 @@
+@if (!beingPlayed()) {
+	<button
+		(click)="playFile()"
+		class="btn"
+		[style.background-color]="backgroundColor()"
+		[style.color]="textColor()"
+	>
+		<tw-play />
+	</button>
+} @else {
+	<button
+		(click)="pauseFile()"
+		class="btn"
+		[style.background-color]="backgroundColor()"
+		[style.color]="textColor()"
+	>
+		<tw-pause />
+	</button>
+}

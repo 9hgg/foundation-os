@@ -1,0 +1,47 @@
+<div class="flex h-full w-full flex-col">
+	<div
+		class="text-block-editor w-full overflow-scroll"
+		#quillContainer
+	></div>
+</div>
+
+@if (canvasManager?.editorMode === 'edit') {
+	<div class="absolute left-0 top-0 h-full w-full"></div>
+}
+<ng-template #toolbarPortalTpl>
+	<div class="items-left flex h-full w-full flex-wrap content-start overflow-auto">
+		<!-- Width -->
+		<div class="mb-1 mr-2 flex items-center space-x-2">
+			<label
+				for="blockWidthInput"
+				class="text-xs font-medium text-gray-700"
+			>
+				W:
+			</label>
+			<input
+				id="blockWidthInput"
+				type="number"
+				class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+				[(ngModel)]="width"
+				placeholder="px"
+			/>
+		</div>
+
+		<!-- Height -->
+		<div class="mb-1 mr-2 flex items-center space-x-2">
+			<label
+				for="blockHeightInput"
+				class="text-xs font-medium text-gray-700"
+			>
+				H:
+			</label>
+			<input
+				id="blockHeightInput"
+				type="number"
+				class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+				[(ngModel)]="height"
+				placeholder="px"
+			/>
+		</div>
+	</div>
+</ng-template>

@@ -1,0 +1,313 @@
+@let paginatorState = paginator.state$ | async;
+@let selectedArticle_ = selectedArticle();
+<button
+	#supportButton
+	type="button"
+	(pointerdown)="onPointerDown($event)"
+	(pointermove)="onPointerMove($event)"
+	(pointerup)="onPointerUp($event)"
+	(pointerleave)="onPointerUp($event)"
+	(click)="togglePanel()"
+	[style.transform]="'translate(' + position().x + 'px, ' + position().y + 'px)'"
+	class="group fixed z-50 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg transition-shadow duration-200 select-none hover:shadow-2xl hover:shadow-violet-500/40 focus:ring-4 focus:ring-violet-500/30 focus:outline-none"
+	aria-label="Open support chat"
+>
+	<tw-info-circle class="h-6 w-6 transition-transform duration-200 group-hover:scale-110"></tw-info-circle>
+	@if (displayRedPulse()) {
+		<div class="absolute -top-1 -right-1 h-3 w-3 animate-pulse rounded-full bg-red-500"></div>
+	}
+</button>
+
+@if (isPanelOpen()) {
+	<div
+		[ngStyle]="panelStyles()"
+		class="animate-in slide-in-from-bottom-4 border-base-300 bg-base-100 fixed z-40 flex h-full w-full flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-sm duration-200"
+	>
+		<!-- Close button -->
+		<button
+			type="button"
+			(click)="closePanel()"
+			class="btn btn-sm btn-circle btn-ghost text-base-content/50 hover:text-base-content absolute top-3 right-3 z-10"
+			aria-label="Close support panel"
+		>
+			<tw-cross class="h-4 w-4"></tw-cross>
+		</button>
+
+		@if (!selectedArticle_) {
+			<!-- Support Articles List View -->
+			<div class="flex h-full flex-col">
+				<div class="border-base-200 flex items-center justify-center border-b px-6 py-4">
+					<h3
+						class="text-base-content text-lg font-bold"
+						[translate]
+					>
+						Support Tickets
+					</h3>
+				</div>
+
+				@let supportArticles_ = paginatorState?.itemsOnCurrentPage;
+				@if (!isAuthenticated()) {
+					<div class="flex flex-1 items-center justify-center p-8">
+						<div class="text-center">
+							<div class="bg-base-200 text-base-content/50 mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+								<tw-info-circle class="h-8 w-8"></tw-info-circle>
+							</div>
+							<p
+								class="text-base-content mb-3 text-sm"
+								[translate]
+							>
+								Sign in to access your support tickets
+							</p>
+							<button
+								(click)="goToSupportPage()"
+								class="btn btn-ghost"
+								[translate]
+							>
+								View Support Page
+							</button>
+						</div>
+					</div>
+				} @else {
+					<div class="border-base-200 flex gap-2 border-t p-4">
+						<button
+							(click)="createNewSupportTicket()"
+							[disabled]="isCreatingTicket()"
+							class="btn btn-primary btn-sm flex-1"
+							[translate]
+						>
+							New Ticket
+						</button>
+						<button
+							(click)="goToInternalSupportPage()"
+							class="btn btn-primary btn-outline btn-sm flex-1"
+							[translate]
+						>
+							View All
+						</button>
+					</div>
+					@if (!supportArticles_ || supportArticles_.length === 0) {
+						<div class="flex flex-1 items-center justify-center p-8">
+							<div class="text-center">
+								<div class="bg-base-200 text-base-content/50 mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+									<tw-info-circle class="h-8 w-8"></tw-info-circle>
+								</div>
+								<p
+									class="text-base-content/60 text-sm"
+									[translate]
+								>
+									You have no support tickets.
+								</p>
+							</div>
+						</div>
+					} @else {
+						<div class="flex-1 overflow-y-auto">
+							@for (article of supportArticles_; track article?.id) {
+								@if (article) {
+									<div
+										(click)="selectArticle(article)"
+										class="group border-base-200 hover:bg-base-200/50 active:bg-base-200 flex cursor-pointer items-center border-b p-4 transition-colors duration-150"
+									>
+										<div class="relative mr-3 flex-shrink-0">
+											<div class="to-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[var(--secondary-background-color)] text-lg font-semibold shadow-sm">
+												{{ article.title?.charAt(0)?.toUpperCase() || '?' }}
+											</div>
+											@if (displayArticleStatus()) {
+												<div class="border-base-100 bg-success absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border-2"></div>
+											}
+										</div>
+
+										<div class="min-w-0 flex-1">
+											<div class="flex items-center justify-between">
+												<h4 class="text-base-content group-hover:text-primary truncate text-sm font-bold transition-colors">
+													{{ article.title }}
+												</h4>
+												<span class="text-base-content/50 ml-2 flex-shrink-0 text-xs">
+													{{ article.timeUpdated | date: 'shortTime' }}
+												</span>
+											</div>
+											<p class="text-base-content/70 mt-1 truncate text-sm">
+												{{ article.summary || 'Support ticket' }}
+											</p>
+										</div>
+
+										<div class="ml-2 opacity-0 transition-opacity group-hover:opacity-100">
+											<div class="bg-primary h-2 w-2 rounded-full"></div>
+										</div>
+									</div>
+								}
+							}
+						</div>
+
+						<!-- Pagination Controls for Articles -->
+						@if (paginatorState && paginatorState.totalNumberOfPages > 1) {
+							<div class="border-base-200 border-t p-3">
+								<div class="flex items-center justify-between">
+									<button
+										type="button"
+										class="btn btn-xs btn-ghost"
+										[disabled]="paginatorState.currentPage === 1"
+										(click)="paginator.previousPage()"
+									>
+										<svg
+											class="mr-1 h-3 w-3"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M15 19l-7-7 7-7"
+											></path>
+										</svg>
+										<span [translate]>Previous</span>
+									</button>
+
+									<span class="text-base-content/60 text-xs"> {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} </span>
+
+									<button
+										type="button"
+										class="btn btn-xs btn-ghost"
+										[disabled]="paginatorState.currentPage === paginatorState.totalNumberOfPages"
+										(click)="paginator.nextPage()"
+									>
+										<span [translate]>Next</span>
+										<svg
+											class="ml-1 h-3 w-3"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M9 5l7 7-7 7"
+											></path>
+										</svg>
+									</button>
+								</div>
+							</div>
+						}
+					}
+				}
+			</div>
+		} @else {
+			<!-- Selected Support Ticket View -->
+			<div class="flex h-full flex-col">
+				<!-- Header -->
+				<div class="border-base-200 bg-base-200/50 flex items-center border-b p-4 pr-12">
+					<button
+						(click)="backToList()"
+						class="btn btn-sm btn-circle btn-ghost text-base-content/70 mr-2"
+						aria-label="Back to support tickets"
+						[translate]
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="2"
+							stroke="currentColor"
+							class="h-4 w-4"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M15.75 19.5L8.25 12l7.5-7.5"
+							/>
+						</svg>
+					</button>
+
+					<div class="relative mr-3 flex-shrink-0">
+						<div class="to-primary text-primary-content flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[var(--secondary-background-color)] text-sm font-semibold shadow-sm">
+							{{ selectedArticle_?.title?.charAt(0)?.toUpperCase() || '?' }}
+						</div>
+						@if (displayArticleStatus()) {
+							<div class="border-base-100 bg-success absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2"></div>
+						}
+					</div>
+
+					<div class="min-w-0 flex-1">
+						<h4 class="text-base-content truncate text-sm font-bold">
+							{{ selectedArticle_?.title }}
+						</h4>
+						<p class="text-base-content/60 text-xs">
+							{{ selectedArticle_?.timeUpdated | date: 'short' }}
+						</p>
+						<!-- Link to full support ticket -->
+						@if (selectedArticle_?.id) {
+							<a
+								[routerLink]="['/host/dashboard/support', selectedArticle_.id]"
+								class="link link-primary link-hover mt-1 inline-flex items-center text-xs"
+								[attr.aria-label]="'Open full support ticket view'"
+								(click)="$event.stopPropagation(); closePanel()"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="2"
+									stroke="currentColor"
+									class="mr-1 h-3 w-3"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+									/>
+								</svg>
+								Open in full view
+							</a>
+						}
+					</div>
+				</div>
+
+				<!-- Support Ticket Content and Chat -->
+				<div class="flex-1 overflow-y-auto">
+					@if (selectedArticle_.summary || selectedArticle_.content) {
+						<div class="border-base-200 border-b p-4">
+							<div class="prose prose-sm max-w-none">
+								@if (selectedArticle_.summary) {
+									<div class="bg-info/10 text-info-content border-info/20 mb-4 rounded-lg border p-3">
+										<h5
+											class="mb-2 text-sm font-bold"
+											[translate]
+										>
+											Summary
+										</h5>
+										<p class="text-sm opacity-90">{{ selectedArticle_.summary }}</p>
+									</div>
+								}
+
+								@if (selectedArticle_.content) {
+									<div class="text-base-content text-sm">
+										<h5
+											class="text-base-content mb-2 font-bold"
+											[translate]
+										>
+											Details
+										</h5>
+										<div [innerHTML]="selectedArticle_.content"></div>
+									</div>
+								}
+							</div>
+						</div>
+					}
+
+					<!-- Chat Messages Section -->
+					<div class="h-full">
+						<lib-chat-displayer
+							#chatDisplayer
+							[resourceId]="selectedArticle_.id"
+							[resourceKind]="'article'"
+							[conversationKey]="'default'"
+							[commentTitle]="''"
+						></lib-chat-displayer>
+					</div>
+				</div>
+			</div>
+		}
+	</div>
+}

@@ -1,0 +1,39 @@
+<div class="modal-box bg-base-100 flex h-full max-h-[90vh] w-11/12 max-w-5xl flex-col p-0">
+	<!-- Header -->
+	<div class="border-base-200 border-b px-6 py-4">
+		<h3
+			class="text-lg font-bold"
+			[translate]
+		>
+			File selection
+		</h3>
+	</div>
+
+	<!-- Body -->
+	<div class="flex-1 overflow-auto p-0">
+		<lib-file-table
+			class="block h-full w-full"
+			#fileTable
+		></lib-file-table>
+	</div>
+
+	<!-- Footer Actions -->
+	<div class="modal-action border-base-200 bg-base-100 m-0 border-t px-6 py-4">
+		<button
+			class="btn"
+			(click)="cancel()"
+			[translate]
+		>
+			Cancel
+		</button>
+
+		<button
+			class="btn btn-primary"
+			[disabled]="!fileTable.itemsSelector.valid"
+			(click)="save()"
+			[translate]
+		>
+			Select
+		</button>
+	</div>
+</div>

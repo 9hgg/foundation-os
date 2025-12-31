@@ -1,0 +1,385 @@
+@let conversation = conversation$$$.$ | async;
+@let paginatorState = messagesPaginator.state$ | async;
+
+<span id="top-anchor"></span>
+@if (conversation) {
+	<section
+		id="comment"
+		class="py-8 antialiased"
+	>
+		<div class="mx-auto max-w-2xl px-4">
+			@if (paginatorState) {
+				@if (commentTitle()) {
+					<div class="mb-6 flex items-center justify-between">
+						<h2 class="text-base-content text-lg font-bold lg:text-2xl">
+							<span [translate]>{{ commentTitle() }}</span> ({{ paginatorState.totalNumberOfItems }})
+						</h2>
+
+						<button
+							type="button"
+							class="btn btn-primary btn-sm"
+							(click)="scrollToComment()"
+						>
+							<svg
+								class="mr-2 h-4 w-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+								></path>
+							</svg>
+							<span [translate]>Add Comment</span>
+						</button>
+					</div>
+				}
+
+				<div
+					class="space-y-4"
+					#commentsContainer
+				>
+					@for (message of processedMessages(); track message?.id) {
+						@if (message) {
+							<article
+								[id]="'message-' + message.id"
+								class="bg-base-100 border-base-200 relative rounded-lg border p-4 text-base shadow-md"
+							>
+								<footer class="mb-2 flex items-center justify-between">
+									<div class="flex items-center">
+										<p class="text-base-content mr-3 inline-flex items-center text-sm font-semibold">
+											@if (message.avatarUrl) {
+												<img
+													class="mr-2 h-8 w-8 rounded-full"
+													[src]="message.avatarUrl"
+													[alt]="message.authorPublicName"
+												/>
+											} @else {
+												<!-- fake person with html tags -->
+												<div class="bg-neutral text-neutral-content relative mr-2 grid h-8 w-8 place-items-center overflow-hidden rounded-full">
+													<span class="text-xs">{{ message.authorPublicName | slice: 0 : 2 }}</span>
+												</div>
+											}
+											<lib-user-pill [userId]="message.authorId"></lib-user-pill>
+										</p>
+										<p class="text-base-content/60 text-xs">
+											@if (message.timeCreated) {
+												<time
+													pubdate
+													[attr.datetime]="message.timeCreated"
+													title="{{ message.timeCreated | date: 'full' }}"
+												>
+													{{ message.timeCreated | dateAsAgo }}
+												</time>
+											}
+										</p>
+									</div>
+									<div class="flex items-center">
+										<button
+											(click)="initiateReply(message)"
+											class="btn btn-ghost btn-xs btn-square text-base-content/50"
+											type="button"
+											title="Reply to this comment"
+										>
+											<svg
+												class="h-4 w-4"
+												fill="currentColor"
+												viewBox="0 0 20 20"
+												xmlns="http://www.w3.org/2000/svg"
+											>
+												<path
+													fill-rule="evenodd"
+													d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+													clip-rule="evenodd"
+												></path>
+											</svg>
+											<span
+												class="sr-only"
+												[translate]
+												>Reply</span
+											>
+										</button>
+										<button
+											[cdkMenuTriggerFor]="commentMenu"
+											class="btn btn-ghost btn-xs btn-square text-base-content/50"
+											type="button"
+										>
+											<svg
+												class="h-4 w-4"
+												aria-hidden="true"
+												xmlns="http://www.w3.org/2000/svg"
+												fill="currentColor"
+												viewBox="0 0 16 3"
+											>
+												<path d="M2 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6.041 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM14 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" />
+											</svg>
+											<span
+												class="sr-only"
+												[translate]
+												>Comment settings</span
+											>
+										</button>
+										<ng-template #commentMenu>
+											<ul
+												class="menu bg-base-100 border-base-200 w-36 rounded-md border py-1 shadow-lg"
+												cdkMenu
+											>
+												<li>
+													<button
+														(click)="initiateReply(message)"
+														cdkMenuItem
+														[translate]
+													>
+														Reply
+													</button>
+												</li>
+
+												<li>
+													<button
+														(click)="removeComment(message.id)"
+														cdkMenuItem
+														[translate]
+														class="text-error"
+													>
+														Remove
+													</button>
+												</li>
+											</ul>
+										</ng-template>
+									</div>
+								</footer>
+
+								<!-- when replying to a message -->
+								@if (message.replyTo) {
+									<div class="border-base-content/20 bg-base-200/50 mb-2 ml-4 rounded-md border-l-4 p-3 pl-3">
+										<p class="text-base-content/80 text-xs font-semibold">
+											{{ message.replyTo.authorPublicName }}
+										</p>
+										<p class="text-base-content/60 text-xs">
+											@if (message.replyTo.content && message.replyTo.content.length > COMMENT_LENGTH_COLLAPSE && !expandedComments.isSelected(message.replyTo)) {
+												{{ message.replyTo.content.slice(0, COMMENT_LENGTH_COLLAPSE) }}...
+											} @else {
+												{{ message.replyTo.content }}
+											}
+										</p>
+										@if (message.replyTo.content && message.replyTo.content.length > COMMENT_LENGTH_COLLAPSE) {
+											<!-- darker colors than blue-->
+											<button
+												(click)="expandedComments.toggle(message.replyTo)"
+												type="button"
+												class="text-base-content/70 mt-2 text-xs font-medium hover:underline"
+											>
+												{{ expandedComments.isSelected(message.replyTo) ? ('Read less' | translate | async) : ('Read more' | translate | async) }}
+											</button>
+										}
+									</div>
+								}
+
+								@if (message.content && message.content.length > COMMENT_LENGTH_COLLAPSE && !expandedComments.isSelected(message)) {
+									<p
+										class="text-base-content"
+										[innerHTML]="message.content.slice(0, COMMENT_LENGTH_COLLAPSE) + '...' | newlinesToBr"
+									></p>
+								} @else {
+									<p
+										class="text-base-content"
+										[innerHTML]="message.content | newlinesToBr"
+									></p>
+								}
+								@if (message.content && message.content.length > COMMENT_LENGTH_COLLAPSE) {
+									<button
+										(click)="expandedComments.toggle(message)"
+										type="button"
+										class="text-primary mt-2 text-xs font-medium hover:underline"
+									>
+										{{ expandedComments.isSelected(message) ? ('Read less' | translate | async) : ('Read more' | translate | async) }}
+									</button>
+								}
+
+								<!-- Reactions Display and Picker Trigger -->
+								<div class="bg-base-100 border-base-200 absolute right-1 bottom-1 flex items-center space-x-1 rounded-full border p-1 shadow-md">
+									<!-- Summary of reactions -->
+									@for (summary of message.reactionsSummary; track summary.emoji) {
+										<span
+											class="badge badge-sm cursor-pointer transition-transform hover:scale-105"
+											(click)="setReaction(message, summary.emoji)"
+											[ngClass]="{
+												'badge-primary': summary.userReacted,
+												'badge-ghost': !summary.userReacted,
+											}"
+											title="{{ summary.emoji }} {{ summary.count }}"
+										>
+											{{ summary.emoji }} {{ summary.count > 1 ? summary.count : '' }}
+										</span>
+									}
+									<!-- Add reaction button -->
+									<button
+										(click)="toggleReactionPicker(message.id)"
+										class="btn btn-ghost btn-circle btn-xs text-base-content/50"
+										title="Add reaction"
+									>
+										<svg
+											class="h-4 w-4"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+											xmlns="http://www.w3.org/2000/svg"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+											></path>
+										</svg>
+									</button>
+								</div>
+
+								<!-- Reaction Picker Pop-up -->
+								@if (activeReactionPickerMessageId() === message.id) {
+									<div class="border-base-200 bg-base-100 absolute right-1 bottom-8 z-10 mb-1 flex gap-1 rounded-full border p-1 shadow-xl">
+										@for (reaction of availableReactions; track reaction) {
+											<button
+												(click)="setReaction(message, reaction)"
+												class="btn btn-ghost btn-circle btn-sm text-lg"
+												[class.btn-active]="message.currentUserReactionEmoji === reaction"
+												title="{{ reaction }}"
+											>
+												{{ reaction }}
+											</button>
+										}
+									</div>
+								}
+								<!-- End of Reactions Display and Picker Trigger -->
+							</article>
+						}
+					}
+				</div>
+
+				<!-- Pagination Controls -->
+				@if (paginatorState.totalNumberOfPages > 1) {
+					<div class="mt-6 flex justify-center space-x-2">
+						<button
+							type="button"
+							class="btn btn-sm"
+							[disabled]="paginatorState.currentPage === 1"
+							(click)="messagesPaginator.previousPage(); scrollToTopComments()"
+						>
+							<span [translate]>Previous</span>
+						</button>
+
+						<span class="text-base-content/60 flex items-center text-sm"> {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} </span>
+
+						<button
+							type="button"
+							class="btn btn-sm"
+							[disabled]="paginatorState.currentPage === paginatorState.totalNumberOfPages"
+							(click)="messagesPaginator.nextPage(); scrollToTopComments()"
+						>
+							<span [translate]>Next</span>
+						</button>
+					</div>
+				}
+			} @else {
+				@if (displayNoCommentsMessage()) {
+					<p
+						class="text-base-content/50 text-center"
+						[translate]
+					>
+						No comments yet.
+					</p>
+				}
+			}
+			<span id="bottom-anchor"></span>
+
+			<!-- Reply Form -->
+			<form
+				class="mt-8"
+				(submit)="postComment()"
+			>
+				@if (replyingToMessage(); as activeReplyTarget) {
+					<div class="border-base-200 bg-base-200/50 mb-3 rounded-lg border p-3">
+						<div class="flex items-center justify-between">
+							<p class="text-base-content text-sm font-medium">
+								<span [translate]>Replying to</span>
+								<span class="font-semibold">{{ activeReplyTarget.authorPublicName || '' }}</span>
+							</p>
+							<button
+								(click)="clearReplyTarget()"
+								type="button"
+								class="btn btn-ghost btn-xs btn-circle"
+								title="Cancel reply"
+							>
+								<svg
+									class="h-5 w-5"
+									fill="currentColor"
+									viewBox="0 0 20 20"
+									xmlns="http://www.w3.org/2000/svg"
+								>
+									<path
+										fill-rule="evenodd"
+										d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+										clip-rule="evenodd"
+									></path>
+								</svg>
+							</button>
+						</div>
+						<p class="text-base-content/60 mt-1 truncate text-xs">{{ activeReplyTarget.content }}</p>
+					</div>
+				}
+				<div class="border-base-200 bg-base-100 mb-4 w-full overflow-hidden rounded-lg border shadow-sm">
+					<div class="bg-base-100 px-4 py-2">
+						@if (usersRepository.currentProfile()) {
+							@if (conversation && conversation.config && conversation.config.richText) {
+								<span>not implemented yet</span>
+							} @else {
+								<label
+									for="comment"
+									class="sr-only"
+									[translate]
+									>{{ commentLabelText() }}</label
+								>
+								<textarea
+									#commentTextarea
+									id="commentArea"
+									rows="4"
+									class="textarea textarea-ghost text-base-content w-full resize-none px-0 focus:ring-0 focus:outline-none"
+									placeholder="{{ commentPlaceholderText() }}"
+									required
+									name="commentContent"
+									[(ngModel)]="newCommentContent"
+									[maxlength]="MAX_COMMENT_LENGTH"
+								></textarea>
+							}
+						} @else {
+							<!-- fake text area with some disabled style (not just only disabled)-->
+							<textarea
+								id="comment"
+								rows="4"
+								class="textarea textarea-disabled bg-base-200/50 text-base-content/40 w-full cursor-not-allowed resize-none border-none"
+								[placeholder]="'You need to be logged in to comment' | translate | async"
+								required
+								name="commentContent"
+								disabled
+							></textarea>
+						}
+					</div>
+					<div class="border-base-200 bg-base-50 flex items-center justify-between border-t px-3 py-2">
+						<button
+							type="submit"
+							class="btn btn-primary btn-sm"
+							[translate]
+							[disabled]="!newCommentContent().trim()"
+						>
+							{{ commentButtonText() }}
+						</button>
+						<!-- Optional: Add attachment button or other controls here -->
+					</div>
+				</div>
+			</form>
+		</div>
+	</section>
+}

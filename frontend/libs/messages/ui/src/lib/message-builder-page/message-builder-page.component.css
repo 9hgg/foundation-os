@@ -1,0 +1,10 @@
+@reference "tailwindcss";
+:host {
+	display: block;
+	height: 100%;
+	width: 100%;
+	overflow: hidden;
+
+	touch-action: none; /* Prevent touch scrolling */
+	overflow: auto; /* Disable overflow scrolling */
+}

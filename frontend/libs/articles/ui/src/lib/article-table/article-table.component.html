@@ -1,0 +1,294 @@
+@if (paginator.state$ | async; as paginatorState) {
+	<div
+		name="table-container"
+		class="bg-base-100 card border-base-200 border shadow-sm"
+	>
+		<table
+			name="table-body"
+			class="table-zebra table w-full"
+		>
+			<thead class="bg-base-200/50 text-base-content/60 text-xs font-bold tracking-wider uppercase">
+				<tr>
+					<!-- selection header -->
+					<th class="selection-column w-12 text-center">
+						<div class="flex justify-center">
+							{{ itemsSelector.numSelected ? itemsSelector.numSelected : '' }}
+						</div>
+					</th>
+
+					<!-- article title header -->
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>title</span
+							>
+							<div class="join">
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									(click)="paginator.setOrderingBy('title')"
+									title="Sort"
+								>
+									↑↓
+								</button>
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									[class.btn-active]="displaySearchByFields$_['title']"
+									(click)="toggleSearchByField('title')"
+									title="Search"
+								>
+									🔎
+								</button>
+							</div>
+						</div>
+
+						@if (displaySearchByFields$_['title']) {
+							<div class="mt-2">
+								<input
+									class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+									type="text"
+									placeholder="Search..."
+									[(ngModel)]="filterByFields$_['title']"
+								/>
+							</div>
+						}
+					</th>
+
+					<!-- update date header -->
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>Last update</span
+							>
+							<button
+								class="btn btn-ghost btn-xs"
+								(click)="paginator.setOrderingBy('timeUpdated')"
+							>
+								↑↓
+							</button>
+						</div>
+					</th>
+
+					<!-- creation date header -->
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>creation date</span
+							>
+							<button
+								class="btn btn-ghost btn-xs"
+								(click)="paginator.setOrderingBy('time_created')"
+							>
+								↑↓
+							</button>
+						</div>
+					</th>
+
+					<!-- actions header -->
+					<th class="w-20 py-4 text-center">
+						<span [translate]>actions</span>
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+				@for (article of paginatorState.itemsOnCurrentPage; track article?.id) {
+					<!--  -->
+
+					@if (article) {
+						<tr
+							[tabIndex]="0"
+							(click)="processClick(article)"
+							(keyup.enter)="processClick(article)"
+							class="hover:bg-base-200/50 cursor-pointer transition-colors duration-150"
+							[ngClass]="{ 'bg-primary/10': itemsSelector.isSelected(article) }"
+						>
+							<!-- selection -->
+							<td class="text-center">
+								<div
+									class="flex justify-center"
+									(click)="$event.stopImmediatePropagation(); itemsSelector.toggle(article)"
+									(keydown)="(undefined)"
+									tabindex="0"
+								>
+									<input
+										class="checkbox checkbox-primary checkbox-sm"
+										[name]="'selectedItems' + article.id"
+										type="checkbox"
+										[checked]="itemsSelector.isSelected(article)"
+										tabindex="0"
+									/>
+								</div>
+							</td>
+
+							<!-- article title -->
+							<td>
+								<div class="text-base-content font-medium">
+									{{ article.title }}
+								</div>
+							</td>
+
+							<!-- update date -->
+							<td>
+								<div class="text-base-content/60 text-xs">
+									{{ article.timeUpdated | dateAsAgo }}
+								</div>
+							</td>
+
+							<!-- creation date -->
+							<td>
+								<div class="text-base-content/60 text-xs">
+									{{ article.timeCreated | date: 'short' }}
+								</div>
+							</td>
+							<!-- actions -->
+							<td class="text-center">
+								<button
+									(click)="$event.stopImmediatePropagation()"
+									[cdkMenuTriggerFor]="menu"
+									class="btn btn-ghost btn-sm btn-square"
+									[attr.aria-label]="'menu' | translate | async"
+								>
+									<!-- svg three dots more -->
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										class="h-5 w-5 stroke-current"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"
+										/>
+									</svg>
+								</button>
+								<ng-template #menu>
+									<ul
+										class="menu bg-base-100 rounded-box border-base-200 w-56 border p-2 shadow-xl"
+										cdkMenu
+									>
+										<li cdkMenuItem>
+											<button
+												(click)="$event.stopPropagation(); goToArticle(article.id)"
+												class="flex items-center gap-2"
+											>
+												<span [translate]>Edit</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="$event.stopPropagation(); shareArticle(article)"
+												class="flex items-center gap-2"
+											>
+												<span [translate]>Manage Access</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="$event.stopPropagation(); shareArticleWithTeam(article)"
+												class="flex items-center gap-2"
+											>
+												<span [translate]>Share with a team</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="$event.stopPropagation(); openFolderSelectionModalFor(article)"
+												class="flex items-center gap-2"
+											>
+												<span [translate]>Add to folder</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="$event.stopPropagation(); deleteArticle(article)"
+												class="text-error flex items-center gap-2"
+											>
+												<span [translate]>Delete</span>
+											</button>
+										</li>
+										<div class="divider my-1"></div>
+										<li class="menu-title px-4 py-2 text-[10px] uppercase opacity-40">Item id: {{ article.id.substring(0, 8) }}</li>
+									</ul>
+								</ng-template>
+							</td>
+						</tr>
+
+						@if (openedItems.isSelected(article)) {
+							<tr
+								class="bg-base-200/20"
+								fullSpanRow
+							>
+								<td class="relative p-8">
+									<button
+										class="btn btn-ghost btn-xs absolute top-2 right-2"
+										(click)="openedItems.unselect(article)"
+									>
+										<span
+											class="text-xs italic"
+											[translate]
+											>close display</span
+										>
+									</button>
+
+									<pre>{{ { article } | json }}</pre>
+								</td>
+							</tr>
+						}
+					} @else {
+						<tr>
+							<td
+								colspan="5"
+								class="text-center"
+							>
+								<span class="loading loading-spinner loading-md text-primary"></span>
+							</td>
+						</tr>
+					}
+				} @empty {
+					<tr>
+						<td
+							colspan="5"
+							class="text-base-content/50 py-12 text-center italic"
+						>
+							{{ 'Nothing here' | translate | async }}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		@if (paginatorState.totalNumberOfPages > 1) {
+			<div
+				name="table-footer"
+				class="bg-base-200/30 border-base-200 flex items-center justify-between border-t p-4"
+			>
+				<div class="join">
+					<button
+						(click)="paginatorState.hasPrev ? paginator.previousPage() : null"
+						[disabled]="!paginatorState.hasPrev"
+						class="btn btn-sm join-item"
+					>
+						«
+					</button>
+					<button class="btn btn-sm join-item no-animation cursor-default">
+						<span class="text-xs font-medium">Page {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }}</span>
+					</button>
+					<button
+						(click)="paginatorState.hasNext ? paginator.nextPage() : null"
+						[disabled]="!paginatorState.hasNext"
+						class="btn btn-sm join-item"
+					>
+						»
+					</button>
+				</div>
+				<div class="text-base-content/40 text-xs font-medium tracking-tight uppercase">Total: {{ paginatorState.totalNumberOfItems }} items</div>
+			</div>
+		}
+	</div>
+}

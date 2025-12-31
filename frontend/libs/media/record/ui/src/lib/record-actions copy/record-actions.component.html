@@ -1,0 +1,395 @@
+<div
+	class="recording-interface relative h-full w-full bg-transparent text-inherit"
+	[style.borderColor]="borderColor()"
+>
+	<!-- 1. Step: Media Mode Selection -->
+
+	@if (mediaMode === null) {
+		<!-- If no media mode, display the choice buttons -->
+		<div class="flex h-full w-full items-center justify-center space-x-4">
+			@if (displayAudioBtn) {
+				<button
+					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-4 rounded-lg"
+					[style.backgroundColor]="backgroundColor()"
+					[style.color]="fontColor()"
+					[style.borderColor]="borderColor()"
+					[style.borderRadius]="borderRadius()"
+					(click)="setMediaMode(MediaModeOptions.audio)"
+				>
+					<tw-mic
+						class="inline-block"
+						[style.width]="buttonWidth()"
+						[style.height]="buttonHeight()"
+					></tw-mic>
+					<div class="mt-2 block text-sm font-medium">{{ t('audio') }}</div>
+				</button>
+			}
+
+			@if (displayVideoBtn) {
+				<button
+					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-4 rounded-lg transition-all duration-200 hover:scale-105"
+					[style.backgroundColor]="backgroundColor()"
+					[style.color]="fontColor()"
+					[style.borderColor]="borderColor()"
+					[style.borderRadius]="borderRadius()"
+					(click)="setMediaMode(MediaModeOptions.video)"
+				>
+					<tw-cam
+						class="inline-block"
+						[style.width]="buttonWidth()"
+						[style.height]="buttonHeight()"
+					></tw-cam>
+					<div class="mt-2 block text-sm font-medium">{{ t('video') }}</div>
+				</button>
+			}
+
+			@if (displayScreenCaptureWithVideoBtn) {
+				<button
+					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-4 rounded-lg transition-all duration-200 hover:scale-105"
+					[style.backgroundColor]="backgroundColor()"
+					[style.color]="fontColor()"
+					[style.borderColor]="borderColor()"
+					[style.borderRadius]="borderRadius()"
+					(click)="setMediaMode(MediaModeOptions.screenCaptureAndVideo)"
+				>
+					<tw-screen-capture
+						class="inline-block"
+						[style.width]="buttonWidth()"
+						[style.height]="buttonHeight()"
+					></tw-screen-capture>
+					<div class="mt-2 block text-sm font-medium">{{ t('screen') }}</div>
+				</button>
+			}
+
+			@if (displayUploadBtn) {
+				<input
+					hidden
+					#browseFileBtn
+					type="file"
+					[accept]="accept()"
+				/>
+
+				<button
+					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-4 rounded-lg transition-all duration-200 hover:scale-105"
+					[style.backgroundColor]="backgroundColor()"
+					[style.color]="fontColor()"
+					[style.borderColor]="borderColor()"
+					[style.borderRadius]="borderRadius()"
+					(click)="browseFileBtn.click()"
+				>
+					<tw-upload
+						class="inline-block"
+						[style.width]="buttonWidth()"
+						[style.height]="buttonHeight()"
+					></tw-upload>
+					<div class="mt-2 block text-sm font-medium">{{ t('upload') }}</div>
+				</button>
+			}
+		</div>
+	} @else {
+		<!-- 2. Step: Grants / or Preview -->
+		@if (!isEverythingGranted()) {
+			<!-- Grant requests (microphone/camera) -->
+			<div class="flex h-full w-full flex-col items-center justify-center space-y-4 p-4">
+				@if (!recordingProps.microphoneAccessGranted) {
+					<div class="flex max-w-xs flex-col items-center space-y-2 text-center">
+						<p class="text-sm">
+							{{ t('You must grant access to your microphone to record audio.') }}
+						</p>
+						<button
+							class="rounded border border-gray-300 px-3 py-1 hover:bg-[#00000010]"
+							(click)="requestMicrophoneAccess()"
+						>
+							{{ t('Grant microphone access') }}
+						</button>
+					</div>
+				}
+
+				@if (!recordingProps.cameraAccessGranted && (mediaMode === MediaModeOptions.video || mediaMode === MediaModeOptions.screenCaptureAndVideo)) {
+					<div class="flex max-w-xs flex-col items-center space-y-2 text-center">
+						<p class="text-sm">
+							{{ t('You must grant access to your camera to record video.') }}
+						</p>
+						<button
+							class="rounded border border-gray-300 px-3 py-1 hover:bg-[#00000010]"
+							(click)="requestCameraAccess()"
+						>
+							{{ t('Grant camera access') }}
+						</button>
+					</div>
+				}
+
+				<button
+					class="cancel-action rounded border border-gray-300 px-3 py-1 hover:bg-[#00000010]"
+					(click)="cancelCurrentRecording()"
+				>
+					{{ t('Cancel') }}
+				</button>
+			</div>
+		} @else {
+			<!-- 3. Step: Ready to Record (Preview) -->
+			<div class="relative h-full w-full">
+				<!-- Video preview -->
+				@if (recordingProps.withVideo) {
+					<video
+						#videoPreview
+						class="h-full w-full scale-x-[-1] rounded"
+						autoplay
+						muted
+					></video>
+				}
+
+				<!-- Device Chooser Row -->
+				<div class="absolute top-0 mb-2 flex w-full items-center space-x-2">
+					<!-- Audio device menu -->
+					@if (!recordingProps.occupied && recordingProps.selectedAudioDevice) {
+						<button
+							class="flex items-center space-x-1 rounded px-2 py-1 hover:bg-[#00000010]"
+							[cdkMenuTriggerFor]="micSelectionMenu"
+						>
+							<tw-mic class="inline-block h-5 w-5"></tw-mic>
+							<span class="max-w-[80px] overflow-hidden truncate whitespace-nowrap">
+								{{ recordingProps.selectedAudioDevice.label.split('(')[0] || recordingProps.selectedAudioDevice.deviceId.substring(0, 5) }}
+							</span>
+							<tw-arrow-drop-down class="inline-block h-5 w-5"></tw-arrow-drop-down>
+						</button>
+					}
+
+					<!-- Video device menu -->
+					@if (!recordingProps.occupied && recordingProps.selectedVideoDevice && (mediaMode === MediaModeOptions.video || mediaMode === MediaModeOptions.screenCaptureAndVideo)) {
+						<button
+							class="flex items-center space-x-1 rounded px-2 py-1 hover:bg-[#00000010]"
+							[cdkMenuTriggerFor]="camSelectionMenu"
+						>
+							<tw-cam class="inline-block h-5 w-5"></tw-cam>
+							<span class="max-w-[80px] overflow-hidden truncate whitespace-nowrap">
+								{{ recordingProps.selectedVideoDevice.label.split('(')[0] || recordingProps.selectedVideoDevice.deviceId.substring(0, 5) }}
+							</span>
+							<tw-arrow-drop-down class="inline-block h-5 w-5"></tw-arrow-drop-down>
+						</button>
+					}
+
+					<!-- Aspect Ratio menu -->
+					@if (!recordingProps.occupied && (mediaMode === MediaModeOptions.video || mediaMode === MediaModeOptions.screenCaptureAndVideo)) {
+						<button
+							class="flex items-center space-x-1 rounded px-2 py-1 hover:bg-[#00000010]"
+							[cdkMenuTriggerFor]="aspectRatioMenu"
+						>
+							<span class="text-xs">{{ getAspectRatioLabel(recordingProps.selectedAspectRatio) }}</span>
+							<tw-arrow-drop-down class="inline-block h-5 w-5"></tw-arrow-drop-down>
+						</button>
+					}
+				</div>
+
+				<!-- Audio meter -->
+				<canvas
+					#audioMeter
+					class="absolute bottom-0 h-[50px] w-full"
+				></canvas>
+
+				<!-- Record Actions -->
+				<section
+					name="record-actions"
+					class="absolute bottom-1/2 left-1/2 mt-2 flex -translate-x-1/2 translate-y-1/2 items-center justify-between"
+				>
+					@if (!recordingProps.occupied) {
+						<!-- Record button or "countdown" -->
+						@if (!counting) {
+							<div class="flex flex-col items-center justify-center space-y-4">
+								<span class="whitespace-nowrap rounded-lg bg-gray-900/80 px-4 py-2 text-sm font-medium text-gray-200 backdrop-blur-sm">{{ t('Hit the button when ready') }}</span>
+								<button
+									class="record-control-button px-6 py-3 text-lg font-semibold"
+									[style.backgroundColor]="backgroundColor()"
+									[style.color]="fontColor()"
+									[style.borderColor]="borderColor()"
+									[style.borderRadius]="borderRadius()"
+									(click)="toggleRecordCounter()"
+								>
+									{{ t('start recording') }}
+								</button>
+							</div>
+						} @else {
+							<button
+								class="animate-pulse rounded-lg border border-gray-300 px-4 py-2 text-white bg-red-500/80 backdrop-blur-sm"
+								(click)="toggleRecordCounter()"
+							>
+								{{ t('Get ready in:') }} {{ timeLeft + 's' }}
+							</button>
+						}
+					} @else {
+						<!-- Another recorder is active OR we are in the middle of recording -->
+						@if (recordingProps.recordingTargetName !== recordingTargetName) {
+							<!-- Occupied by some other target -->
+							<button
+								class="rounded bg-gray-200 px-3 py-1 text-gray-600"
+								disabled
+							>
+								{{ t('record') }}
+							</button>
+						} @else {
+							<!-- This recorder is the one occupying (actively recording or preparing) -->
+							@if (recordingProps.recordingState === 'recording') {
+								<!-- Stop button + Cancel -->
+								<button
+									class="record-control-button flex items-center space-x-2 px-6 py-3 text-lg font-semibold transition-all duration-200 hover:scale-105"
+									[style.backgroundColor]="backgroundColor()"
+									[style.color]="fontColor()"
+									[style.borderColor]="borderColor()"
+									[style.borderRadius]="borderRadius()"
+									(click)="stopRecording()"
+								>
+									<tw-stop class="h-6 w-6"></tw-stop>
+									<span>{{ t('stop') }}</span>
+								</button>
+
+								<button
+									class="ml-3 rounded-lg bg-gray-700/80 p-3 text-gray-300 transition-all duration-200 hover:bg-red-500/80 hover:text-white backdrop-blur-sm"
+									(click)="cancelCurrentRecording()"
+								>
+									<tw-delete class="h-6 w-6"></tw-delete>
+								</button>
+							} @else {
+								<!-- States: 'recording-asked', 'countdown', 'stopped-asked', etc. -->
+								@if (recordingProps.recordingState === 'recording-asked') {
+									<span>{{ t('Get ready to record!') }}</span>
+								} @else if (recordingProps.recordingState === 'countdown') {
+									<button class="record-btn rounded bg-red-500 px-3 py-1 text-white">
+										{{ timerDuration - counter }}
+									</button>
+								} @else if (recordingProps.recordingState === 'stopped-asked') {
+									<span>{{ t('Processing your recording...') }}</span>
+								} @else {
+									<span> {{ t('Please wait') }} ({{ recordingProps.recordingState }}) </span>
+								}
+							}
+						}
+					}
+
+					@if (recordingProps.recordingState === 'recording') {
+						<!-- Duration text -->
+						<div class="ml-4 text-sm text-gray-700">
+							{{ recordingProps.recordedDuration ?? 0 | duration: 'showUnits' }}
+						</div>
+					}
+				</section>
+
+				<!-- Cross to Cancel (absolute top right) -->
+				<button
+					name="close"
+					class="absolute right-2 top-0 rounded p-1 hover:bg-[#00000010]"
+					(click)="cancelCurrentRecording()"
+				>
+					<tw-cancel class="inline-block h-5 w-5"></tw-cancel>
+				</button>
+			</div>
+		}
+	}
+
+	<!-- Microphone menu template -->
+	<ng-template #micSelectionMenu>
+		<div
+			cdkMenu
+			class="sp-menu"
+		>
+			@if (recordingProps.availableAudioDevices.length > 0) {
+				@for (device of recordingProps.availableAudioDevices; track device; let i = $index) {
+					<button
+						cdkMenuItem
+						class="sp-menu-item"
+						[ngClass]="{
+							'sp-active': device.deviceId === recordingProps.selectedAudioDevice?.deviceId,
+						}"
+						(click)="updateAudioDevice(device)"
+					>
+						@if (device.deviceId === recordingProps.selectedAudioDevice?.deviceId) {
+							<tw-mic class="inline-block h-5 w-5"></tw-mic>
+						} @else {
+							<tw-mic-off class="inline-block h-5 w-5"></tw-mic-off>
+						}
+						<span class="text-sm">{{ i + 1 }}.</span>
+						<span class="max-w-xs truncate">
+							{{ device.label ? device.label : t('microphone') }}
+						</span>
+					</button>
+				}
+			} @else {
+				<button
+					cdkMenuItem
+					class="sp-menu-item"
+				>
+					{{ t('No microphone available') }}
+				</button>
+			}
+		</div>
+	</ng-template>
+
+	<!-- Camera menu template -->
+	<ng-template #camSelectionMenu>
+		<div
+			cdkMenu
+			class="sp-menu"
+		>
+			@if (recordingProps.availableVideoDevices.length > 0) {
+				@for (device of recordingProps.availableVideoDevices; track device; let i = $index) {
+					<button
+						cdkMenuItem
+						class="sp-menu-item"
+						[ngClass]="{
+							'sp-active': device.deviceId === recordingProps.selectedVideoDevice?.deviceId,
+						}"
+						(click)="updateVideoDevice(device)"
+					>
+						@if (device.deviceId === recordingProps.selectedVideoDevice?.deviceId) {
+							<tw-cam class="inline-block h-5 w-5"></tw-cam>
+						} @else {
+							<tw-cam-off class="inline-block h-5 w-5"></tw-cam-off>
+						}
+						<span class="text-sm">{{ i + 1 }}.</span>
+						<span class="max-w-xs truncate">
+							{{ device.label ? device.label : t('camera') }}
+						</span>
+					</button>
+				}
+
+				@if (!recordingProps.cameraAccessGranted) {
+					<button
+						cdkMenuItem
+						class="sp-menu-item"
+						(click)="askForVideoPermissions()"
+					>
+						<tw-lock-open class="inline-block h-5 w-5"></tw-lock-open>
+						{{ t('Allow camera') }}
+					</button>
+				}
+			} @else {
+				<button
+					cdkMenuItem
+					class="sp-menu-item"
+				>
+					{{ t('No camera available') }}
+				</button>
+			}
+		</div>
+	</ng-template>
+
+	<!-- Aspect Ratio menu template -->
+	<ng-template #aspectRatioMenu>
+		<div
+			cdkMenu
+			class="sp-menu"
+		>
+			@for (aspectRatio of aspectRatioOptions; track aspectRatio.key) {
+				<button
+					cdkMenuItem
+					class="sp-menu-item"
+					[ngClass]="{
+						'sp-active': aspectRatio.key === recordingProps.selectedAspectRatio,
+					}"
+					(click)="setAspectRatio(aspectRatio.key)"
+				>
+					<span class="text-sm">{{ aspectRatio.label }}</span>
+				</button>
+			}
+		</div>
+	</ng-template>
+</div>

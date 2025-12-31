@@ -1,0 +1,9 @@
+@if (message()) {
+	<sup
+		class="aspect-square cursor-help rounded-full px-1"
+		[style.backgroundColor]="backgroundColor()"
+		>?</sup
+	>
+} @else {
+	<sup class="aspect-square cursor-help rounded-full px-1">!</sup>
+}

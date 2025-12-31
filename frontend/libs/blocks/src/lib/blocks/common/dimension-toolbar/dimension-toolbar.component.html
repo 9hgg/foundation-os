@@ -1,0 +1,110 @@
+<!-- Dimension Controls -->
+<div class="flex flex-wrap items-center gap-2">
+	<!-- Width Control -->
+	<div class="mb-1 mr-2 flex items-center space-x-1">
+		<label
+			for="blockWidthInput"
+			class="text-xs font-medium text-gray-700"
+		>
+			W:
+		</label>
+		<input
+			id="blockWidthInput"
+			type="number"
+			class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+			[(ngModel)]="width"
+			placeholder="auto"
+		/>
+		<select
+			class="rounded border border-gray-300 bg-white py-1 pl-2 pr-4 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+			[(ngModel)]="widthUnits"
+		>
+			@for (unit of availableUnits; track unit) {
+				<option [ngValue]="unit">
+					{{ unit }}
+				</option>
+			}
+		</select>
+	</div>
+
+	<!-- Height Control -->
+	<div class="mb-1 mr-2 flex items-center space-x-1">
+		<label
+			for="blockHeightInput"
+			class="text-xs font-medium text-gray-700"
+		>
+			H:
+		</label>
+		<input
+			id="blockHeightInput"
+			type="number"
+			class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+			[(ngModel)]="height"
+			placeholder="auto"
+		/>
+		<select
+			class="rounded border border-gray-300 bg-white py-1 pl-2 pr-4 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+			[(ngModel)]="heightUnits"
+		>
+			@for (unit of availableUnits; track unit) {
+				<option [value]="unit">
+					{{ unit }}
+				</option>
+			}
+		</select>
+	</div>
+
+	<!-- PosX control -->
+	<div class="mb-1 mr-2 flex items-center space-x-1">
+		<label
+			for="blockPosXInput"
+			class="text-xs font-medium text-gray-700"
+		>
+			to left:
+		</label>
+		<input
+			id="blockPosXInput"
+			type="number"
+			class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+			[(ngModel)]="posX"
+			placeholder="auto"
+		/>
+		<select
+			class="rounded border border-gray-300 bg-white py-1 pl-2 pr-4 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+			[(ngModel)]="posXUnits"
+		>
+			@for (unit of availableUnits; track unit) {
+				<option [value]="unit">
+					{{ unit }}
+				</option>
+			}
+		</select>
+	</div>
+
+	<!-- PosY control -->
+	<div class="mb-1 mr-2 flex items-center space-x-1">
+		<label
+			for="blockPosYInput"
+			class="text-xs font-medium text-gray-700"
+		>
+			to top:
+		</label>
+		<input
+			id="blockPosYInput"
+			type="number"
+			class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+			[(ngModel)]="posY"
+			placeholder="auto"
+		/>
+		<select
+			class="rounded border border-gray-300 bg-white py-1 pl-2 pr-4 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+			[(ngModel)]="posYUnits"
+		>
+			@for (unit of availableUnits; track unit) {
+				<option [value]="unit">
+					{{ unit }}
+				</option>
+			}
+		</select>
+	</div>
+</div>

@@ -1,0 +1,151 @@
+@let article_ = article();
+
+@if (article_) {
+	<div class="bg-base-200 min-h-screen px-4 py-8">
+		<main class="mx-auto max-w-4xl space-y-6">
+			<!-- Article Card -->
+			<article class="card bg-base-100 overflow-hidden shadow-xl">
+				<!-- Hero Header -->
+				<header class="card-body border-base-200 bg-base-100 border-b pb-6">
+					<!-- Tags -->
+					@if (article_.tags.length) {
+						<div class="mb-4 flex flex-wrap gap-2">
+							@for (tag of article_.tags; track tag) {
+								<span class="badge badge-primary badge-outline">
+									{{ tag }}
+								</span>
+							}
+						</div>
+					}
+
+					<h1 class="card-title text-base-content mb-2 text-3xl leading-tight font-extrabold md:text-4xl">
+						{{ article_.title }}
+					</h1>
+
+					@if (article_.summary) {
+						<p class="text-base-content/80 text-lg italic">
+							{{ article_.summary }}
+						</p>
+					}
+
+					<!-- Meta -->
+					<div class="text-base-content/60 mt-4 flex flex-wrap items-center gap-4 text-sm">
+						<div class="flex items-center gap-1">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+								stroke="currentColor"
+								class="h-4 w-4"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span
+								>Updated <time [attr.datetime]="article_.timeUpdated">{{ article_.timeUpdated | date: 'mediumDate' }}</time></span
+							>
+						</div>
+
+						@if (article_.timePublished) {
+							<div class="flex items-center gap-1">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="h-4 w-4"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+									/>
+								</svg>
+								<span>Published {{ article_.timePublished | date: 'mediumDate' }}</span>
+							</div>
+						}
+
+						@if (article_.draft) {
+							<span class="badge badge-warning gap-1">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="2"
+									stroke="currentColor"
+									class="h-3 w-3"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+									/>
+								</svg>
+								Draft
+							</span>
+						}
+					</div>
+				</header>
+
+				<!-- Article Content Body -->
+				<div class="card-body pt-0">
+					<div class="prose prose-lg prose-img:rounded-xl max-w-none">
+						<div class="ql-container ql-snow no-border w-full">
+							@if (article_.content) {
+								<div
+									class="ql-editor !px-0"
+									[innerHTML]="article_.content | sanitizeHtml"
+									contenteditable="false"
+								></div>
+							}
+						</div>
+					</div>
+				</div>
+			</article>
+
+			<!-- Comments Section -->
+			@if (article_.config.commentsEnabled) {
+				<section class="card bg-base-100 shadow-xl">
+					<div class="card-body p-0 sm:p-6">
+						@if (article_.kind == 'support') {
+							<lib-chat-displayer
+								[resourceId]="article_.id"
+								[resourceKind]="'article'"
+								[conversationKey]="'default'"
+								[commentTitle]="commentTitle()"
+							/>
+						} @else {
+							<lib-conversation-displayer
+								[resourceId]="article_.id"
+								[resourceKind]="'article'"
+								[conversationKey]="'default'"
+								[commentTitle]="commentTitle()"
+							/>
+						}
+					</div>
+				</section>
+			}
+
+			@if (addBottomMargin()) {
+				<div class="h-20"></div>
+			}
+		</main>
+	</div>
+} @else {
+	<div class="bg-base-200 flex min-h-[50vh] items-center justify-center">
+		<div class="text-center">
+			<div class="mb-4 text-6xl">📄</div>
+			<p
+				class="text-base-content/60 text-lg"
+				[translate]
+			>
+				Article not available
+			</p>
+		</div>
+	</div>
+}

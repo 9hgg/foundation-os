@@ -1,0 +1,123 @@
+<div class="modal-box w-full max-w-2xl rounded-2xl p-0 shadow-2xl">
+	<!-- Header -->
+	<div class="border-base-200 flex items-center gap-3 border-b px-6 py-5">
+		<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-amber-500 to-orange-500">
+			<svg
+				class="h-6 w-6 text-white"
+				fill="currentColor"
+				viewBox="0 0 20 20"
+			>
+				<path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+			</svg>
+		</div>
+		<div>
+			<h2 class="text-lg font-semibold">Select a Folder</h2>
+			<p class="text-sm opacity-60">Choose where to save your item</p>
+		</div>
+	</div>
+
+	<!-- Content -->
+	<div class="px-6 py-5">
+		<!-- Breadcrumb / Path -->
+		<div class="mb-4">
+			<lib-folder-path [(folderId)]="folderId" />
+		</div>
+
+		<!-- Select Current Folder Button -->
+		@if (foldersCmp.rootFolder$$$.value && !foldersCmp.itemsSelector.isSelected(foldersCmp.rootFolder$$$.value)) {
+			<button
+				type="button"
+				class="mb-4 flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-violet-400/50 bg-violet-500/10 px-4 py-3 text-sm font-medium text-violet-400 transition-all hover:border-violet-400 hover:bg-violet-500/20"
+				(click)="foldersCmp.itemsSelector.toggle(foldersCmp.rootFolder$$$.value)"
+			>
+				<svg
+					class="h-5 w-5"
+					fill="currentColor"
+					viewBox="0 0 20 20"
+				>
+					<path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+				</svg>
+				<span>Select current folder:</span>
+				<span class="font-bold">"{{ foldersCmp.rootFolder$$$.value.name }}"</span>
+			</button>
+		}
+
+		<!-- Folder Table -->
+		<div class="border-base-200 max-h-64 overflow-y-auto rounded-xl border">
+			<lib-folder-table
+				click-behavior="emit"
+				[(folderId)]="folderId"
+				(rowClicked)="foldersCmp.folderId.set($event.id)"
+				#foldersCmp
+			></lib-folder-table>
+		</div>
+
+		<!-- Selected Folders List -->
+		@if (foldersCmp.itemsSelector.numSelected > 0) {
+			<div class="mt-4">
+				<h3 class="mb-2 text-xs font-semibold tracking-wider uppercase opacity-50">Selected ({{ foldersCmp.itemsSelector.numSelected }}{{ maxFolders() ? ' / ' + maxFolders() : '' }})</h3>
+				<div class="flex flex-wrap gap-2">
+					@for (folder of foldersCmp.itemsSelector.selectedItems; track folder.id) {
+						<div class="inline-flex items-center gap-2 rounded-full bg-violet-500/20 px-3 py-1.5 text-sm font-medium text-violet-300">
+							<svg
+								class="h-4 w-4"
+								fill="currentColor"
+								viewBox="0 0 20 20"
+							>
+								<path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+							</svg>
+							<span>{{ folder.name }}</span>
+							<button
+								type="button"
+								class="ml-1 flex h-5 w-5 items-center justify-center rounded-full text-violet-400 transition-colors hover:bg-violet-400/30 hover:text-white"
+								(click)="foldersCmp.itemsSelector.toggle(folder)"
+								[attr.aria-label]="'Remove ' + folder.name"
+							>
+								<svg
+									class="h-3 w-3"
+									fill="currentColor"
+									viewBox="0 0 20 20"
+								>
+									<path
+										fill-rule="evenodd"
+										d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+										clip-rule="evenodd"
+									></path>
+								</svg>
+							</button>
+						</div>
+					}
+				</div>
+			</div>
+		}
+	</div>
+
+	<!-- Actions -->
+	<div class="border-base-200 flex justify-end gap-3 border-t px-6 py-4">
+		<button
+			type="button"
+			class="btn btn-ghost"
+			(click)="cancel()"
+		>
+			Cancel
+		</button>
+		<button
+			type="button"
+			class="btn btn-primary"
+			[disabled]="!foldersCmp.itemsSelector.valid"
+			(click)="save()"
+		>
+			@switch (foldersCmp.itemsSelector.numSelected) {
+				@case (0) {
+					<span>Save</span>
+				}
+				@case (1) {
+					<span>Use "{{ foldersCmp.itemsSelector.selectedItems[0].name || '' | slice: 0 : 15 }}{{ (foldersCmp.itemsSelector.selectedItems[0].name || '').length > 15 ? '...' : '' }}"</span>
+				}
+				@default {
+					<span>Use {{ foldersCmp.itemsSelector.numSelected }} folders</span>
+				}
+			}
+		</button>
+	</div>
+</div>

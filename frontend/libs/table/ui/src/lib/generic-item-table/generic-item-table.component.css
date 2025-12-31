@@ -1,0 +1,8 @@
+@reference "tailwindcss";
+/* TABLE COLS */
+.selection-column {
+	width: 40px;
+}
+.preview-column {
+	width: 80px;
+}
