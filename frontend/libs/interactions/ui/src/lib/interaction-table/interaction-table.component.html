@@ -1,0 +1,98 @@
+@if (explicitInteractions()) {
+	<div
+		name="table-container"
+		class="bg-base-100 card border-base-200 border shadow-sm"
+	>
+		<table
+			name="table-body"
+			class="table w-full"
+		>
+			<thead class="bg-base-200/50 text-base-content/60 text-xs font-bold tracking-wider uppercase">
+				<tr>
+					<!-- selection header -->
+					<th class="selection-column w-12 text-center">
+						<div class="flex justify-center">
+							{{ selectedInteractions.numSelected ? selectedInteractions.numSelected : '' }}
+						</div>
+					</th>
+
+					<!-- Name header -->
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>key</span
+							>
+						</div>
+					</th>
+
+					<!-- creation date header -->
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>creation date</span
+							>
+						</div>
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+				@for (interaction of explicitInteractions(); track interaction?.id) {
+					@if (interaction) {
+						<tr
+							[tabIndex]="0"
+							(click)="selectedInteractions.toggle(interaction)"
+							(keyup.enter)="selectedInteractions.toggle(interaction)"
+							class="hover:bg-base-200/50 cursor-pointer transition-colors duration-150"
+							[ngClass]="{ 'bg-primary/10': selectedInteractions.isSelected(interaction) }"
+						>
+							<!-- selection -->
+							<td class="text-center">
+								<div
+									class="flex justify-center"
+									(click)="$event.stopImmediatePropagation(); selectedInteractions.toggle(interaction)"
+									(keydown)="(undefined)"
+									tabindex="0"
+								>
+									<input
+										class="checkbox checkbox-primary checkbox-sm"
+										type="checkbox"
+										[checked]="selectedInteractions.isSelected(interaction)"
+										(click)="$event.stopImmediatePropagation(); selectedInteractions.toggle(interaction)"
+										tabindex="-1"
+									/>
+								</div>
+							</td>
+
+							<!-- Name -->
+							<td>
+								<div class="flex items-center gap-3">
+									<div class="font-bold">
+										{{ interaction.key || 'Untitled' }}
+									</div>
+									<div class="text-base-content/50 text-xs">
+										{{ interaction.id | slice: 0 : 8 }}
+									</div>
+								</div>
+							</td>
+
+							<!-- creation date -->
+							<td>
+								<div class="text-base-content/60 text-xs">
+									{{ interaction.timeCreated | date: 'short' }}
+								</div>
+							</td>
+						</tr>
+					}
+				}
+			</tbody>
+		</table>
+	</div>
+} @else {
+	<div class="flex h-full w-full items-center justify-center p-4">
+		<span class="loading loading-spinner loading-md"></span>
+	</div>
+}

@@ -1,16 +1,14 @@
-import { FoldersModals } from '@foundation/folders/modals';
-import { TranslationsRepository } from '@foundation/translations/state';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
-import { Team } from '@foundation/teams/models';
-import { TeamsRepository } from '@foundation/teams/state';
-import { DateAsAgoPipe } from '@foundation/utils';
+/* eslint-disable @angular-eslint/prefer-inject */
 import { CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FoldersModals } from '@foundation/folders/modals';
+import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { Team } from '@foundation/teams/models';
+import { TeamsRepository } from '@foundation/teams/state';
+import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
+import { DateAsAgoPipe } from '@foundation/utils';
 import { switchMap } from 'rxjs';
 
 @Component({

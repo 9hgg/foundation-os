@@ -2,7 +2,7 @@ import { Article } from '@foundation/articles/models';
 import { GenericRepository } from '@foundation/table/state';
 import { slugify } from '@foundation/utils';
 import { Injectable } from '@angular/core';
-import { map, of, switchMap, tap } from 'rxjs';
+import { map, of, switchMap, take, tap } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable({ providedIn: 'root' })
@@ -17,44 +17,47 @@ export class ArticlesRepository extends GenericRepository<Article> {
 			toEditor: options_?.toEditor ?? false,
 			inNewTab: options_?.inNewTab ?? false,
 		};
-		this.store.getObjectById$$$(articleId, true).subscribe((article) => {
-			if (!article) {
-				console.error('Article not found:', articleId);
-				return;
-			}
-
-			if (article.kind === 'support') {
-				console.warn('Article is a support article, redirecting to support page:', articleId);
-				this._router.navigate(['/', 'host', 'dashboard', 'support', articleId], {
-					fragment: messageId ? 'message-' + messageId : undefined,
-				});
-				return;
-			}
-
-			if (inNewTab) {
-				// warn if toEditor is true
-				if (toEditor) {
-					console.warn('Opening article in a new tab with editor mode is not supported. Redirecting to article view.');
+		this.store
+			.getObjectById$$$(articleId, true)
+			.pipe(take(1))
+			.subscribe((article) => {
+				if (!article) {
+					console.error('Article not found:', articleId);
+					return;
 				}
-				// open in a new tab
-				window.open('/host/dashboard/articles/' + articleId + (messageId ? '#message-' + messageId : ''), '_blank');
-			} else if (toEditor) {
-				this._router.navigate(['/', 'host', 'dashboard', 'articles', articleId, 'builder']);
-			} else {
-				this._router.navigate(['/', 'host', 'dashboard', 'articles', articleId], {
-					fragment: messageId ? 'message-' + messageId : undefined,
-				});
-			}
-			if (messageId) {
-				setTimeout(() => {
-					// scroll to message if messageId is provided
-					const element = document.getElementById('message-' + messageId);
-					if (element) {
-						element.scrollIntoView({ behavior: 'smooth' });
+
+				if (article.kind === 'support') {
+					console.log('Article is a support article, redirecting to support page:', articleId);
+					this._router.navigate(['/', 'host', 'dashboard', 'support', articleId], {
+						fragment: messageId ? 'message-' + messageId : undefined,
+					});
+					return;
+				}
+
+				if (inNewTab) {
+					// warn if toEditor is true
+					if (toEditor) {
+						console.warn('Opening article in a new tab with editor mode is not supported. Redirecting to article view.');
 					}
-				}, 100);
-			}
-		});
+					// open in a new tab
+					window.open('/host/dashboard/articles/' + articleId + (messageId ? '#message-' + messageId : ''), '_blank');
+				} else if (toEditor) {
+					this._router.navigate(['/', 'host', 'dashboard', 'articles', articleId, 'builder']);
+				} else {
+					this._router.navigate(['/', 'host', 'dashboard', 'articles', articleId], {
+						fragment: messageId ? 'message-' + messageId : undefined,
+					});
+				}
+				if (messageId) {
+					setTimeout(() => {
+						// scroll to message if messageId is provided
+						const element = document.getElementById('message-' + messageId);
+						if (element) {
+							element.scrollIntoView({ behavior: 'smooth' });
+						}
+					}, 100);
+				}
+			});
 	}
 
 	public goToArticleEditor(articleId: string): void {
@@ -69,7 +72,13 @@ export class ArticlesRepository extends GenericRepository<Article> {
 		this._router.navigate(['/', 'host', 'dashboard', 'articles']);
 	}
 
-	public goToArticlePublicPage(articleId: string): void {}
+	
+	private _i18n_notImplementedYetTitle = this._translationService.prep('Not implemented yet');
+	private _i18n_notImplementedYetMessage = this._translationService.prep('The public page redirection is not implemented yet.');
+	public goToArticlePublicPage(articleId: string): void {
+		// not implemented yet
+		this._notificationService.snack(this._i18n_notImplementedYetTitle(), this._i18n_notImplementedYetMessage());
+	}
 
 	public isSlugAvailable$(slug: string) {
 		return this._requestService.getBasic$<{ slugAvailable: boolean }>('/api/articles/check-slug/' + slug);

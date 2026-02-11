@@ -1,8 +1,11 @@
+/* eslint-disable @angular-eslint/prefer-inject */
+import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
+import { CommonModule } from '@angular/common';
+import { Attribute, ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ArticlesRepository } from '@foundation/articles/state';
 import { ArticlePillComponent } from '@foundation/articles/ui';
 import { TwArchiveIcon } from '@foundation/icons';
-import { InterviewsRepository } from '@spoken/interviews/state';
-import { InterviewPillComponent } from '@spoken/interviews/ui';
 import { Filter } from '@foundation/network/store';
 import { Notification } from '@foundation/notifications/models';
 import { NotificationsRepository } from '@foundation/notifications/state';
@@ -10,10 +13,9 @@ import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { UserPillComponent } from '@foundation/users/ui';
 import { DateAsAgoPipe } from '@foundation/utils';
-import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
-import { CommonModule } from '@angular/common';
-import { Attribute, ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormsRepository } from '@spoken/forms/state';
+import { InterviewsRepository } from '@spoken/interviews/state';
+import { InterviewPillComponent } from '@spoken/interviews/ui';
 import { tap } from 'rxjs';
 
 const EXCLUDE_ARCHIVED_FILTER: Filter = {
@@ -49,6 +51,7 @@ const EXCLUDE_ARCHIVED_FILTER: Filter = {
 export class NotificationTableComponent extends RepositoryTableComponent<Notification, NotificationsRepository> {
 	private _articlesRepository = inject(ArticlesRepository);
 	private _interviewsRepository = inject(InterviewsRepository);
+	private _formsRepository = inject(FormsRepository);
 
 	constructor(
 		private _repository: NotificationsRepository,
@@ -146,16 +149,25 @@ export class NotificationTableComponent extends RepositoryTableComponent<Notific
 			case 'comment':
 			case 'reaction':
 			case 'mention':
-			case 'reply':
+			case 'reply': {
 				const articleId = notification.targetId;
 				const messageId = notification.config?.messageId;
 				this._articlesRepository.goToArticle(articleId, { messageId });
 				break;
+			}
 
 			case 'interaction.interview':
 				console.log('Interview function called for notification:', notification);
 				// if it is an interview we should go to the interview
 				this.goToInterviewResponses(notification.targetId);
+				break;
+
+			case 'interaction.form':
+				this._formsRepository.goToForm(notification.targetId, {
+					queryParams: {
+						mainTab: 'Responses', // Assuming similar structure
+					},
+				});
 				break;
 
 			default:

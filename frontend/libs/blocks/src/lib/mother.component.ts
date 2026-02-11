@@ -1,10 +1,10 @@
-import { Block, CanvasManager, CssUnits, ExportOption, Store } from '@foundation/canvas';
-// import { InterviewExportOption } from '@spoken/interviews/models';
-import { NotificationService } from '@foundation/notification';
-import { Attr, createBehaviorSubjectProxy, isEqual, PortalService } from '@foundation/utils';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { Directive, effect, ElementRef, HostBinding, inject, model, OnDestroy, Signal, signal, TemplateRef, untracked, viewChild, ViewContainerRef, WritableSignal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+// eslint-disable-next-line @nx/enforce-module-boundaries
+import { Block, CanvasManager, CssUnits, ExportOption, Store } from '@foundation/canvas';
+import { NotificationService } from '@foundation/notification';
+import { Attr, createBehaviorSubjectProxy, isEqual, PortalService } from '@foundation/utils';
 import { combineLatest, debounceTime, EMPTY, Observable, skip, Subject, switchMap, take, tap } from 'rxjs';
 
 export interface InteractionRepositoryInterface {
@@ -406,7 +406,9 @@ export class MotherComponent implements OnDestroy {
 		// to be overridden
 	}
 
-	enlistInteractionArea() {}
+	enlistInteractionArea() {
+		//
+	}
 
 	tranformBlock(cb: (block: Block) => Block, redraw: boolean = false) {
 		// console.log('[Mother](tranformBlock)');

@@ -49,7 +49,7 @@ export class RepositoryTableComponent<Item extends { id: string }, ItemRepositor
 			...repositoryTablePaginatorOptions,
 		};
 		if (!clickBehavior) {
-			console.warn('clickBehavior is not set, defaulting to "select". Please set it to "select", "expand", "emit", "toggle", "none" or "customFn"');
+			console.warn(`clickBehavior is not set for ${itemKind}, defaulting to "select". Please set it to "select", "expand", "emit", "toggle", "none" or "customFn"`);
 		}
 		super(options, clickBehavior, itemKind);
 

@@ -7,7 +7,7 @@ import { TranslatePipe, TranslateDirective } from '@foundation/translations/serv
 import { RequestService } from '@foundation/network/services';
 import { OctetHumanReadablePipe } from '@foundation/utils';
 import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
-import { CommonModule } from '@angular/common';
+
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { NEVER, switchMap, tap } from 'rxjs';
@@ -15,7 +15,7 @@ import { NEVER, switchMap, tap } from 'rxjs';
 @Component({
 	selector: 'lib-download-button',
 	standalone: true,
-	imports: [CommonModule, TranslateDirective, TranslatePipe, OctetHumanReadablePipe, CdkMenuModule, CdkMenu, CdkMenuItem],
+	imports: [TranslateDirective, TranslatePipe, OctetHumanReadablePipe, CdkMenuModule, CdkMenu, CdkMenuItem],
 	templateUrl: './download-button.component.html',
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	encapsulation: ViewEncapsulation.None,

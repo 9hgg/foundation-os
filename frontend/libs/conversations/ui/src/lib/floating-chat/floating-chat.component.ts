@@ -1,17 +1,15 @@
-import { Article } from '@foundation/articles/models';
-import { ArticlesRepository } from '@foundation/articles/state';
-import { ConversationsRepository } from '@foundation/conversations/state';
-import { TranslationsRepository } from '@foundation/translations/state';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
-import { TwCrossIcon, TwInfoCircleIcon } from '@foundation/icons';
-import { RepositoryTableComponent } from '@foundation/table/ui';
-import { UsersRepository } from '@foundation/users/state';
-import { slugify } from '@foundation/utils';
+/* eslint-disable @angular-eslint/prefer-inject */
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component, ElementRef, Input, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Article } from '@foundation/articles/models';
+import { ArticlesRepository } from '@foundation/articles/state';
+import { ConversationsRepository } from '@foundation/conversations/state';
+import { TwCrossIcon, TwInfoCircleIcon } from '@foundation/icons';
+import { RepositoryTableComponent } from '@foundation/table/ui';
+import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
+import { UsersRepository } from '@foundation/users/state';
+import { slugify } from '@foundation/utils';
 import { of, switchMap, tap } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatDisplayerComponent } from '../chat-displayer/chat-displayer.component';
@@ -21,7 +19,17 @@ type PositionPreset = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 @Component({
 	selector: 'lib-floating-chat',
 	standalone: true,
-	imports: [CommonModule, TwInfoCircleIcon, TwCrossIcon, DatePipe, TranslateDirective, ChatDisplayerComponent, RouterLink],
+	imports: [
+		//
+		CommonModule,
+		TwInfoCircleIcon,
+		TwCrossIcon,
+		DatePipe,
+		TranslateDirective,
+		TranslatePipe,
+		ChatDisplayerComponent,
+		RouterLink,
+	],
 	templateUrl: './floating-chat.component.html',
 	styleUrls: ['./floating-chat.component.css'],
 })

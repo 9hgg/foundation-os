@@ -496,6 +496,16 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 		return this.getOrCreateObjectSubject$(id);
 	}
 
+	getObjectByIdPullOnce$$$(id: string): BehaviorSubjectReplayed<ObjectType | null> {
+		const valueInStore = this.objects$$$.value.find((object) => object.id === id);
+		if (!valueInStore) {
+			//pull the object from the server
+			this.pullObject$(id).subscribe();
+		}
+
+		return this.getOrCreateObjectSubject$(id);
+	}
+
 	/**
 	 * REST operation on the PUT endpoint
 	 * @param object

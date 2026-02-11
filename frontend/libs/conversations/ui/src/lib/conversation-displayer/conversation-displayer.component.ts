@@ -1,3 +1,4 @@
+import { AccessService } from '@foundation/shared/access';
 import { Conversation } from '@foundation/conversations/models';
 import { ConversationsRepository } from '@foundation/conversations/state';
 import { Message } from '@foundation/messages/models';
@@ -14,6 +15,7 @@ import { CommonModule } from '@angular/common';
 import { Component, ElementRef, ViewChild, computed, effect, inject, input, model, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { of, tap } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 const DEFAULT_NUMBER_OF_MESSAGES = 10;
@@ -40,6 +42,8 @@ export class ConversationDisplayerComponent {
 	private _conversationsRepository = inject(ConversationsRepository);
 	private _messagesRepository = inject(MessagesRepository);
 	usersRepository = inject(UsersRepository);
+	private _accessService = inject(AccessService);
+	private _router = inject(Router);
 	private _translationService = inject(TranslationService);
 	public MAX_COMMENT_LENGTH = 2000;
 	public COMMENT_LENGTH_COLLAPSE = 200;
@@ -50,6 +54,8 @@ export class ConversationDisplayerComponent {
 	public commentLabelText = signal('Your comment');
 	public commentPlaceholderText = signal('Write your comment here...');
 	public commentButtonText = signal('Post comment');
+
+	isAdmin = toSignal(this._accessService.checkAdmin$(), { initialValue: false });
 
 	@ViewChild('commentTextarea') commentTextarea: ElementRef<HTMLTextAreaElement> | undefined;
 	@ViewChild('commentsContainer') commentsContainer: ElementRef<HTMLDivElement> | undefined;
@@ -87,9 +93,11 @@ export class ConversationDisplayerComponent {
 	processedMessages = computed(() => {
 		const _messagePaginatorState = this._messagePaginatorState();
 		const userIdsToDetails = this.usersRepository.userIdsToDetails();
+
 		const convenientListOfExtraMessages = this._messagesRepository.convenientListOfExtraMessages();
 		if (!_messagePaginatorState) return [];
 		const currentUserId = this.usersRepository.currentProfile()?.id;
+
 		// if (!currentUserId) return [];
 		return _messagePaginatorState.itemsOnCurrentPage.map((message) => (message ? this._convertMessageToProcessedMessage(message, userIdsToDetails, currentUserId, convenientListOfExtraMessages) : null));
 	});
@@ -202,9 +210,11 @@ export class ConversationDisplayerComponent {
 		convenientListOfExtraMessages: { [messageId: string]: Message } = {}
 	): ProcessedMessage {
 		const userId = message.authorId;
+
 		const userDetails = userIdsToDetails[userId];
 		const avatarUrl = userDetails?.avatarUrl || '';
 		const publicName = userDetails?.publicName || 'User';
+
 		const currentUserReactionEmoji = message.config?.reactions?.find((reaction) => reaction.userId === currentUserId)?.emoji;
 		const reactionsSummary: { emoji: string; count: number; userReacted: boolean }[] = [];
 		const reactions = message.config?.reactions || [];
@@ -244,6 +254,8 @@ export class ConversationDisplayerComponent {
 	}
 
 	private _i18n_youMustBeConnected = this._translationService.prep('You must be connected to perform this action.');
+	private _i18n_deleteSentence = this._translationService.prep('Are you sure you want to delete this comment?');
+
 	public postComment() {
 		if (!this.newCommentContent().trim()) {
 			console.warn('Comment cannot be empty.');
@@ -334,14 +346,17 @@ export class ConversationDisplayerComponent {
 	}
 
 	public removeComment(messageId: string): void {
-		this._messagesRepository.store
-			.deleteObject$(messageId)
-			.pipe(
-				tap(() => {
-					this.messagesPaginator.refresh();
-				})
-			)
-			.subscribe();
+		this._notificationService.confirm(this._i18n_deleteSentence()).closed.subscribe((confirmed) => {
+			if (!confirmed) return;
+			this._messagesRepository.store
+				.deleteObject$(messageId)
+				.pipe(
+					tap(() => {
+						this.messagesPaginator.refresh();
+					})
+				)
+				.subscribe();
+		});
 	}
 
 	public reportComment(messageId: string): void {
@@ -393,6 +408,14 @@ export class ConversationDisplayerComponent {
 			this.activeReactionPickerMessageId.set(null);
 		} else {
 			this.activeReactionPickerMessageId.set(messageId);
+		}
+	}
+	public editArticle() {
+		// assume resourceKind is article for now or check it
+		if (this.resourceKind() === 'article') {
+			this._router.navigate(['/', 'host', 'dashboard', 'articles', this.resourceId(), 'builder']);
+		} else {
+			this._notificationService.notify('Editing not supported for resource type: ' + this.resourceKind());
 		}
 	}
 }

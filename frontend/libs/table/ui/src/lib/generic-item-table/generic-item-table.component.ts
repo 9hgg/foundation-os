@@ -1,15 +1,14 @@
-import { RequestService } from '@foundation/network/services';
-import { convertFilterToQueryString, convertQueryStringToFilter, createLocalRequestFn, Filter, PaginatorState, PaginatorStateOptions, RequestFn } from '@foundation/network/store';
-import { NotificationService } from '@foundation/notification';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
-import { createBehaviorSubjectProxy, DragAndDropService, FullSpanRowDirective, Selector } from '@foundation/utils';
 import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component, effect, ElementRef, EventEmitter, Inject, inject, input, model, Output, signal, viewChildren } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { RequestService } from '@foundation/network/services';
+import { convertFilterToQueryString, convertQueryStringToFilter, createLocalRequestFn, Filter, PaginatorState, PaginatorStateOptions, RequestFn } from '@foundation/network/store';
+import { NotificationService } from '@foundation/notification';
+import { TranslateDirective, TranslatePipe, TranslationService } from '@foundation/translations/services';
+import { createBehaviorSubjectProxy, DragAndDropService, FullSpanRowDirective, Selector } from '@foundation/utils';
 import { combineLatest, debounceTime, of, tap } from 'rxjs';
 export const PAGINATOR_OPTIONS = 'PAGINATOR_OPTIONS';
 export type BehaviorType = 'select' | 'expand' | 'emit' | 'toggle' | 'none' | 'customFn';
@@ -82,7 +81,7 @@ export class GenericItemTableComponent<Item extends { id: string }> {
 
 	/** for each column, do we display the search input */
 	displaySearchByFields$_ = createBehaviorSubjectProxy({} as Record<string, boolean>);
-	filterByFields$_ = createBehaviorSubjectProxy({} as Record<string, string>);
+	filterByFields$_ = createBehaviorSubjectProxy({} as Record<string, string | number | boolean>);
 
 	/** this is used to get/set the search pattern from/to the URL */
 	searchPatternInUrl = model<string | null>();
@@ -151,13 +150,17 @@ export class GenericItemTableComponent<Item extends { id: string }> {
 			takeUntilDestroyed(),
 			debounceTime(300),
 			tap((controls) => {
-				const newFilters: Filter[] = Object.entries(controls).map((keyvalue) => {
-					return {
-						fieldName: keyvalue[0],
-						value: keyvalue[1],
-						matchType: 'partial',
-					};
-				});
+				const newFilters: Filter[] = Object.entries(controls)
+					.filter(([, value]) => value !== null && value !== undefined && value !== '')
+					.map(([fieldName, value]) => {
+						const normalizedValue = typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value)) ? Number(value) : value;
+						return {
+							fieldName,
+							value: normalizedValue,
+							matchType: typeof normalizedValue === 'boolean' || typeof normalizedValue === 'number' ? 'exact' : 'partial',
+						};
+					});
+				console.log('Applying new filters to paginator', newFilters);
 				this.paginator.setFilters(newFilters);
 
 				const filtersAsString: string[] = newFilters.map((filter) => convertFilterToQueryString(filter));
@@ -322,8 +325,6 @@ export class GenericItemTableComponent<Item extends { id: string }> {
 	}
 
 	private _onRowDragStart(event: DragEvent, rowIndex: number): void {
-		if (!this.itemKind) {
-		}
 		const currentItem = this.paginator.itemsOnCurrentPage$$$.value[rowIndex];
 		if (this.itemsSelector.numSelected == 0 && currentItem) {
 			// select if none was selected

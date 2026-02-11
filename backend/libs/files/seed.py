@@ -1,3 +1,5 @@
+from rich import print
+
 from libs.db import context_db
 from libs.logger import print_color
 
@@ -19,8 +21,10 @@ def seed_file_settings():
                 "[files.seed] creating file settings (LOCAL)",
                 LOCAL_STORAGE_SETTINGS_ID,
             )
-            storage_settings_db = LOCAL_STORAGE_SETTINGS
 
-            StorageSettings.create(obj=storage_settings_db, _db=db)
+            storage_settings_db = StorageSettings.create(
+                obj=LOCAL_STORAGE_SETTINGS, _db=db
+            )
+            print("storage_settings_db:",storage_settings_db)
 
     print_color("cyan", "[files.seed] done seeding files settings")

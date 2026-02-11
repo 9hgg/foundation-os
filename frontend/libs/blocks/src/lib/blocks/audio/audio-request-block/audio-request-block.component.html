@@ -4,1315 +4,1316 @@
 @let recordingProps_ = recordingProps();
 
 <div
-	class="flex h-full w-full flex-col rounded-lg"
-	[style.background-color]="containerBackgroundColor() || 'transparent'"
-	[style.border]="'1px solid ' + containerBackgroundColorContrasted()"
-	[style.color]="containerBackgroundColorContrasted()"
->
-	@switch (currentScreen_) {
-		@case ('help') {
-			<!-- Help Section -->
-			<div class="flex h-full flex-col">
-				<div class="border-b py-2">
-					<div class="flex items-center justify-between px-6">
-						<h3 class="mb-2 text-lg font-semibold">
-							{{ t('Getting Started') }}
-						</h3>
-						<button
-							class="flex items-center rounded-lg border px-1 py-1 text-sm font-medium transition-colors"
-							[style.border-color]="containerBackgroundColorContrasted()"
-							(click)="currentScreen.set('participate')"
-						>
-							{{ t('Close') }}
-						</button>
-					</div>
+  class="flex h-full w-full flex-col rounded-lg"
+  [style.background-color]="containerBackgroundColor() || 'transparent'"
+  [style.border]="'1px solid ' + containerBackgroundColorContrasted()"
+  [style.color]="containerBackgroundColorContrasted()"
+  >
+  @switch (currentScreen_) {
+    @case ('help') {
+      <!-- Help Section -->
+      <div class="flex h-full flex-col">
+        <div class="border-b py-2">
+          <div class="flex items-center justify-between px-6">
+            <h3 class="mb-2 text-lg font-semibold">
+              {{ t('Getting Started') }}
+            </h3>
+            <button
+              class="flex items-center rounded-lg border px-1 py-1 text-sm font-medium transition-colors"
+              [style.border-color]="containerBackgroundColorContrasted()"
+              (click)="currentScreen.set('participate')"
+              >
+              {{ t('Close') }}
+            </button>
+          </div>
 
-					<p class="px-6 text-sm opacity-80">
-						{{ t('Learn how to use the recording interface effectively') }}
-					</p>
-				</div>
+          <p class="px-6 text-sm opacity-80">
+            {{ t('Learn how to use the recording interface effectively') }}
+          </p>
+        </div>
 
-				<div class="flex-1 space-y-4 overflow-auto px-6 py-3">
-					<!-- Step 1: Play Around -->
-					<div
-						class="rounded-lg border p-4"
-						[style.border-color]="containerBackgroundColorContrasted()"
-					>
-						<h4 class="mb-2 font-medium">🎬 {{ t('1. Experiment First') }}</h4>
-						<p class="text-sm opacity-80">
-							{{ t("Try creating your first recording or two. Don't worry about perfection - you can always delete them and reorder tracks later. This helps you get familiar with the interface.") }}
-						</p>
-					</div>
+        <div class="flex-1 space-y-4 overflow-auto px-6 py-3">
+          <!-- Step 1: Play Around -->
+          <div
+            class="rounded-lg border p-4"
+            [style.border-color]="containerBackgroundColorContrasted()"
+            >
+            <h4 class="mb-2 font-medium">🎬 {{ t('1. Experiment First') }}</h4>
+            <p class="text-sm opacity-80">
+              {{ t("Try creating your first recording or two. Don't worry about perfection - you can always delete them and reorder tracks later. This helps you get familiar with the interface.") }}
+            </p>
+          </div>
 
-					<!-- Step 2: Settings -->
-					<div
-						class="rounded-lg border p-4"
-						[style.border-color]="containerBackgroundColorContrasted()"
-					>
-						<h4 class="mb-2 flex items-center font-medium">
-							<tw-cog class="mr-2 h-4 w-4" />
-							{{ t('2. Configure Settings') }}
-						</h4>
-						<p class="text-sm opacity-80">
-							{{ t('Use the cog icon button in the header to access device settings and set the right aspect ratio for video recordings. You can select your preferred microphone, camera, and video dimensions.') }}
-						</p>
-					</div>
+          <!-- Step 2: Settings -->
+          <div
+            class="rounded-lg border p-4"
+            [style.border-color]="containerBackgroundColorContrasted()"
+            >
+            <h4 class="mb-2 flex items-center font-medium">
+              <tw-cog class="mr-2 h-4 w-4" />
+              {{ t('2. Configure Settings') }}
+            </h4>
+            <p class="text-sm opacity-80">
+              {{ t('Use the cog icon button in the header to access device settings and set the right aspect ratio for video recordings. You can select your preferred microphone, camera, and video dimensions.') }}
+            </p>
+          </div>
 
-					<!-- Help: Step 3: Multiple Recordings -->
-					<div
-						class="rounded-lg border p-4"
-						[style.border-color]="containerBackgroundColorContrasted()"
-					>
-						<h4 class="mb-2 font-medium">🎯 {{ t('3. Record in Pieces') }}</h4>
-						<p class="text-sm opacity-80">
-							{{ t('You can select multiple recordings if you prefer to record in segments. Each piece will be saved separately, giving you flexibility to re-record specific parts without affecting others.') }}
-						</p>
-					</div>
+          <!-- Help: Step 3: Multiple Recordings -->
+          <div
+            class="rounded-lg border p-4"
+            [style.border-color]="containerBackgroundColorContrasted()"
+            >
+            <h4 class="mb-2 font-medium">🎯 {{ t('3. Record in Pieces') }}</h4>
+            <p class="text-sm opacity-80">
+              {{ t('You can select multiple recordings if you prefer to record in segments. Each piece will be saved separately, giving you flexibility to re-record specific parts without affecting others.') }}
+            </p>
+          </div>
 
-					<!-- Help: Next actions -->
-					<div class="mt-6 flex space-x-3">
-						<button
-							class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-							[style.background-color]="containerBackgroundColorContrasted()"
-							[style.color]="containerBackgroundColorForced()"
-							(click)="currentScreen.set('participate')"
-						>
-							{{ t('Start Recording') }}
-						</button>
-						<button
-							class="flex items-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
-							[style.background-color]="'transparent'"
-							[style.background-color]="containerBackgroundColorContrasted()"
-							[style.color]="containerBackgroundColorForced()"
-							(click)="currentScreen.set('tracks')"
-						>
-							{{ t('View Tracks') }}
-						</button>
-					</div>
-				</div>
-			</div>
-		}
-		@case ('tracks') {
-			<!-- Tracks Section -->
-			<section class="flex flex-grow flex-col overflow-hidden">
-				<!-- tracks header -->
-				<header class="flex items-center justify-between border-b p-4">
-					<h3 class="text-lg font-semibold">
-						{{ title() || 'Your recordings' }}
-					</h3>
-					@let width_ = width();
-					@if (width_ && width_ > 640) {
-						<span> click on a track to make it active/unactive </span>
-					}
+          <!-- Help: Next actions -->
+          <div class="mt-6 flex space-x-3">
+            <button
+              class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+              [style.background-color]="containerBackgroundColorContrasted()"
+              [style.color]="containerBackgroundColorForced()"
+              (click)="currentScreen.set('participate')"
+              >
+              {{ t('Start Recording') }}
+            </button>
+            <button
+              class="flex items-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
+              [style.background-color]="'transparent'"
+              [style.background-color]="containerBackgroundColorContrasted()"
+              [style.color]="containerBackgroundColorForced()"
+              (click)="currentScreen.set('tracks')"
+              >
+              {{ t('View Tracks') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+    @case ('tracks') {
+      <!-- Tracks Section -->
+      <section class="flex flex-grow flex-col overflow-hidden">
+        <!-- tracks header -->
+        <header class="flex items-center justify-between border-b p-4">
+          <h3 class="text-lg font-semibold">
+            {{ title() || 'Your recordings' }}
+          </h3>
+          @let width_ = width();
+          @if (width_ && width_ > 640) {
+            <span> click on a track to make it active/unactive </span>
+          }
 
-					@if (displayHelp()) {
-						<button
-							class="rounded-fullŒ flex items-center justify-center p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
-							(click)="currentScreen.set('help')"
-						>
-							<span class="text-xs font-medium">{{ t('Help') }}</span>
-						</button>
-					}
+          @if (displayHelp()) {
+            <button
+              class="rounded-fullŒ flex items-center justify-center p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
+              (click)="currentScreen.set('help')"
+              >
+              <span class="text-xs font-medium">{{ t('Help') }}</span>
+            </button>
+          }
 
-					@let recordingLength = nbTrackAvailable();
-					@if (recordingLength > 0) {
-						<div
-							class="text-sm opacity-60"
-							[style.color]="textColor() || 'inherit'"
-						>
-							{{ nbTrackSelected() }} selected / {{ recordingLength }} track{{ recordingLength !== 1 ? 's' : '' }}
-						</div>
-					}
-				</header>
+          @let recordingLength = nbTrackAvailable();
+          @if (recordingLength > 0) {
+            <div
+              class="text-sm opacity-60"
+              [style.color]="textColor() || 'inherit'"
+              >
+              {{ nbTrackSelected() }} selected / {{ recordingLength }} track{{ recordingLength !== 1 ? 's' : '' }}
+            </div>
+          }
+        </header>
 
-				<div class="flex-1 overflow-hidden p-4">
-					<div
-						cdkDropList
-						[cdkDropListDisabled]="false"
-						(cdkDropListDropped)="drop($event)"
-						class="h-full space-y-3 overflow-y-auto"
-					>
-						@for (recording of recordings(); track $index) {
-							@if (!recording.deleted) {
-								<div
-									cdkDrag
-									class="group relative overflow-hidden rounded-lg border p-4 transition-all duration-200 hover:shadow-md"
+        <div class="flex-1 overflow-hidden p-4">
+          <div
+            cdkDropList
+            [cdkDropListDisabled]="false"
+            (cdkDropListDropped)="drop($event)"
+            class="h-full space-y-3 overflow-y-auto"
+            >
+            @for (recording of recordings(); track $index) {
+              @if (!recording.deleted) {
+                <div
+                  cdkDrag
+                  class="group relative overflow-hidden rounded-lg border p-4 transition-all duration-200 hover:shadow-md"
 									[ngClass]="{
 										'opacity-30': !recording.selected,
 									}"
-									[style.border-left]="'4px solid ' + backgroundColorContrasted()"
-									[style.borderColor]="backgroundColorContrasted()"
-									(click)="toggleTrackSelection(recording)"
-								>
-									<!-- Drag Placeholder -->
-									<div
-										class="flex w-full cursor-pointer select-none items-center justify-between rounded border p-2"
+                  [style.border-left]="'4px solid ' + backgroundColorContrasted()"
+                  [style.borderColor]="backgroundColorContrasted()"
+                  (click)="toggleTrackSelection(recording)"
+                  >
+                  <!-- Drag Placeholder -->
+                  <div
+                    class="flex w-full cursor-pointer select-none items-center justify-between rounded border p-2"
 										[ngClass]="{
 											'bg-black/[0.05]': containerBackgroundColor(),
 											'bg-transparent': !containerBackgroundColor(),
 										}"
-										*cdkDragPlaceholder
-									>
-										<lib-duration-indicator [entityFileId]="recording.entityFileId"></lib-duration-indicator>
-									</div>
+                    *cdkDragPlaceholder
+                    >
+                    <lib-duration-indicator [entityFileId]="recording.entityFileId"></lib-duration-indicator>
+                  </div>
 
-									<!-- Drag Preview -->
-									<div
-										*cdkDragPreview
-										class="rounded-lg border p-2 shadow-xl"
+                  <!-- Drag Preview -->
+                  <div
+                    *cdkDragPreview
+                    class="rounded-lg border p-2 shadow-xl"
 										[ngClass]="{
 											'bg-white': containerBackgroundColor(),
 											'bg-gray-50': !containerBackgroundColor(),
 										}"
-									>
-										<lib-duration-indicator [entityFileId]="recording.entityFileId"></lib-duration-indicator>
-									</div>
+                    >
+                    <lib-duration-indicator [entityFileId]="recording.entityFileId"></lib-duration-indicator>
+                  </div>
 
-									<!-- Track Content -->
-									<div class="flex items-center space-x-1">
-										<!-- Selection Toggle -->
-										<!-- <button
-										(click)="toggleTrackSelection(recording)"
-										class="flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-200"
-										[style.background-color]="recording.selected ? backgroundColor() : 'transparent'"
-										[style.border]="'1px solid ' + (recording.selected ? backgroundColor() : 'rgba(0, 0, 0, 0.2)')"
-									>
-										@if (recording.selected) {
-											<tw-enabled-checked
-												class="h-6 w-6"
-												[style.color]="textColor()"
-											/>
-										} @else {
-											<tw-enabled-empty
-												class="h-6 w-6"
-												[style.color]="textColor() || '#6b7280'"
-											/>
-										}
-									</button> -->
+                  <!-- Track Content -->
+                  <div class="flex items-center space-x-1">
+                    <!-- Selection Toggle -->
+                    <!-- <button
+                    (click)="toggleTrackSelection(recording)"
+                    class="flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-200"
+                    [style.background-color]="recording.selected ? backgroundColor() : 'transparent'"
+                    [style.border]="'1px solid ' + (recording.selected ? backgroundColor() : 'rgba(0, 0, 0, 0.2)')"
+                    >
+                    @if (recording.selected) {
+                      <tw-enabled-checked
+                        class="h-6 w-6"
+                        [style.color]="textColor()"
+                        />
+                    } @else {
+                      <tw-enabled-empty
+                        class="h-6 w-6"
+                        [style.color]="textColor() || '#6b7280'"
+                        />
+                    }
+                  </button> -->
 
-										<!-- Play Button -->
-										<div class="flex items-center justify-center">
-											<lib-play-button
-												[entityFileId]="recording.entityFileId"
-												[alternative]="recording.alternative ?? 'original'"
-												[title]="title()"
-												[backgroundColor]="backgroundColorForced()"
-												[textColor]="textColorForced()"
-												[buttonHeight]="'48px'"
-												[buttonWidth]="'48px'"
-												(click)="$event.stopPropagation()"
-											></lib-play-button>
-										</div>
+                  <!-- Play Button -->
+                  <div class="flex items-center justify-center">
+                    <lib-play-button
+                      [entityFileId]="recording.entityFileId"
+                      [alternative]="recording.alternative ?? 'original'"
+                      [title]="title()"
+                      [backgroundColor]="backgroundColorForced()"
+                      [textColor]="textColorForced()"
+                      [buttonHeight]="'48px'"
+                      [buttonWidth]="'48px'"
+                      (click)="$event.stopPropagation()"
+                    ></lib-play-button>
+                  </div>
 
-										<div class="flex flex-1 flex-col">
-											<!-- top details (track info, actions and handles) -->
-											<div class="flex items-center justify-between pl-2">
-												<!-- Track Info -->
-												<div class="">
-													<div class="flex flex-wrap items-center space-x-2 text-xs">
-														<lib-duration-indicator [entityFileId]="recording.entityFileId"></lib-duration-indicator> <span>•</span>
-														<span>{{ recording.date | date: 'short' }}</span>
-													</div>
-												</div>
+                  <div class="flex flex-1 flex-col">
+                    <!-- top details (track info, actions and handles) -->
+                    <div class="flex items-center justify-between pl-2">
+                      <!-- Track Info -->
+                      <div class="">
+                        <div class="flex flex-wrap items-center space-x-2 text-xs">
+                          <lib-duration-indicator [entityFileId]="recording.entityFileId"></lib-duration-indicator> <span>•</span>
+                          <span>{{ recording.date | date: 'short' }}</span>
+                        </div>
+                      </div>
 
-												<!-- Action Buttons -->
-												<div class="flex items-center space-x-2 opacity-0 transition-opacity group-hover:opacity-100">
-													<button
-														(click)="$event.stopPropagation(); downloadTrack(recording)"
-														class="flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 hover:bg-black/10"
-														[style.color]="textColor() || '#6b7280'"
-														title="Download"
-													>
-														<tw-download class="h-4 w-4" />
-													</button>
-													<button
-														(click)="$event.stopImmediatePropagation(); deleteTrack($event, recording.id)"
-														class="flex h-8 w-8 items-center justify-center rounded-full text-red-500 transition-all duration-200 hover:bg-red-500/10"
-														title="Delete"
-													>
-														<tw-delete class="h-4 w-4" />
-													</button>
-													<!-- Drag Handle -->
-													<div
-														class="cursor-grab opacity-0 transition-opacity group-hover:opacity-100"
-														[style.color]="textColor() || '#6b7280'"
-													>
-														<svg
-															class="h-5 w-5"
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-															xmlns="http://www.w3.org/2000/svg"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M4 6h16M4 12h16M4 18h16"
-															></path>
-														</svg>
-													</div>
-												</div>
-											</div>
+                      <!-- Action Buttons -->
+                      <div class="flex items-center space-x-2 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          (click)="$event.stopPropagation(); downloadTrack(recording)"
+                          class="flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 hover:bg-black/10"
+                          [style.color]="textColor() || '#6b7280'"
+                          title="Download"
+                          >
+                          <tw-download class="h-4 w-4" />
+                        </button>
+                        <button
+                          (click)="$event.stopImmediatePropagation(); deleteTrack($event, recording.id)"
+                          class="flex h-8 w-8 items-center justify-center rounded-full text-red-500 transition-all duration-200 hover:bg-red-500/10"
+                          title="Delete"
+                          >
+                          <tw-delete class="h-4 w-4" />
+                        </button>
+                        <!-- Drag Handle -->
+                        <div
+                          class="cursor-grab opacity-0 transition-opacity group-hover:opacity-100"
+                          [style.color]="textColor() || '#6b7280'"
+                          >
+                          <svg
+                            class="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                            >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4 6h16M4 12h16M4 18h16"
+                            ></path>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
 
-											<!-- Transcript Section -->
-											@if (displayTranscript()) {
-												<div class="flex-1 flex-shrink-0">
-													<div
-														class="h-[40px] rounded-lg border px-0.5 text-xs"
+                    <!-- Transcript Section -->
+                    @if (displayTranscript()) {
+                      <div class="flex-1 flex-shrink-0">
+                        <div
+                          class="h-[40px] rounded-lg border px-0.5 text-xs"
 														[ngClass]="{
 															'border-black/10 bg-black/[0.05]': containerBackgroundColor(),
 															'border-transparent bg-transparent': !containerBackgroundColor(),
 														}"
-													>
-														<lib-subtitle-loader
-															[entityFileId]="recording.entityFileId"
-															[style.color]="textColor() || 'inherit'"
-															(click)="$event.stopPropagation()"
-														></lib-subtitle-loader>
-													</div>
-												</div>
-											}
-										</div>
-									</div>
-								</div>
-							}
-						}
-						@let temporaryRecording_ = temporaryRecording();
-						@if (temporaryRecording_) {
-							<div
-								class="group relative overflow-hidden rounded-lg border p-4 transition-all duration-200 hover:shadow-md"
-								[style.border-left]="'4px solid ' + containerBackgroundColorContrasted()"
-								[style.borderColor]="containerBackgroundColorContrasted()"
-							>
-								<!-- Track Content -->
-								<div class="flex items-center space-x-1">
-									<div class="flex flex-1 flex-col">
-										<!-- top details (track info, actions and handles) -->
-										<div class="flex items-center justify-between pl-2">
-											<!-- Track Info -->
+                          >
+                          <lib-subtitle-loader
+                            [entityFileId]="recording.entityFileId"
+                            [style.color]="textColor() || 'inherit'"
+                            (click)="$event.stopPropagation()"
+                          ></lib-subtitle-loader>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          }
+          @let temporaryRecording_ = temporaryRecording();
+          @if (temporaryRecording_) {
+            <div
+              class="group relative overflow-hidden rounded-lg border p-4 transition-all duration-200 hover:shadow-md"
+              [style.border-left]="'4px solid ' + containerBackgroundColorContrasted()"
+              [style.borderColor]="containerBackgroundColorContrasted()"
+              >
+              <!-- Track Content -->
+              <div class="flex items-center space-x-1">
+                <div class="flex flex-1 flex-col">
+                  <!-- top details (track info, actions and handles) -->
+                  <div class="flex items-center justify-between pl-2">
+                    <!-- Track Info -->
 
-											@if (!tryingToRecover()) {
-												<div class="flex flex-wrap items-center space-x-2 text-xs">
-													<button
-														(click)="$event.stopPropagation(); tryRecuperation(temporaryRecording_)"
-														class="m-3 flex items-center justify-center rounded-lg bg-red-600 p-1 pl-2 text-white transition-all duration-200"
-														title="Recover"
-													>
-														<span>{{ t('recover') }}</span>
+                    @if (!tryingToRecover()) {
+                      <div class="flex flex-wrap items-center space-x-2 text-xs">
+                        <button
+                          (click)="$event.stopPropagation(); tryRecuperation(temporaryRecording_)"
+                          class="m-3 flex items-center justify-center rounded-lg bg-red-600 p-1 pl-2 text-white transition-all duration-200"
+                          title="Recover"
+                          >
+                          <span>{{ t('recover') }}</span>
 
-														<lib-question-mark-helper
-															(click)="$event.stopPropagation()"
-															message="This file was not recorded properly and could be recovered."
-														/>
-													</button>
+                          <lib-question-mark-helper
+                            (click)="$event.stopPropagation()"
+                            message="This file was not recorded properly and could be recovered."
+                            />
+                        </button>
 
-													<span>{{ temporaryRecording_.date | date: 'short' }}</span>
-												</div>
-											} @else {
-												<!-- spinner while recovering -->
-												<div class="flex items-center space-x-2">
-													<div class="spinner-animation"></div>
-													<span class="text-xs">Recovering...</span>
-												</div>
-											}
+                        <span>{{ temporaryRecording_.date | date: 'short' }}</span>
+                      </div>
+                    } @else {
+                      <!-- spinner while recovering -->
+                      <div class="flex items-center space-x-2">
+                        <div class="spinner-animation"></div>
+                        <span class="text-xs">Recovering...</span>
+                      </div>
+                    }
 
-											<!-- Action Buttons -->
-											<div class="flex items-center space-x-2 opacity-0 transition-opacity group-hover:opacity-100">
-												<button
-													(click)="$event.stopImmediatePropagation(); temporaryRecording.set(null)"
-													class="flex h-8 w-8 items-center justify-center rounded-full text-red-500 transition-all duration-200 hover:bg-red-500/10"
-													title="Delete"
-												>
-													<tw-delete class="h-4 w-4" />
-												</button>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						}
-						<!-- "Add Track" track -->
-						@if (nbTrackAvailable() > 0) {
-							<div
-								class="group relative cursor-pointer overflow-hidden rounded-lg border p-4 transition-all duration-200 hover:shadow-md"
+                    <!-- Action Buttons -->
+                    <div class="flex items-center space-x-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        (click)="$event.stopImmediatePropagation(); temporaryRecording.set(null)"
+                        class="flex h-8 w-8 items-center justify-center rounded-full text-red-500 transition-all duration-200 hover:bg-red-500/10"
+                        title="Delete"
+                        >
+                        <tw-delete class="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+          <!-- "Add Track" track -->
+          @if (nbTrackAvailable() > 0) {
+            <div
+              class="group relative cursor-pointer overflow-hidden rounded-lg border p-4 transition-all duration-200 hover:shadow-md"
 								[ngClass]="{
 									'border-black/10 bg-white/50': containerBackgroundColor(),
 									'border-transparent bg-transparent': !containerBackgroundColor(),
 								}"
-								[style.border-left]="'4px solid ' + (backgroundColor() || '#6b7280')"
-								[style.borderColor]="backgroundColor() || '#6b7280'"
-								(click)="currentScreen.set('participate')"
-							>
-								<div class="flex items-center space-x-1">
-									<!-- Add Button -->
-									<div class="flex items-center justify-center">
-										<button
-											class="flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
-											[style.backgroundColor]="backgroundColor()"
-											[style.color]="textColor()"
-											title="Add Recording"
-										>
-											<svg
-												class="h-6 w-6"
-												fill="none"
-												stroke="currentColor"
-												viewBox="0 0 24 24"
-												xmlns="http://www.w3.org/2000/svg"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M12 4v16m8-8H4"
-												></path>
-											</svg>
-										</button>
-									</div>
+              [style.border-left]="'4px solid ' + (backgroundColor() || '#6b7280')"
+              [style.borderColor]="backgroundColor() || '#6b7280'"
+              (click)="currentScreen.set('participate')"
+              >
+              <div class="flex items-center space-x-1">
+                <!-- Add Button -->
+                <div class="flex items-center justify-center">
+                  <button
+                    class="flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                    [style.backgroundColor]="backgroundColor()"
+                    [style.color]="textColor()"
+                    title="Add Recording"
+                    >
+                    <svg
+                      class="h-6 w-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                      >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4v16m8-8H4"
+                      ></path>
+                    </svg>
+                  </button>
+                </div>
 
-									<div class="flex flex-1 flex-col">
-										<!-- top details (track info, actions and handles) -->
-										<div class="flex items-center justify-between pl-2">
-											<!-- Track Info -->
-											<div class="">
-												<div
-													class="flex flex-wrap items-center space-x-2 text-xs"
-													[style.color]="textColor() || 'inherit'"
-												>
-													<span class="font-bold">Add a new track</span>
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						} @else {
-							<div class="flex w-full flex-wrap items-center justify-around space-x-1 space-y-1">
-								<button
-									class="flex items-center rounded-lg border-2 px-4 py-2 text-sm font-medium transition-colors"
-									[style.background-color]="containerBackgroundColorContrasted()"
-									[style.color]="containerBackgroundColorForced()"
-									[style.border]="'1px solid ' + containerBackgroundColorForced()"
-									(click)="currentScreen.set('participate')"
-								>
-									<!-- (it's actually "go to recording tab") -->
-									{{ t('Start Recording') }}
-								</button>
-								@if (displayHelp()) {
-									<button
-										class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-										[style.background-color]="containerBackgroundColorForced()"
-										[style.color]="containerBackgroundColorContrasted()"
-										[style.border]="'1px solid ' + containerBackgroundColorContrasted()"
-										(click)="currentScreen.set('help')"
-									>
-										{{ t('Read tutorial') }}
-									</button>
-								}
-							</div>
-						}
-					</div>
-				</div>
+                <div class="flex flex-1 flex-col">
+                  <!-- top details (track info, actions and handles) -->
+                  <div class="flex items-center justify-between pl-2">
+                    <!-- Track Info -->
+                    <div class="">
+                      <div
+                        class="flex flex-wrap items-center space-x-2 text-xs"
+                        [style.color]="textColor() || 'inherit'"
+                        >
+                        <span class="font-bold">Add a new track</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          } @else {
+            <div class="flex w-full flex-wrap items-center justify-around space-x-1 space-y-1">
+              <button
+                class="flex items-center rounded-lg border-2 px-4 py-2 text-sm font-medium transition-colors"
+                [style.background-color]="containerBackgroundColorContrasted()"
+                [style.color]="containerBackgroundColorForced()"
+                [style.border]="'1px solid ' + containerBackgroundColorForced()"
+                (click)="currentScreen.set('participate')"
+                >
+                <!-- (it's actually "go to recording tab") -->
+                {{ t('Start Recording') }}
+              </button>
+              @if (displayHelp()) {
+                <button
+                  class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                  [style.background-color]="containerBackgroundColorForced()"
+                  [style.color]="containerBackgroundColorContrasted()"
+                  [style.border]="'1px solid ' + containerBackgroundColorContrasted()"
+                  (click)="currentScreen.set('help')"
+                  >
+                  {{ t('Read tutorial') }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </div>
 
-				<!-- floating "add button" -->
-				<div class="absolute bottom-4 right-4">
-					<button
-						class="flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
-						[style.background-color]="containerBackgroundColorContrasted()"
-						[style.color]="containerBackgroundColorForced()"
-						[style.border]="'1px solid ' + containerBackgroundColorForced()"
-						(click)="currentScreen.set('participate')"
-						title="Add Recording"
-					>
-						<svg
-							class="h-6 w-6"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 4v16m8-8H4"
-							></path>
-						</svg>
-					</button>
-				</div>
-			</section>
-		}
-		@case ('participate') {
-			<!-- header of the participate tab -->
-			<header class="flex items-center justify-between border-b p-4">
-				<!-- title -->
-				<div class="flex items-center space-x-3">
-					<div
-						class="flex h-8 w-8 items-center justify-center rounded-full"
-						[style.background-color]="containerBackgroundColorContrasted()"
-						[style.color]="containerBackgroundColorForced()"
-						[style.border]="'1px solid ' + containerBackgroundColorForced()"
-					>
-						@if (mediaMode_ === MediaModeOptions.audio) {
-							<tw-mic class="h-5 w-5" />
-						} @else if (mediaMode_ === MediaModeOptions.video) {
-							<tw-cam class="h-5 w-5" />
-						} @else if (mediaMode_ === MediaModeOptions.screenCapture || mediaMode_ === MediaModeOptions.screenCaptureAndVideo) {
-							<tw-screen-capture class="h-5 w-5" />
-						} @else if (mediaMode_ === 'upload') {
-							<tw-upload class="h-5 w-5" />
-						} @else {
-							<tw-mic class="h-5 w-5" />
-						}
-					</div>
-					<h2 class="text-lg font-semibold">
-						@if (mediaMode_ === MediaModeOptions.audio) {
-							{{ title() || 'Audio Recording' }}
-						} @else if (mediaMode_ === MediaModeOptions.video) {
-							{{ title() || 'Video Recording' }}
-						} @else if (mediaMode_ === MediaModeOptions.screenCapture) {
-							{{ title() || 'Screen Recording' }}
-						} @else if (mediaMode_ === MediaModeOptions.screenCaptureAndVideo) {
-							{{ title() || 'Screen + Video Recording' }}
-						} @else if (mediaMode_ === 'upload') {
-							{{ title() || 'Upload File' }}
-						} @else {
-							{{ title() }}
-						}
-					</h2>
-				</div>
+      <!-- floating "add button" -->
+      <div class="absolute bottom-4 right-4">
+        <button
+          class="flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+          [style.background-color]="containerBackgroundColorContrasted()"
+          [style.color]="containerBackgroundColorForced()"
+          [style.border]="'1px solid ' + containerBackgroundColorForced()"
+          (click)="currentScreen.set('participate')"
+          title="Add Recording"
+          >
+          <svg
+            class="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+            >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 4v16m8-8H4"
+            ></path>
+          </svg>
+        </button>
+      </div>
+    </section>
+  }
+  @case ('participate') {
+    <!-- header of the participate tab -->
+    <header class="flex items-center justify-between border-b p-4">
+      <!-- title -->
+      <div class="flex items-center space-x-3">
+        <div
+          class="flex h-8 w-8 items-center justify-center rounded-full"
+          [style.background-color]="containerBackgroundColorContrasted()"
+          [style.color]="containerBackgroundColorForced()"
+          [style.border]="'1px solid ' + containerBackgroundColorForced()"
+          >
+          @if (mediaMode_ === MediaModeOptions.audio) {
+            <tw-mic class="h-5 w-5" />
+          } @else if (mediaMode_ === MediaModeOptions.video) {
+            <tw-cam class="h-5 w-5" />
+          } @else if (mediaMode_ === MediaModeOptions.screenCapture || mediaMode_ === MediaModeOptions.screenCaptureAndVideo) {
+            <tw-screen-capture class="h-5 w-5" />
+          } @else if (mediaMode_ === 'upload') {
+            <tw-upload class="h-5 w-5" />
+          } @else {
+            <tw-mic class="h-5 w-5" />
+          }
+        </div>
+        <h2 class="text-lg font-semibold">
+          @if (mediaMode_ === MediaModeOptions.audio) {
+            {{ title() || 'Audio Recording' }}
+          } @else if (mediaMode_ === MediaModeOptions.video) {
+            {{ title() || 'Video Recording' }}
+          } @else if (mediaMode_ === MediaModeOptions.screenCapture) {
+            {{ title() || 'Screen Recording' }}
+          } @else if (mediaMode_ === MediaModeOptions.screenCaptureAndVideo) {
+            {{ title() || 'Screen + Video Recording' }}
+          } @else if (mediaMode_ === 'upload') {
+            {{ title() || 'Upload File' }}
+          } @else {
+            {{ title() }}
+          }
+        </h2>
+      </div>
 
-				<!-- cog/cancel buttons -->
-				<div class="flex items-center space-x-2">
-					<!-- Device Settings Button (only show when preview is active) -->
-					@if (isEverythingGranted() && mediaMode_ !== 'upload' && mediaMode_ !== null && recordingProps_.recordingState !== 'recording') {
-						<button
-							class="flex items-center justify-center rounded-full p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
-							[cdkMenuTriggerFor]="deviceSettingsMenu"
-							title="{{ t('Device Settings') }}"
-						>
-							<tw-cog class="h-5 w-5" />
-						</button>
-					}
-					@if (displayHelp()) {
-						<button
-							class="rounded-fullŒ flex items-center justify-center p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
-							(click)="currentScreen.set('help')"
-						>
-							<span class="text-xs font-medium">{{ t('Help') }}</span>
-						</button>
-					}
-					<!-- Cancel Button -->
-					@if (mediaMode_ !== null && recordingProps_.recordingState === 'recording') {
-						<button
-							class="flex items-center justify-center rounded-full p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
-							(click)="cancelCurrentRecording(true)"
-							title="{{ t('Cancel and choose different mode') }}"
-						>
-							<tw-cancel class="h-5 w-5" />
-						</button>
-					} @else {
-						<button
-							class="flex items-center justify-center rounded-full p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
-							(click)="cancelCurrentRecording(true); currentScreen.set('tracks')"
-							title="{{ t('Go back to tracks') }}"
-						>
-							<tw-chevron-left class="h-5 w-5" />
-						</button>
-					}
-				</div>
-			</header>
-			<!-- main content (record actions) -->
-			<main class="flex w-full flex-1 overflow-auto">
-				@if (mediaMode_ === null) {
-					<!-- Mode Selection Buttons -->
-					<div class="flex h-full w-full flex-wrap items-center justify-center overflow-auto p-4">
-						@if (acceptAudio()) {
-							<button
-								class="media-mode-button"
-								[style.backgroundColor]="backgroundColorForced()"
-								[style.color]="textColorForced()"
-								[style.borderColor]="textColorForced()"
-								[style.borderRadius]="borderRadius()"
-								[style.width]="buttonWidth()"
-								[style.height]="buttonHeight()"
-								(click)="setMediaMode(MediaModeOptions.audio)"
-							>
-								<tw-mic class="mb-2 h-5 w-5" />
-								<div class="text-xs font-medium">{{ t('Audio only') }}</div>
-							</button>
-						}
-						@if (acceptVideo()) {
-							<button
-								class="media-mode-button"
-								[style.backgroundColor]="backgroundColorForced()"
-								[style.color]="textColorForced()"
-								[style.borderColor]="textColorForced()"
-								[style.borderRadius]="borderRadius()"
-								[style.width]="buttonWidth()"
-								[style.height]="buttonHeight()"
-								(click)="setMediaMode(MediaModeOptions.video)"
-							>
-								<tw-cam class="mb-2 h-5 w-5" />
-								<div class="text-xs font-medium">{{ t('Audio & Video') }}</div>
-							</button>
-						}
-						@if (acceptScreen()) {
-							<button
-								class="media-mode-button"
-								[style.backgroundColor]="backgroundColorForced()"
-								[style.color]="textColorForced()"
-								[style.borderColor]="textColorForced()"
-								[style.borderRadius]="borderRadius()"
-								[style.width]="buttonWidth()"
-								[style.height]="buttonHeight()"
-								(click)="setMediaMode(MediaModeOptions.screenCapture)"
-							>
-								<tw-screen-capture class="mb-2 h-5 w-5" />
-								<div class="text-xs font-medium">{{ t('Screen') }}</div>
-							</button>
-						}
-						@if (acceptScreenWithVideo()) {
-							<button
-								class="media-mode-button"
-								[style.backgroundColor]="backgroundColorForced()"
-								[style.color]="textColorForced()"
-								[style.borderColor]="textColorForced()"
-								[style.borderRadius]="borderRadius()"
-								[style.width]="buttonWidth()"
-								[style.height]="buttonHeight()"
-								(click)="setMediaMode(MediaModeOptions.screenCaptureAndVideo)"
-							>
-								<tw-screen-capture class="mb-2 h-5 w-5" />
-								<div class="text-center text-xs font-medium leading-tight">{{ t('Screen + Video') }}</div>
-							</button>
-						}
-						@if (acceptUpload()) {
-							<button
-								class="media-mode-button"
-								[style.backgroundColor]="backgroundColorForced()"
-								[style.color]="textColorForced()"
-								[style.borderColor]="textColorForced()"
-								[style.borderRadius]="borderRadius()"
-								[style.width]="buttonWidth()"
-								[style.height]="buttonHeight()"
-								(click)="mediaMode.set('upload')"
-							>
-								<tw-upload class="mb-2 h-5 w-5" />
-								<div class="text-xs font-medium">{{ t('Upload') }}</div>
-							</button>
-						}
-					</div>
-				} @else if (mediaMode_ === 'upload') {
-					<!-- Upload File Content -->
-					<div class="flex h-full w-full items-center justify-center p-8">
-						<div class="h-full w-full">
-							<lib-upload-button
-								[accept]="accept()"
-								(uploadedFiles)="handleUploadedFiles($event)"
-								[width]="'100%'"
-								[height]="'100%'"
-							>
-								<!-- on hover make it shimmer -->
-								<div
-									class="media-mode-button flex h-full w-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors"
-									[style.borderColor]="borderColor() || '#e2e8f0'"
-								>
-									<div
-										class="mb-6 text-center"
-										[style.color]="textColor()"
-									>
-										<h3 class="mb-2 text-xl font-semibold">
-											{{ t('Upload Media File') }}
-										</h3>
-										<p class="text-sm">
-											{{ t('Select an audio or video file from your device') }}
-										</p>
-									</div>
-								</div>
-							</lib-upload-button>
-						</div>
-					</div>
-				} @else if (isEverythingGranted()) {
-					<!-- Preview and Recording Interface -->
-					<div class="flex h-full w-full flex-col">
-						<div class="relative flex h-full w-full flex-col overflow-hidden rounded-lg">
-							<!-- video/capture preview -->
-							@if (mediaMode_ === MediaModeOptions.video || mediaMode_ === MediaModeOptions.screenCaptureAndVideo || mediaMode_ === MediaModeOptions.screenCapture) {
-								<!-- Video Preview -->
-								<div class="w-full flex-1 shrink overflow-hidden">
-									<video
-										#videoPreview
-										class="relative block h-full w-full object-scale-down"
-										autoplay
-										muted
-										playsinline
-									></video>
-								</div>
-							}
+      <!-- cog/cancel buttons -->
+      <div class="flex items-center space-x-2">
+        <!-- Device Settings Button (only show when preview is active) -->
+        @if (isEverythingGranted() && mediaMode_ !== 'upload' && mediaMode_ !== null && recordingProps_.recordingState !== 'recording') {
+          <button
+            class="flex items-center justify-center rounded-full p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
+            [cdkMenuTriggerFor]="deviceSettingsMenu"
+            title="{{ t('Device Settings') }}"
+            >
+            <tw-cog class="h-5 w-5" />
+          </button>
+        }
+        @if (displayHelp()) {
+          <button
+            class="rounded-fullŒ flex items-center justify-center p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
+            (click)="currentScreen.set('help')"
+            >
+            <span class="text-xs font-medium">{{ t('Help') }}</span>
+          </button>
+        }
+        <!-- Cancel Button -->
+        @if (mediaMode_ !== null && recordingProps_.recordingState === 'recording') {
+          <button
+            class="flex items-center justify-center rounded-full p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
+            (click)="cancelCurrentRecording(true)"
+            title="{{ t('Cancel and choose different mode') }}"
+            >
+            <tw-cancel class="h-5 w-5" />
+          </button>
+        } @else {
+          <button
+            class="flex items-center justify-center rounded-full p-2 transition-all duration-200 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
+            (click)="cancelCurrentRecording(true); currentScreen.set('tracks')"
+            title="{{ t('Go back to tracks') }}"
+            >
+            <tw-chevron-left class="h-5 w-5" />
+          </button>
+        }
+      </div>
+    </header>
+    <!-- main content (record actions) -->
+    <main class="flex w-full flex-1 overflow-auto">
+      @if (mediaMode_ === null) {
+        <!-- Mode Selection Buttons -->
+        <div class="flex h-full w-full flex-wrap items-center justify-center overflow-auto p-4">
+          @if (acceptAudio()) {
+            <button
+              class="media-mode-button"
+              [style.backgroundColor]="backgroundColorForced()"
+              [style.color]="textColorForced()"
+              [style.borderColor]="textColorForced()"
+              [style.borderRadius]="borderRadius()"
+              [style.width]="buttonWidth()"
+              [style.height]="buttonHeight()"
+              (click)="setMediaMode(MediaModeOptions.audio)"
+              >
+              <tw-mic class="mb-2 h-5 w-5" />
+              <div class="text-xs font-medium">{{ t('Audio only') }}</div>
+            </button>
+          }
+          @if (acceptVideo()) {
+            <button
+              class="media-mode-button"
+              [style.backgroundColor]="backgroundColorForced()"
+              [style.color]="textColorForced()"
+              [style.borderColor]="textColorForced()"
+              [style.borderRadius]="borderRadius()"
+              [style.width]="buttonWidth()"
+              [style.height]="buttonHeight()"
+              (click)="setMediaMode(MediaModeOptions.video)"
+              >
+              <tw-cam class="mb-2 h-5 w-5" />
+              <div class="text-xs font-medium">{{ t('Audio & Video') }}</div>
+            </button>
+          }
+          @if (acceptScreen()) {
+            <button
+              class="media-mode-button"
+              [style.backgroundColor]="backgroundColorForced()"
+              [style.color]="textColorForced()"
+              [style.borderColor]="textColorForced()"
+              [style.borderRadius]="borderRadius()"
+              [style.width]="buttonWidth()"
+              [style.height]="buttonHeight()"
+              (click)="setMediaMode(MediaModeOptions.screenCapture)"
+              >
+              <tw-screen-capture class="mb-2 h-5 w-5" />
+              <div class="text-xs font-medium">{{ t('Screen') }}</div>
+            </button>
+          }
+          @if (acceptScreenWithVideo()) {
+            <button
+              class="media-mode-button"
+              [style.backgroundColor]="backgroundColorForced()"
+              [style.color]="textColorForced()"
+              [style.borderColor]="textColorForced()"
+              [style.borderRadius]="borderRadius()"
+              [style.width]="buttonWidth()"
+              [style.height]="buttonHeight()"
+              (click)="setMediaMode(MediaModeOptions.screenCaptureAndVideo)"
+              >
+              <tw-screen-capture class="mb-2 h-5 w-5" />
+              <div class="text-center text-xs font-medium leading-tight">{{ t('Screen + Video') }}</div>
+            </button>
+          }
+          @if (acceptUpload()) {
+            <button
+              class="media-mode-button"
+              [style.backgroundColor]="backgroundColorForced()"
+              [style.color]="textColorForced()"
+              [style.borderColor]="textColorForced()"
+              [style.borderRadius]="borderRadius()"
+              [style.width]="buttonWidth()"
+              [style.height]="buttonHeight()"
+              (click)="mediaMode.set('upload')"
+              >
+              <tw-upload class="mb-2 h-5 w-5" />
+              <div class="text-xs font-medium">{{ t('Upload') }}</div>
+            </button>
+          }
+        </div>
+      } @else if (mediaMode_ === 'upload') {
+        <!-- Upload File Content -->
+        <div class="flex h-full w-full items-center justify-center p-8">
+          <div class="h-full w-full">
+            <lib-upload-button
+              [accept]="accept()"
+              (uploadedFiles)="handleUploadedFiles($event)"
+              [width]="'100%'"
+              [height]="'100%'"
+              >
+              <!-- on hover make it shimmer -->
+              <div
+                class="media-mode-button flex h-full w-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors"
+                [style.borderColor]="borderColor() || '#e2e8f0'"
+                >
+                <div
+                  class="mb-6 text-center"
+                  [style.color]="textColor()"
+                  >
+                  <h3 class="mb-2 text-xl font-semibold">
+                    {{ t('Upload Media File') }}
+                  </h3>
+                  <p class="text-sm">
+                    {{ t('Select an audio or video file from your device') }}
+                  </p>
+                </div>
+              </div>
+            </lib-upload-button>
+          </div>
+        </div>
+      } @else if (isEverythingGranted()) {
+        <!-- Preview and Recording Interface -->
+        <div class="flex h-full w-full flex-col">
+          <div class="relative flex h-full w-full flex-col overflow-hidden rounded-lg">
+            <!-- video/capture preview -->
+            @if (mediaMode_ === MediaModeOptions.video || mediaMode_ === MediaModeOptions.screenCaptureAndVideo || mediaMode_ === MediaModeOptions.screenCapture) {
+              <!-- Video Preview -->
+              <div class="w-full flex-1 shrink overflow-hidden">
+                <video
+                  #videoPreview
+                  class="relative block h-full w-full object-scale-down"
+                  autoplay
+                  muted
+                  playsinline
+                ></video>
+              </div>
+            }
 
-							<!-- audio level and record actions -->
-							<div class="flex h-[200px] w-full shrink-0 grow-0 flex-col overflow-scroll px-2">
-								<!-- Audio level indicator -->
-								<div class="w-full py-4">
-									<canvas
-										#audioMeter
-										width="300"
-										height="20"
-										class="h-5 w-full rounded-full"
-										[style.backgroundColor]="backgroundColorForced()"
-									></canvas>
-								</div>
+            <!-- audio level and record actions -->
+            <div class="flex h-[200px] w-full shrink-0 grow-0 flex-col overflow-scroll px-2">
+              <!-- Audio level indicator -->
+              <div class="w-full py-4">
+                <canvas
+                  #audioMeter
+                  width="300"
+                  height="20"
+                  class="h-5 w-full rounded-full"
+                  [style.backgroundColor]="backgroundColorForced()"
+                ></canvas>
+              </div>
 
-								<!-- Record Actions -->
-								<section
-									name="record-actions"
-									class="mt-2 flex items-center justify-between"
-								>
-									@if (!recordingProps_.occupied) {
-										<!-- Record button or "countdown" -->
-										@if (!counting()) {
-											<div class="flex w-full flex-col items-center justify-center space-y-4">
-												<span class="block rounded-lg px-4 py-2 text-center text-sm font-medium backdrop-blur-sm">{{ t('Hit the button to launch the countdown') }}</span>
-												<button
-													class="rounded-full border px-6 py-3 text-lg font-semibold"
-													[style.backgroundColor]="backgroundColorForced()"
-													[style.color]="textColorForced()"
-													[style.borderColor]="textColorForced()"
-													[style.borderRadius]="borderRadius()"
-													(click)="toggleRecordCounter()"
-												>
-													{{ t('start recording in 3s') }}
-												</button>
-											</div>
-										} @else {
-											<!-- counting -->
-											<div class="flex w-full flex-col items-center space-y-3">
-												<button
-													class="flex h-20 w-20 items-center justify-center text-3xl font-bold transition-all duration-200"
-													(click)="toggleRecordCounter()"
-													title="{{ t('Click to cancel countdown') }}"
-												>
-													{{ timeLeft() }}
-												</button>
-												<button
-													class="rounded-lg border px-4 py-2 text-sm backdrop-blur-sm transition-all duration-200 hover:bg-red-500/80 hover:text-white"
-													[style.backgroundColor]="backgroundColorForced()"
-													[style.color]="textColorForced()"
-													[style.borderColor]="textColorForced()"
-													[style.borderRadius]="borderRadius()"
-													(click)="toggleRecordCounter()"
-												>
-													{{ t('Cancel') }}
-												</button>
-											</div>
-										}
-									} @else {
-										<!-- This recorder is the one occupying (actively recording or preparing) -->
-										@if (recordingProps_.recordingState === 'recording') {
-											<div class="flex w-full flex-wrap justify-center">
-												<div class="p-3 text-center">
-													<div class="font-mono text-2xl">
-														{{ formatRecordingTime() }}
-													</div>
-													<div class="flex items-center justify-center text-sm opacity-75">
-														<div class="mr-2 h-2 w-2 animate-pulse rounded-full bg-red-500"></div>
-														{{ t('Recording...') }}
-													</div>
-												</div>
-												<!-- Stop button + Cancel -->
-												<button
-													class="flex items-center space-x-2 border px-6 py-3 text-lg font-semibold transition-all duration-200 hover:scale-105"
-													[style.backgroundColor]="backgroundColorForced()"
-													[style.color]="textColorForced()"
-													[style.borderColor]="textColorForced()"
-													[style.borderRadius]="borderRadius()"
-													(click)="stopRecording()"
-												>
-													<tw-stop class="h-6 w-6"></tw-stop>
-													<span>{{ t('stop') }}</span>
-												</button>
+              <!-- Record Actions -->
+              <section
+                name="record-actions"
+                class="mt-2 flex items-center justify-between"
+                >
+                @if (!recordingProps_.occupied) {
+                  <!-- Record button or "countdown" -->
+                  @if (!counting()) {
+                    <div class="flex w-full flex-col items-center justify-center space-y-4">
+                      <span class="block rounded-lg px-4 py-2 text-center text-sm font-medium backdrop-blur-sm">{{ t('Hit the button to launch the countdown') }}</span>
+                      <button
+                        class="rounded-full border px-6 py-3 text-lg font-semibold"
+                        [style.backgroundColor]="backgroundColorForced()"
+                        [style.color]="textColorForced()"
+                        [style.borderColor]="textColorForced()"
+                        [style.borderRadius]="borderRadius()"
+                        (click)="toggleRecordCounter()"
+                        >
+                        {{ t('start recording in 3s') }}
+                      </button>
+                    </div>
+                  } @else {
+                    <!-- counting -->
+                    <div class="flex w-full flex-col items-center space-y-3">
+                      <button
+                        class="flex h-20 w-20 items-center justify-center text-3xl font-bold transition-all duration-200"
+                        (click)="toggleRecordCounter()"
+                        title="{{ t('Click to cancel countdown') }}"
+                        >
+                        {{ timeLeft() }}
+                      </button>
+                      <button
+                        class="rounded-lg border px-4 py-2 text-sm backdrop-blur-sm transition-all duration-200 hover:bg-red-500/80 hover:text-white"
+                        [style.backgroundColor]="backgroundColorForced()"
+                        [style.color]="textColorForced()"
+                        [style.borderColor]="textColorForced()"
+                        [style.borderRadius]="borderRadius()"
+                        (click)="toggleRecordCounter()"
+                        >
+                        {{ t('Cancel') }}
+                      </button>
+                    </div>
+                  }
+                } @else {
+                  <!-- This recorder is the one occupying (actively recording or preparing) -->
+                  @if (recordingProps_.recordingState === 'recording') {
+                    <div class="flex w-full flex-wrap justify-center">
+                      <div class="p-3 text-center">
+                        <div class="font-mono text-2xl">
+                          {{ formatRecordingTime() }}
+                        </div>
+                        <div class="flex items-center justify-center text-sm opacity-75">
+                          <div class="mr-2 h-2 w-2 animate-pulse rounded-full bg-red-500"></div>
+                          {{ t('Recording...') }}
+                        </div>
+                      </div>
+                      <!-- Stop button + Cancel -->
+                      <button
+                        class="flex items-center space-x-2 border px-6 py-3 text-lg font-semibold transition-all duration-200 hover:scale-105"
+                        [style.backgroundColor]="backgroundColorForced()"
+                        [style.color]="textColorForced()"
+                        [style.borderColor]="textColorForced()"
+                        [style.borderRadius]="borderRadius()"
+                        (click)="stopRecording()"
+                        >
+                        <tw-stop class="h-6 w-6"></tw-stop>
+                        <span>{{ t('stop') }}</span>
+                      </button>
 
-												<button
-													class="ml-3 rounded-lg p-3 backdrop-blur-sm transition-all duration-200"
-													[style.backgroundColor]="textColorForced()"
-													[style.color]="backgroundColorForced()"
-													[style.borderColor]="backgroundColorForced()"
-													[style.borderRadius]="borderRadius()"
-													(click)="cancelCurrentRecording()"
-												>
-													<tw-delete class="h-6 w-6"></tw-delete>
-												</button>
-											</div>
-										} @else {
-											<span> {{ t('Please wait') }} ({{ recordingProps_.recordingState }}) </span>
-										}
-									}
-								</section>
-							</div>
-						</div>
-					</div>
-				} @else {
-					<!-- Content area -->
-					<div class="flex h-full w-full flex-col">
-						<!-- Permission Status - Only show cards for permissions NOT granted -->
-						<div class="flex h-full w-full items-center justify-center p-8">
-							<div class="w-full max-w-md">
-								<div class="mb-8 text-center">
-									<h3 class="mb-2 text-xl font-semibold text-gray-900">
-										{{ t('Permission Required') }}
-									</h3>
-									<p class="text-sm text-gray-600">
-										{{ t('Grant permissions to start recording') }}
-									</p>
-								</div>
+                      <button
+                        class="ml-3 rounded-lg p-3 backdrop-blur-sm transition-all duration-200"
+                        [style.backgroundColor]="textColorForced()"
+                        [style.color]="backgroundColorForced()"
+                        [style.borderColor]="backgroundColorForced()"
+                        [style.borderRadius]="borderRadius()"
+                        (click)="cancelCurrentRecording()"
+                        >
+                        <tw-delete class="h-6 w-6"></tw-delete>
+                      </button>
+                    </div>
+                  } @else {
+                    <span> {{ t('Please wait') }} ({{ recordingProps_.recordingState }}) </span>
+                  }
+                }
+              </section>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <!-- Content area -->
+        <div class="flex h-full w-full flex-col">
+          <!-- Permission Status - Only show cards for permissions NOT granted -->
+          <div class="flex h-full w-full items-center justify-center p-8">
+            <div class="w-full max-w-md">
+              <div class="mb-8 text-center">
+                <h3 class="mb-2 text-xl font-semibold text-gray-900">
+                  {{ t('Permission Required') }}
+                </h3>
+                <p class="text-sm text-gray-600">
+                  {{ t('Grant permissions to start recording') }}
+                </p>
+              </div>
 
-								<!-- Permission Status List - Only show missing permissions -->
-								<div class="space-y-4">
-									<!-- Microphone Permission (only show if not granted) -->
-									@if (!recordingProps_.microphoneAccessGranted) {
-										<div class="flex items-center justify-between rounded-lg border border-gray-300 bg-gray-50 p-4 transition-all">
-											<div class="flex items-center space-x-3">
-												<tw-mic class="h-5 w-5 text-gray-500" />
-												<div>
-													<p class="font-medium text-gray-900">
-														{{ t('Microphone Access') }}
-													</p>
-													<p class="text-sm text-gray-600">
-														{{ t('Required for audio recording') }}
-													</p>
-												</div>
-											</div>
-											<div class="flex items-center space-x-2">
-												<button
-													class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-													(click)="requestMicrophoneAccess()"
-												>
-													{{ t('Grant') }}
-												</button>
-											</div>
-										</div>
-									}
+              <!-- Permission Status List - Only show missing permissions -->
+              <div class="space-y-4">
+                <!-- Microphone Permission (only show if not granted) -->
+                @if (!recordingProps_.microphoneAccessGranted) {
+                  <div class="flex items-center justify-between rounded-lg border border-gray-300 bg-gray-50 p-4 transition-all">
+                    <div class="flex items-center space-x-3">
+                      <tw-mic class="h-5 w-5 text-gray-500" />
+                      <div>
+                        <p class="font-medium text-gray-900">
+                          {{ t('Microphone Access') }}
+                        </p>
+                        <p class="text-sm text-gray-600">
+                          {{ t('Required for audio recording') }}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <button
+                        class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        (click)="requestMicrophoneAccess()"
+                        >
+                        {{ t('Grant') }}
+                      </button>
+                    </div>
+                  </div>
+                }
 
-									<!-- Camera Permission (only show if not granted and required) -->
-									@if ((mediaMode_ === MediaModeOptions.video || mediaMode_ === MediaModeOptions.screenCaptureAndVideo) && !recordingProps_.cameraAccessGranted) {
-										<div class="flex items-center justify-between rounded-lg border border-gray-300 bg-gray-50 p-4 transition-all">
-											<div class="flex items-center space-x-3">
-												<tw-cam class="h-5 w-5 text-gray-500" />
-												<div>
-													<p class="font-medium text-gray-900">
-														{{ t('Camera Access') }}
-													</p>
-													<p class="text-sm text-gray-600">
-														{{ t('Required for video recording') }}
-													</p>
-												</div>
-											</div>
-											<div class="flex items-center space-x-2">
-												<button
-													class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-													(click)="requestCameraAccess()"
-												>
-													{{ t('Grant') }}
-												</button>
-											</div>
-										</div>
-									}
+                <!-- Camera Permission (only show if not granted and required) -->
+                @if ((mediaMode_ === MediaModeOptions.video || mediaMode_ === MediaModeOptions.screenCaptureAndVideo) && !recordingProps_.cameraAccessGranted) {
+                  <div class="flex items-center justify-between rounded-lg border border-gray-300 bg-gray-50 p-4 transition-all">
+                    <div class="flex items-center space-x-3">
+                      <tw-cam class="h-5 w-5 text-gray-500" />
+                      <div>
+                        <p class="font-medium text-gray-900">
+                          {{ t('Camera Access') }}
+                        </p>
+                        <p class="text-sm text-gray-600">
+                          {{ t('Required for video recording') }}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <button
+                        class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        (click)="requestCameraAccess()"
+                        >
+                        {{ t('Grant') }}
+                      </button>
+                    </div>
+                  </div>
+                }
 
-									<!-- Screen Permission Note (for screen capture modes) -->
-									@if (mediaMode_ === MediaModeOptions.screenCapture || mediaMode_ === MediaModeOptions.screenCaptureAndVideo) {
-										<div class="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-4">
-											<div class="flex items-center space-x-3">
-												<tw-screen-capture class="h-5 w-5 text-blue-600" />
-												<div>
-													<p class="font-medium text-blue-900">
-														{{ t('Screen Sharing') }}
-													</p>
-													<p class="text-sm text-blue-700">
-														{{ t('Will be requested when you start recording') }}
-													</p>
-												</div>
-											</div>
-											<tw-enabled-empty class="h-6 w-6 text-blue-600" />
-										</div>
-									}
-								</div>
-							</div>
-						</div>
-					</div>
-				}
-			</main>
-		}
-	}
+                <!-- Screen Permission Note (for screen capture modes) -->
+                @if (mediaMode_ === MediaModeOptions.screenCapture || mediaMode_ === MediaModeOptions.screenCaptureAndVideo) {
+                  <div class="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <div class="flex items-center space-x-3">
+                      <tw-screen-capture class="h-5 w-5 text-blue-600" />
+                      <div>
+                        <p class="font-medium text-blue-900">
+                          {{ t('Screen Sharing') }}
+                        </p>
+                        <p class="text-sm text-blue-700">
+                          {{ t('Will be requested when you start recording') }}
+                        </p>
+                      </div>
+                    </div>
+                    <tw-enabled-empty class="h-6 w-6 text-blue-600" />
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </main>
+  }
+}
 </div>
 @if (canvasManager?.editorMode === 'edit') {
-	<div class="absolute left-0 top-0 h-full w-full"></div>
+  <div class="absolute left-0 top-0 h-full w-full"></div>
 }
 
 <ng-template #toolbarPortalTpl>
-	<div class="flex h-full w-full flex-wrap content-start items-center gap-2 overflow-auto p-2">
-		<!-- Media Types -->
-		<div class="mb-1 mr-2 flex items-center space-x-2">
-			<label class="text-xs font-medium text-gray-700">Media:</label>
-			<div class="flex flex-wrap items-center space-x-1 space-y-1">
-				<!-- Audio Toggle -->
-				@let acceptAudio_ = acceptAudio();
-				<input
-					id="acceptAudioInput"
-					type="checkbox"
-					class="sr-only"
-					[(ngModel)]="acceptAudio"
-				/>
-				<label
-					for="acceptAudioInput"
-					class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
+  <div class="flex h-full w-full flex-wrap content-start items-center gap-2 overflow-auto p-2">
+    <!-- Media Types -->
+    <div class="mb-1 mr-2 flex items-center space-x-2">
+      <label class="text-xs font-medium text-gray-700">Media:</label>
+      <div class="flex flex-wrap items-center space-x-1 space-y-1">
+        <!-- Audio Toggle -->
+        @let acceptAudio_ = acceptAudio();
+        <input
+          id="acceptAudioInput"
+          type="checkbox"
+          class="sr-only"
+          [(ngModel)]="acceptAudio"
+          />
+        <label
+          for="acceptAudioInput"
+          class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
 					[ngClass]="{
 						'border-gray-300 bg-white text-gray-700 hover:bg-gray-50': !acceptAudio_,
 						'border-blue-500 bg-blue-500 text-white': acceptAudio_,
 					}"
-				>
-					@if (acceptAudio_) {
-						<tw-mic class="h-3 w-3" />
-					} @else {
-						<tw-mic-off class="h-3 w-3" />
-					}
-					<span>Audio</span>
-				</label>
+          >
+          @if (acceptAudio_) {
+            <tw-mic class="h-3 w-3" />
+          } @else {
+            <tw-mic-off class="h-3 w-3" />
+          }
+          <span>Audio</span>
+        </label>
 
-				<!-- Video Toggle -->
-				@let acceptVideo_ = acceptVideo();
-				<input
-					id="acceptVideoInput"
-					type="checkbox"
-					class="sr-only"
-					[(ngModel)]="acceptVideo"
-				/>
-				<label
-					for="acceptVideoInput"
-					class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
+        <!-- Video Toggle -->
+        @let acceptVideo_ = acceptVideo();
+        <input
+          id="acceptVideoInput"
+          type="checkbox"
+          class="sr-only"
+          [(ngModel)]="acceptVideo"
+          />
+        <label
+          for="acceptVideoInput"
+          class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
 					[ngClass]="{
 						'border-gray-300 bg-white text-gray-700 hover:bg-gray-50': !acceptVideo_,
 						'border-blue-500 bg-blue-500 text-white': acceptVideo_,
 					}"
-				>
-					@if (acceptVideo_) {
-						<tw-cam class="h-3 w-3" />
-					} @else {
-						<tw-cam-off class="h-3 w-3" />
-					}
-					<span>Video</span>
-				</label>
+          >
+          @if (acceptVideo_) {
+            <tw-cam class="h-3 w-3" />
+          } @else {
+            <tw-cam-off class="h-3 w-3" />
+          }
+          <span>Video</span>
+        </label>
 
-				<!-- Upload Toggle -->
-				@let acceptUpload_ = acceptUpload();
-				<input
-					id="allowUploadInput"
-					type="checkbox"
-					class="sr-only"
-					[(ngModel)]="acceptUpload"
-				/>
-				<label
-					for="allowUploadInput"
-					class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
+        <!-- Upload Toggle -->
+        @let acceptUpload_ = acceptUpload();
+        <input
+          id="allowUploadInput"
+          type="checkbox"
+          class="sr-only"
+          [(ngModel)]="acceptUpload"
+          />
+        <label
+          for="allowUploadInput"
+          class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
 					[ngClass]="{
 						'border-gray-300 bg-white text-gray-700 hover:bg-gray-50': !acceptUpload_,
 						'border-blue-500 bg-blue-500 text-white': acceptUpload_,
 					}"
-				>
-					<tw-upload class="h-3 w-3" />
-					<span>Upload</span>
-				</label>
+          >
+          <tw-upload class="h-3 w-3" />
+          <span>Upload</span>
+        </label>
 
-				<!-- Screen Toggle -->
-				@let acceptScreen_ = acceptScreen();
-				<input
-					id="acceptScreenInput"
-					type="checkbox"
-					class="sr-only"
-					[(ngModel)]="acceptScreen"
-				/>
-				<label
-					for="acceptScreenInput"
-					class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
+        <!-- Screen Toggle -->
+        @let acceptScreen_ = acceptScreen();
+        <input
+          id="acceptScreenInput"
+          type="checkbox"
+          class="sr-only"
+          [(ngModel)]="acceptScreen"
+          />
+        <label
+          for="acceptScreenInput"
+          class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
 					[ngClass]="{
 						'border-gray-300 bg-white text-gray-700 hover:bg-gray-50': !acceptScreen_,
 						'border-blue-500 bg-blue-500 text-white': acceptScreen_,
 					}"
-				>
-					<tw-screen-capture class="h-3 w-3" />
-					<span>Screen</span>
-				</label>
+          >
+          <tw-screen-capture class="h-3 w-3" />
+          <span>Screen</span>
+        </label>
 
-				<!-- Screen With Video Toggle -->
-				@let acceptScreenWithVideo_ = acceptScreenWithVideo();
-				<input
-					id="acceptScreenWithVideoInput"
-					type="checkbox"
-					class="sr-only"
-					[(ngModel)]="acceptScreenWithVideo"
-				/>
-				<label
-					for="acceptScreenWithVideoInput"
-					class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
+        <!-- Screen With Video Toggle -->
+        @let acceptScreenWithVideo_ = acceptScreenWithVideo();
+        <input
+          id="acceptScreenWithVideoInput"
+          type="checkbox"
+          class="sr-only"
+          [(ngModel)]="acceptScreenWithVideo"
+          />
+        <label
+          for="acceptScreenWithVideoInput"
+          class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
 					[ngClass]="{
 						'border-gray-300 bg-white text-gray-700 hover:bg-gray-50': !acceptScreenWithVideo_,
 						'border-blue-500 bg-blue-500 text-white': acceptScreenWithVideo_,
 					}"
-				>
-					<tw-screen-capture class="h-3 w-3" />
-					<span>Screen+Video</span>
-				</label>
-			</div>
-		</div>
+          >
+          <tw-screen-capture class="h-3 w-3" />
+          <span>Screen+Video</span>
+        </label>
+      </div>
+    </div>
 
-		<!-- Device auto start -->
-		<div class="mb-1 mr-2 flex items-center space-x-2">
-			<label class="text-xs font-medium text-gray-700">Start microphone/camera automatically?:</label>
-			<div class="flex flex-wrap items-center space-x-1 space-y-1">
-				<!-- Audio Toggle -->
-				@let openMicrophoneAutomatically_ = openMicrophoneAutomatically();
-				<input
-					id="openMicrophoneAutomatically"
-					type="checkbox"
-					class="sr-only"
-					[(ngModel)]="openMicrophoneAutomatically"
-				/>
-				<label
-					for="openMicrophoneAutomatically"
-					class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
+    <!-- Device auto start -->
+    <div class="mb-1 mr-2 flex items-center space-x-2">
+      <label class="text-xs font-medium text-gray-700">Start microphone/camera automatically?:</label>
+      <div class="flex flex-wrap items-center space-x-1 space-y-1">
+        <!-- Audio Toggle -->
+        @let openMicrophoneAutomatically_ = openMicrophoneAutomatically();
+        <input
+          id="openMicrophoneAutomatically"
+          type="checkbox"
+          class="sr-only"
+          [(ngModel)]="openMicrophoneAutomatically"
+          />
+        <label
+          for="openMicrophoneAutomatically"
+          class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
 					[ngClass]="{
 						'border-gray-300 bg-white text-gray-700 hover:bg-gray-50': !openMicrophoneAutomatically_,
 						'border-blue-500 bg-blue-500 text-white': openMicrophoneAutomatically_,
 					}"
-				>
-					@if (openMicrophoneAutomatically_) {
-						<tw-mic class="h-3 w-3" /><span>{{ t('yes') }}</span>
-					} @else {
-						<tw-mic-off class="h-3 w-3" /><span>{{ t('no') }}</span>
-					}
-				</label>
-			</div>
-		</div>
-		<div class="mb-1 mr-2 flex items-center space-x-2">
-			<label class="text-xs font-medium text-gray-700">Display:</label>
-			<!-- Transcript Toggle -->
-			<input
-				id="displayTranscriptInput"
-				type="checkbox"
-				class="sr-only"
-				[(ngModel)]="displayTranscript"
-			/>
-			<label
-				for="displayTranscriptInput"
-				class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
+          >
+          @if (openMicrophoneAutomatically_) {
+            <tw-mic class="h-3 w-3" /><span>{{ t('yes') }}</span>
+          } @else {
+            <tw-mic-off class="h-3 w-3" /><span>{{ t('no') }}</span>
+          }
+        </label>
+      </div>
+    </div>
+    <div class="mb-1 mr-2 flex items-center space-x-2">
+      <label class="text-xs font-medium text-gray-700">Display:</label>
+      <!-- Transcript Toggle -->
+      <input
+        id="displayTranscriptInput"
+        type="checkbox"
+        class="sr-only"
+        [(ngModel)]="displayTranscript"
+        />
+      <label
+        for="displayTranscriptInput"
+        class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
 				[ngClass]="{
 					'border-gray-300 bg-white text-gray-700 hover:bg-gray-50': !displayTranscript(),
 					'border-blue-500 bg-blue-500 text-white': displayTranscript(),
 				}"
-			>
-				<tw-document class="h-3 w-3" />
-				<span>Transcript</span>
-			</label>
-			<!-- Display Help Toggle -->
-			<input
-				id="displayHelpInput"
-				type="checkbox"
-				class="sr-only"
-				[(ngModel)]="displayHelp"
-			/>
-			<label
-				for="displayHelpInput"
-				class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
+        >
+        <tw-document class="h-3 w-3" />
+        <span>Transcript</span>
+      </label>
+      <!-- Display Help Toggle -->
+      <input
+        id="displayHelpInput"
+        type="checkbox"
+        class="sr-only"
+        [(ngModel)]="displayHelp"
+        />
+      <label
+        for="displayHelpInput"
+        class="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs transition-colors"
 				[ngClass]="{
 					'border-gray-300 bg-white text-gray-700 hover:bg-gray-50': !displayHelp(),
 					'border-blue-500 bg-blue-500 text-white': displayHelp(),
 				}"
-			>
-				<span>Help button</span>
-			</label>
-		</div>
+        >
+        <span>Help button</span>
+      </label>
+    </div>
 
-		<!-- Title Input -->
-		<div class="mb-1 mr-2 flex items-center space-x-2">
-			<label
-				for="titleInput"
-				class="text-xs font-medium text-gray-700"
-				>Title:</label
-			>
-			<input
-				id="titleInput"
-				type="text"
-				class="w-32 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
-				[(ngModel)]="title"
-				placeholder="Question:"
-			/>
-		</div>
+    <!-- Title Input -->
+    <div class="mb-1 mr-2 flex items-center space-x-2">
+      <label
+        for="titleInput"
+        class="text-xs font-medium text-gray-700"
+        >Title:</label
+        >
+        <input
+          id="titleInput"
+          type="text"
+          class="w-32 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+          [(ngModel)]="title"
+          placeholder="Question:"
+          />
+      </div>
 
-		<!-- Background Color -->
-		<div class="mb-1 mr-2 flex items-center space-x-2">
-			<label
-				for="containerBackgroundColorInput"
-				class="text-xs font-medium text-gray-700"
-				>Background:</label
-			>
-			<input
-				id="containerBackgroundColorInput"
-				type="color"
-				class="h-6 w-8 cursor-pointer rounded border border-gray-300"
-				[value]="containerBackgroundColor() || '#ffffff'"
-				(change)="containerBackgroundColor.set(containerBackgroundColorPicker.value)"
-				#containerBackgroundColorPicker
-			/>
-			<button
-				class="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-				(click)="containerBackgroundColor.set('')"
-				title="Reset to transparent"
-			>
-				Reset
-			</button>
-		</div>
+      <!-- Background Color -->
+      <div class="mb-1 mr-2 flex items-center space-x-2">
+        <label
+          for="containerBackgroundColorInput"
+          class="text-xs font-medium text-gray-700"
+          >Background:</label
+          >
+          <input
+            id="containerBackgroundColorInput"
+            type="color"
+            class="h-6 w-8 cursor-pointer rounded border border-gray-300"
+            [value]="containerBackgroundColor() || '#ffffff'"
+            (change)="containerBackgroundColor.set(containerBackgroundColorPicker.value)"
+            #containerBackgroundColorPicker
+            />
+          <button
+            class="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            (click)="containerBackgroundColor.set('')"
+            title="Reset to transparent"
+            >
+            Reset
+          </button>
+        </div>
 
-		<!-- Button Colors -->
-		<div class="mb-1 mr-2 flex items-center space-x-2">
-			<label class="text-xs font-medium text-gray-700">Colors:</label>
-			<div class="flex items-center space-x-1">
-				<!-- Background Color -->
-				<div class="flex items-center space-x-1">
-					<label
-						for="playButtonBackgroundColorInput"
-						class="text-xs text-gray-600"
-						>BG:</label
-					>
-					<input
-						id="playButtonBackgroundColorInput"
-						type="color"
-						class="h-6 w-6 cursor-pointer rounded border border-gray-300"
-						[value]="backgroundColor()"
-						(change)="backgroundColor.set(backgroundColorPicker.value)"
-						#backgroundColorPicker
-					/>
-				</div>
+        <!-- Button Colors -->
+        <div class="mb-1 mr-2 flex items-center space-x-2">
+          <label class="text-xs font-medium text-gray-700">Colors:</label>
+          <div class="flex items-center space-x-1">
+            <!-- Background Color -->
+            <div class="flex items-center space-x-1">
+              <label
+                for="playButtonBackgroundColorInput"
+                class="text-xs text-gray-600"
+                >BG:</label
+                >
+                <input
+                  id="playButtonBackgroundColorInput"
+                  type="color"
+                  class="h-6 w-6 cursor-pointer rounded border border-gray-300"
+                  [value]="backgroundColor()"
+                  (change)="backgroundColor.set(backgroundColorPicker.value)"
+                  #backgroundColorPicker
+                  />
+              </div>
 
-				<!-- Text Color -->
-				<div class="flex items-center space-x-1">
-					<label
-						for="playButtonTextColorInput"
-						class="text-xs text-gray-600"
-						>Text:</label
-					>
-					<input
-						id="playButtonTextColorInput"
-						type="color"
-						class="h-6 w-6 cursor-pointer rounded border border-gray-300"
-						[value]="textColor()"
-						(change)="textColor.set(textColorPicker.value)"
-						#textColorPicker
-					/>
-				</div>
+              <!-- Text Color -->
+              <div class="flex items-center space-x-1">
+                <label
+                  for="playButtonTextColorInput"
+                  class="text-xs text-gray-600"
+                  >Text:</label
+                  >
+                  <input
+                    id="playButtonTextColorInput"
+                    type="color"
+                    class="h-6 w-6 cursor-pointer rounded border border-gray-300"
+                    [value]="textColor()"
+                    (change)="textColor.set(textColorPicker.value)"
+                    #textColorPicker
+                    />
+                </div>
 
-				<!-- Presets Button -->
-				<button
-					class="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-					[cdkMenuTriggerFor]="presetsMenu"
-					title="Color presets"
-				>
-					<tw-palette class="h-3 w-3" />
-				</button>
-			</div>
-		</div>
+                <!-- Presets Button -->
+                <button
+                  class="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                  [cdkMenuTriggerFor]="presetsMenu"
+                  title="Color presets"
+                  >
+                  <tw-palette class="h-3 w-3" />
+                </button>
+              </div>
+            </div>
 
-		<!-- Button Size -->
-		<div class="mb-1 mr-2 flex items-center space-x-2">
-			<label class="text-xs font-medium text-gray-700">Button:</label>
-			<div class="flex items-center space-x-1">
-				<label
-					for="buttonWidthInput"
-					class="text-xs text-gray-600"
-					>W:</label
-				>
-				<input
-					id="buttonWidthInput"
-					type="text"
-					class="w-12 rounded border border-gray-300 px-1 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
-					[(ngModel)]="buttonWidth"
-					placeholder="px"
-				/>
-				<label
-					for="buttonsHeightInput"
-					class="text-xs text-gray-600"
-					>H:</label
-				>
-				<input
-					id="buttonsHeightInput"
-					type="text"
-					class="w-12 rounded border border-gray-300 px-1 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
-					[(ngModel)]="buttonHeight"
-					placeholder="px"
-				/>
-			</div>
-		</div>
+            <!-- Button Size -->
+            <div class="mb-1 mr-2 flex items-center space-x-2">
+              <label class="text-xs font-medium text-gray-700">Button:</label>
+              <div class="flex items-center space-x-1">
+                <label
+                  for="buttonWidthInput"
+                  class="text-xs text-gray-600"
+                  >W:</label
+                  >
+                  <input
+                    id="buttonWidthInput"
+                    type="text"
+                    class="w-12 rounded border border-gray-300 px-1 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                    [(ngModel)]="buttonWidth"
+                    placeholder="px"
+                    />
+                  <label
+                    for="buttonsHeightInput"
+                    class="text-xs text-gray-600"
+                    >H:</label
+                    >
+                    <input
+                      id="buttonsHeightInput"
+                      type="text"
+                      class="w-12 rounded border border-gray-300 px-1 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                      [(ngModel)]="buttonHeight"
+                      placeholder="px"
+                      />
+                  </div>
+                </div>
 
-		<!-- Block Size -->
-		<div class="mb-1 mr-2 flex items-center space-x-2">
-			<label class="text-xs font-medium text-gray-700">Block:</label>
-			<div class="flex items-center space-x-1">
-				<label
-					for="blockWidthInput"
-					class="text-xs text-gray-600"
-					>W:</label
-				>
-				<input
-					id="blockWidthInput"
-					type="number"
-					class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
-					[(ngModel)]="width"
-					placeholder="px"
-				/>
-				<label
-					for="blockHeightInput"
-					class="text-xs text-gray-600"
-					>H:</label
-				>
-				<input
-					id="blockHeightInput"
-					type="number"
-					class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
-					[(ngModel)]="height"
-					placeholder="px"
-				/>
-			</div>
-		</div>
+                <!-- Block Size -->
+                <div class="mb-1 mr-2 flex items-center space-x-2">
+                  <label class="text-xs font-medium text-gray-700">Block:</label>
+                  <div class="flex items-center space-x-1">
+                    <label
+                      for="blockWidthInput"
+                      class="text-xs text-gray-600"
+                      >W:</label
+                      >
+                      <input
+                        id="blockWidthInput"
+                        type="number"
+                        class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                        [(ngModel)]="width"
+                        placeholder="px"
+                        />
+                      <label
+                        for="blockHeightInput"
+                        class="text-xs text-gray-600"
+                        >H:</label
+                        >
+                        <input
+                          id="blockHeightInput"
+                          type="number"
+                          class="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                          [(ngModel)]="height"
+                          placeholder="px"
+                          />
+                      </div>
+                    </div>
 
-		<!-- Screen selector -->
-		<div class="mb-1 mr-2 flex items-center space-x-2">
-			<label class="text-xs font-medium text-gray-700">Screen to display now:</label>
-			<select
-				[(ngModel)]="currentScreen"
-				class="rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-			>
-				<option
-					*ngFor="let screen of ['help', 'tracks', 'participate']"
-					[value]="screen"
-				>
-					{{ screen }}
-				</option>
-			</select>
-		</div>
+                    <!-- Screen selector -->
+                    <div class="mb-1 mr-2 flex items-center space-x-2">
+                      <label class="text-xs font-medium text-gray-700">Screen to display now:</label>
+                      <select
+                        [(ngModel)]="currentScreen"
+                        class="rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                        @for (screen of ['help', 'tracks', 'participate']; track screen) {
+                          <option
+                            [value]="screen"
+                            >
+                            {{ screen }}
+                          </option>
+                        }
+                      </select>
+                    </div>
 
-		<!-- CDK Menu for Color Presets -->
-		<ng-template #presetsMenu>
-			<div
-				class="min-w-[280px] rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
-				cdkMenu
-			>
-				<div class="grid grid-cols-4 gap-2">
-					@for (preset of colorPresets; track preset.name) {
-						<button
-							class="flex cursor-pointer flex-col items-center gap-1 rounded border p-2 transition-colors"
+                    <!-- CDK Menu for Color Presets -->
+                    <ng-template #presetsMenu>
+                      <div
+                        class="min-w-[280px] rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+                        cdkMenu
+                        >
+                        <div class="grid grid-cols-4 gap-2">
+                          @for (preset of colorPresets; track preset.name) {
+                            <button
+                              class="flex cursor-pointer flex-col items-center gap-1 rounded border p-2 transition-colors"
 							[ngClass]="{
 								'border-gray-200 hover:border-blue-300 hover:bg-blue-50': !isPresetActive(preset),
 								'border-blue-500 bg-blue-50': isPresetActive(preset),
 							}"
-							(click)="applyColorPreset(preset)"
-							cdkMenuItem
-						>
-							<div class="relative h-5 w-8 overflow-hidden rounded border border-gray-200">
-								<div
-									class="absolute inset-0"
-									[style.background-color]="preset.background"
-								></div>
-								<div
-									class="absolute inset-0 flex items-center justify-center text-xs font-bold"
-									[style.color]="preset.text"
-								>
-									Aa
-								</div>
-							</div>
-							<span class="text-xs font-medium text-gray-600">{{ preset.name }}</span>
-						</button>
-					}
-				</div>
-			</div>
-		</ng-template>
-	</div>
-</ng-template>
+                              (click)="applyColorPreset(preset)"
+                              cdkMenuItem
+                              >
+                              <div class="relative h-5 w-8 overflow-hidden rounded border border-gray-200">
+                                <div
+                                  class="absolute inset-0"
+                                  [style.background-color]="preset.background"
+                                ></div>
+                                <div
+                                  class="absolute inset-0 flex items-center justify-center text-xs font-bold"
+                                  [style.color]="preset.text"
+                                  >
+                                  Aa
+                                </div>
+                              </div>
+                              <span class="text-xs font-medium text-gray-600">{{ preset.name }}</span>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    </ng-template>
+                  </div>
+                </ng-template>
 
-<!-- CDK Menu for Device Settings -->
-<ng-template #deviceSettingsMenu>
-	<div
-		class="min-w-[220px] rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
-		cdkMenu
-	>
-		<!-- Audio Devices Section -->
-		<div class="px-2 py-1">
-			<div class="mb-2 flex items-center space-x-2 text-xs font-medium text-gray-700">
-				<tw-mic class="h-4 w-4" />
-				<span>{{ t('Microphone') }}</span>
-			</div>
-			@for (device of recordingProps_.availableAudioDevices; track device.deviceId) {
-				<button
-					class="flex w-full items-center space-x-2 rounded px-2 py-1 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-					[class.bg-blue-50]="device.deviceId === recordingProps_.selectedAudioDevice?.deviceId"
-					[class.text-blue-700]="device.deviceId === recordingProps_.selectedAudioDevice?.deviceId"
-					(click)="updateAudioDevice(device)"
-					cdkMenuItem
-				>
-					<div class="flex-1 truncate">{{ device.label || t('Microphone') + ' ' + ($index + 1) }}</div>
-					@if (device.deviceId === recordingProps_.selectedAudioDevice?.deviceId) {
-						<tw-enabled-checked class="h-4 w-4 text-blue-600" />
-					}
-				</button>
-			}
-		</div>
+                <!-- CDK Menu for Device Settings -->
+                <ng-template #deviceSettingsMenu>
+                  <div
+                    class="min-w-[220px] rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+                    cdkMenu
+                    >
+                    <!-- Audio Devices Section -->
+                    <div class="px-2 py-1">
+                      <div class="mb-2 flex items-center space-x-2 text-xs font-medium text-gray-700">
+                        <tw-mic class="h-4 w-4" />
+                        <span>{{ t('Microphone') }}</span>
+                      </div>
+                      @for (device of recordingProps_.availableAudioDevices; track device.deviceId) {
+                        <button
+                          class="flex w-full items-center space-x-2 rounded px-2 py-1 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                          [class.bg-blue-50]="device.deviceId === recordingProps_.selectedAudioDevice?.deviceId"
+                          [class.text-blue-700]="device.deviceId === recordingProps_.selectedAudioDevice?.deviceId"
+                          (click)="updateAudioDevice(device)"
+                          cdkMenuItem
+                          >
+                          <div class="flex-1 truncate">{{ device.label || t('Microphone') + ' ' + ($index + 1) }}</div>
+                          @if (device.deviceId === recordingProps_.selectedAudioDevice?.deviceId) {
+                            <tw-enabled-checked class="h-4 w-4 text-blue-600" />
+                          }
+                        </button>
+                      }
+                    </div>
 
-		<!-- Separator for video devices (only show if video mode is active) -->
-		@if (mediaMode_ === MediaModeOptions.video || mediaMode_ === MediaModeOptions.screenCaptureAndVideo) {
-			<div class="my-2 border-t border-gray-200"></div>
+                    <!-- Separator for video devices (only show if video mode is active) -->
+                    @if (mediaMode_ === MediaModeOptions.video || mediaMode_ === MediaModeOptions.screenCaptureAndVideo) {
+                      <div class="my-2 border-t border-gray-200"></div>
 
-			<!-- Video Devices Section -->
-			<div class="px-2 py-1">
-				<div class="mb-2 flex items-center space-x-2 text-xs font-medium text-gray-700">
-					<tw-cam class="h-4 w-4" />
-					<span>{{ t('Camera') }}</span>
-				</div>
-				@for (device of recordingProps_.availableVideoDevices; track device.deviceId) {
-					<button
-						class="flex w-full items-center space-x-2 rounded px-2 py-1 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-						[class.bg-blue-50]="device.deviceId === recordingProps_.selectedVideoDevice?.deviceId"
-						[class.text-blue-700]="device.deviceId === recordingProps_.selectedVideoDevice?.deviceId"
-						(click)="updateVideoDevice(device)"
-						cdkMenuItem
-					>
-						<div class="flex-1 truncate">{{ device.label || t('Camera') + ' ' + ($index + 1) }}</div>
-						@if (device.deviceId === recordingProps_.selectedVideoDevice?.deviceId) {
-							<tw-enabled-checked class="h-4 w-4 text-blue-600" />
-						}
-					</button>
-				}
-			</div>
+                      <!-- Video Devices Section -->
+                      <div class="px-2 py-1">
+                        <div class="mb-2 flex items-center space-x-2 text-xs font-medium text-gray-700">
+                          <tw-cam class="h-4 w-4" />
+                          <span>{{ t('Camera') }}</span>
+                        </div>
+                        @for (device of recordingProps_.availableVideoDevices; track device.deviceId) {
+                          <button
+                            class="flex w-full items-center space-x-2 rounded px-2 py-1 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                            [class.bg-blue-50]="device.deviceId === recordingProps_.selectedVideoDevice?.deviceId"
+                            [class.text-blue-700]="device.deviceId === recordingProps_.selectedVideoDevice?.deviceId"
+                            (click)="updateVideoDevice(device)"
+                            cdkMenuItem
+                            >
+                            <div class="flex-1 truncate">{{ device.label || t('Camera') + ' ' + ($index + 1) }}</div>
+                            @if (device.deviceId === recordingProps_.selectedVideoDevice?.deviceId) {
+                              <tw-enabled-checked class="h-4 w-4 text-blue-600" />
+                            }
+                          </button>
+                        }
+                      </div>
 
-			<!-- Aspect Ratio Section (for video modes) -->
-			<div class="my-2 border-t border-gray-200"></div>
-			<div class="px-2 py-1">
-				<div class="mb-2 flex items-center space-x-2 text-xs font-medium text-gray-700">
-					<tw-screen-capture class="h-4 w-4" />
-					<span>{{ t('Aspect Ratio') }}</span>
-				</div>
-				@for (option of aspectRatioOptions; track option.key) {
-					<button
-						class="flex w-full items-center space-x-2 rounded px-2 py-1 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-						[class.bg-blue-50]="option.key === recordingProps_.selectedAspectRatio"
-						[class.text-blue-700]="option.key === recordingProps_.selectedAspectRatio"
-						(click)="setAspectRatio(option.key)"
-						cdkMenuItem
-					>
-						<div class="flex-1">{{ option.label }}</div>
-						@if (option.key === recordingProps_.selectedAspectRatio) {
-							<tw-enabled-checked class="h-4 w-4 text-blue-600" />
-						}
-					</button>
-				}
-			</div>
-		}
-	</div>
-</ng-template>
+                      <!-- Aspect Ratio Section (for video modes) -->
+                      <div class="my-2 border-t border-gray-200"></div>
+                      <div class="px-2 py-1">
+                        <div class="mb-2 flex items-center space-x-2 text-xs font-medium text-gray-700">
+                          <tw-screen-capture class="h-4 w-4" />
+                          <span>{{ t('Aspect Ratio') }}</span>
+                        </div>
+                        @for (option of aspectRatioOptions; track option.key) {
+                          <button
+                            class="flex w-full items-center space-x-2 rounded px-2 py-1 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                            [class.bg-blue-50]="option.key === recordingProps_.selectedAspectRatio"
+                            [class.text-blue-700]="option.key === recordingProps_.selectedAspectRatio"
+                            (click)="setAspectRatio(option.key)"
+                            cdkMenuItem
+                            >
+                            <div class="flex-1">{{ option.label }}</div>
+                            @if (option.key === recordingProps_.selectedAspectRatio) {
+                              <tw-enabled-checked class="h-4 w-4 text-blue-600" />
+                            }
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                </ng-template>

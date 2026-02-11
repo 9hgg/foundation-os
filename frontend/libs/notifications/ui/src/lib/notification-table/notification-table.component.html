@@ -41,17 +41,21 @@
 								class="hover:bg-base-200/50 border-base-200 h-16 cursor-pointer border-b"
 							>
 								<!-- selection -->
-								<td class="w-12">
-									<label class="cursor-pointer">
+								<td class="w-12 text-center">
+									<div
+										class="flex justify-center"
+										(click)="$event.stopImmediatePropagation(); itemsSelector.toggle(notification)"
+										(keydown)="(undefined)"
+										tabindex="0"
+									>
 										<input
 											class="checkbox checkbox-sm checkbox-primary"
 											[name]="'selectedItems' + notification.id"
 											type="checkbox"
 											[checked]="itemsSelector.isSelected(notification)"
-											(click)="$event.stopImmediatePropagation(); itemsSelector.toggle(notification)"
 											tabindex="0"
 										/>
-									</label>
+									</div>
 								</td>
 								<!-- notification render -->
 								<td>
@@ -135,7 +139,7 @@
 											class="btn btn-ghost btn-xs btn-square"
 											(click)="$event.stopImmediatePropagation(); toggleArchived(notification)"
 											[attr.aria-label]="'Toggle read' | translate | async"
-											title="Archive"
+											[title]="'Archive' | translate | async"
 										>
 											<tw-archive class="h-4 w-4" />
 										</button>

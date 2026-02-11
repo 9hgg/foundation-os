@@ -43,22 +43,6 @@ export interface InteractionSelectionModalResult {
 	imports: [FormsModule, TranslateDirective, InteractionTableComponent],
 	templateUrl: './interactions-selection-modal.component.html',
 	changeDetection: ChangeDetectionStrategy.OnPush,
-	styles: [
-		`
-			:host {
-				display: block;
-				padding: 5px;
-				width: 100%;
-				height: 100%;
-				overflow: auto;
-				/* font-size: 0px; */
-				background-color: white;
-				min-width: 200px;
-				min-height: 200px;
-			}
-		`,
-	],
-	styleUrls: ['./interactions-selection-modal.component.css'],
 })
 export class InteractionsSelectionModalComponent {
 	interactionTableChild = viewChild.required(InteractionTableComponent);

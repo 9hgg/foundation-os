@@ -1,1 +1,1 @@
-export * from './lib/spoken.theme.quill';
+export * from './lib/default.theme.quill';

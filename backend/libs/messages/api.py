@@ -464,6 +464,7 @@ def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
             kind="comment",
             content="A comment on the conversation of your resource",
             include_admins=True,
+            for_key=f"conversation_{conversation_db.id}",
         )
 
         # if the message has a config["replyTo"] field, notify the user that sent the original message
@@ -483,6 +484,7 @@ def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
                         kind="reply",
                         content="A reply to your message",
                         user=reply_to_user_db,  # <= notify the author of the original message
+                        for_key=f"user:{reply_to_user_db.id}_conversation_{conversation_db.id}",
                     )
 
         return EndpointOutput(
@@ -631,6 +633,7 @@ def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
                     # read=False,
                     # title="",
                     user=resource_writer_db,  # <= notify the writer of the resource
+                    for_key=f"user:{resource_writer_db.id}_conversation_{conversation_db.id}",
                 )
                 notified_users.add(resource_writer_db.id)
 
@@ -649,6 +652,7 @@ def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
                     read=False,
                     title="",
                     user=message_author,  # <= notify the author of the message
+                    for_key=f"user:{message_author.id}_conversation_{conversation_db.id}",
                 )
                 notified_users.add(message_author.id)
 

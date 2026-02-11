@@ -1,7 +1,7 @@
-import { TranslationService } from '@foundation/translations/services';
-import { BehaviorSubjectReplayed } from '@foundation/utils';
-import { ChangeDetectorRef, Directive, ElementRef, Input, OnInit, Pipe, PipeTransform } from '@angular/core';
+import { ChangeDetectorRef, Directive, ElementRef, inject, Input, OnInit, Pipe, PipeTransform } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { TranslationService } from './translation.service';
+import { BehaviorSubjectReplayed } from '@foundation/utils';
 import { finalize, tap } from 'rxjs';
 
 const DEBUG = false;
@@ -11,11 +11,11 @@ const DEBUG = false;
 	standalone: true,
 })
 export class TranslatePipe implements PipeTransform {
-	constructor(private translationService: TranslationService) {}
+	_translationService = inject(TranslationService);
 
 	transform(inputSentence: string, kv?: { [key: string]: any }, rpbt: boolean = false, translationContext?: string) {
 		// return of(inputSentence);
-		return this.translationService.translate$({
+		return this._translationService.translate$({
 			inputSentence,
 			kv,
 			rpbt,
@@ -25,6 +25,7 @@ export class TranslatePipe implements PipeTransform {
 }
 
 @Directive({
+	// eslint-disable-next-line @angular-eslint/directive-selector
 	selector: '[translate]',
 	standalone: true,
 })

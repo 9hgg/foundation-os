@@ -7,8 +7,6 @@ import Quill, { Delta } from 'quill';
 import { combineLatest, filter, map, take, tap } from 'rxjs';
 import { MotherComponent } from '../../../mother.component';
 
-// Quill.register('themes/spoken', SpokenTheme, true);
-
 @Component({
 	selector: 'lib-paragraphe-request-block',
 	standalone: true,

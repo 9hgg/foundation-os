@@ -4,6 +4,9 @@ import { ScrollArrowComponent } from './scroll-arrow/scroll-arrow.component';
 @Directive({
 	selector: '[trackScroll]',
 	standalone: true,
+	host: {
+		'(scroll)': 'track()',
+	},
 })
 export class TrackScrollDirective implements AfterViewInit {
 	arrowComponent?: ComponentRef<ScrollArrowComponent>;
@@ -22,7 +25,6 @@ export class TrackScrollDirective implements AfterViewInit {
 		this.track();
 	}
 
-	@HostListener('scroll', ['$event']) // for window scroll events
 	track() {
 		if (this.elementRef.nativeElement.scrollHeight - (this.elementRef.nativeElement.clientHeight + this.elementRef.nativeElement.scrollTop) > 30) this._addArrow();
 		else this._removeArrow();

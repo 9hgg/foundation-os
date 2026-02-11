@@ -1,45 +1,34 @@
-<h2><span [translate]>Interaction selection</span></h2>
-<br />
-<!-- <lib-interaction-table
-	#interactionTable
-	[explicitInteractions]="interactionSelectionModalData.interactions"
-></lib-interaction-table> -->
+<div class="modal-box bg-base-100 flex h-full max-h-[90vh] w-11/12 max-w-5xl flex-col p-0">
+	<!-- Header -->
+	<div class="border-base-200 border-b px-6 py-4">
+		<h3 class="text-lg font-bold">
+			<span [translate]>Interaction selection</span>
+		</h3>
+	</div>
 
-<hr />
+	<!-- Body -->
+	<div class="flex-1 overflow-auto p-0">
+		<lib-interaction-table
+			class="block h-full w-full"
+			[explicitInteractions]="interactionSelectionModalData.interactions"
+			#interactionTable
+		></lib-interaction-table>
+	</div>
 
-<lib-interaction-table
-	[explicitInteractions]="interactionSelectionModalData.interactions"
-	#interactionTable
-></lib-interaction-table>
-
-<br />
-
-<section
-	name="actions"
-	class="m-auto flex w-32 flex-row items-center justify-between"
->
-	<!-- create -->
-	<!-- <button
-		class="btn-tertiary"
-		(click)="createNewInteraction()"
-	>
-		new
-	</button> -->
-
-	<!-- cancel -->
-	<button
-		class="btn-secondary"
-		(click)="cancel()"
-	>
-		cancel
-	</button>
-
-	<!-- save button  -->
-	<button
-		class="btn-primary"
-		[disabled]="!interactionTable.selectedInteractions.valid"
-		(click)="save()"
-	>
-		select
-	</button>
-</section>
+	<!-- Footer -->
+	<div class="modal-action border-base-200 bg-base-100 m-0 border-t px-6 py-4">
+		<button
+			class="btn"
+			(click)="cancel()"
+		>
+			cancel
+		</button>
+		<button
+			class="btn btn-primary"
+			[disabled]="!interactionTable.selectedInteractions.valid"
+			(click)="save()"
+		>
+			select
+		</button>
+	</div>
+</div>

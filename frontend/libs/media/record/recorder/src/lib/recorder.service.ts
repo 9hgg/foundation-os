@@ -109,7 +109,7 @@ export const DEFAULT_RECORDING_PROPS: RecordingProps = {
 
 	mediaMode: MediaModeOptions.audio,
 
-	debug: true,
+	debug: false,
 };
 
 @Injectable({

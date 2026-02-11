@@ -7,7 +7,7 @@ quill-themes library.
 
 ## Features
 
-- spoken.theme.quill (module)
+- default.theme.quill (module)
 
 ## Running unit tests
 

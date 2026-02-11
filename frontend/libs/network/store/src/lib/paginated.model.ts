@@ -503,8 +503,10 @@ export function createLocalRequestFn<T extends { id: string; [key: string]: any 
 
 						const value = item ? item[fieldName] : null;
 
-						if (filter.matchType === 'partial') {
+						if (filter.matchType === 'partial' && typeof value === 'string') {
 							return typeof value === 'string' && value.toLowerCase().includes(filter.value.toLowerCase());
+						} else if (filter.matchType === 'partial' && typeof value === 'number') {
+							return value.toString().includes(filter.value.toString());
 						} else if (filter.comparison) {
 							if (filter.value === '~null') {
 								filter.value = null;

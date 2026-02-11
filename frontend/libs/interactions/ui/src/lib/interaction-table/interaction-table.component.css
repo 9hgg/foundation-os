@@ -1,4 +1,12 @@
 @reference "tailwindcss";
+
+:host {
+	position: relative;
+	display: block;
+	overflow: auto;
+	padding: 5px;
+}
+
 /* TABLE COLS */
 .selection-column {
 	width: 40px;

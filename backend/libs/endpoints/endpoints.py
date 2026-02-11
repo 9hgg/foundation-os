@@ -21,7 +21,7 @@ from libs.resource import Resource, ResourceManager, getattr_by_alias_or_name
 from libs.sessions.models import AppSession
 from libs.users.models import User
 from libs.utils.deps import ClassicDeps__dep
-from libs.utils.types import EndpointError, EndpointOutput
+from libs.utils.types import EndpointError, EndpointOutput, to_snake
 
 from .config import ENDPOINTS_SETTINGS
 from .types import PaginatedResponse, SimpleResponse, get_paginated_results
@@ -133,12 +133,13 @@ def decode_filters(
 
         decoded_filters.append(
             ItemFilter(
-                field_name=unquote(field),
+                field_name=to_snake(unquote(field)),
                 value=value,
                 match_type=unquote(match_type),
                 comparison=comparison,
             )
         )
+        print("Decoded filter:", decoded_filters)
     return decoded_filters
 
 

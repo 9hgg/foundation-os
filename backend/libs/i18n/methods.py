@@ -1,13 +1,13 @@
 import contextlib
 
 import fastapi
+from sqlalchemy.orm import Session
 from starlette.datastructures import Headers
 
 from libs.i18n.config import I18N_SETTINGS
 from libs.i18n.translators.translator_manager import TranslatorNotFoundError, TranslatorsManager
 from libs.logger import print_color
 from libs.resource.resource import context_db
-from sqlalchemy.orm import Session
 
 from .models import SimpleTranslator, Translation
 
@@ -22,6 +22,9 @@ def get_translator_from_config():
     translator_to_use = None
     translator_title = None
     for translator_name in I18N_SETTINGS.TRANSLATORS:
+        # skip "manual"
+        if translator_name == "manual":
+            continue
         try:
             translator_to_use = TranslatorsManager.get_translator(translator_name)
             translator_title = translator_name

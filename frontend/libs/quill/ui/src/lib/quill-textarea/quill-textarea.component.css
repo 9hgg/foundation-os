@@ -1,0 +1,87 @@
+:host {
+    display: block;
+}
+
+.quill-textarea-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.quill-container {
+    min-height: 150px;
+}
+
+.raw-html-textarea {
+    min-height: 150px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    white-space: pre;
+}
+
+.editor-mode-toggle-wrapper {
+    display: flex;
+    justify-content: flex-end;
+}
+
+
+/* Quill + DaisyUI theming (works for light/dark because vars change per theme) */
+
+.ql-toolbar.ql-snow,
+.ql-container.ql-snow {
+    border-color: hsl(var(--bc) / 0.2) !important;
+}
+
+.ql-toolbar.ql-snow {
+    background: hsl(var(--b2)) !important;
+    /* base-200 */
+    color: hsl(var(--bc)) !important;
+    /* base-content */
+}
+
+.ql-container.ql-snow {
+    background: hsl(var(--b1)) !important;
+    /* base-100 */
+    color: hsl(var(--bc)) !important;
+}
+
+.ql-editor {
+    color: hsl(var(--bc)) !important;
+}
+
+.ql-editor.ql-blank::before {
+    color: hsl(var(--bc) / 0.5) !important;
+    /* placeholder */
+}
+
+/* Toolbar icons / buttons */
+.ql-snow .ql-stroke {
+    stroke: hsl(var(--bc)) !important;
+}
+
+.ql-snow .ql-fill {
+    fill: hsl(var(--bc)) !important;
+}
+
+.ql-snow .ql-picker {
+    color: hsl(var(--bc)) !important;
+}
+
+/* Picker dropdowns */
+.ql-snow .ql-picker-options {
+    background: hsl(var(--b1)) !important;
+    border-color: hsl(var(--bc) / 0.2) !important;
+}
+
+/* Tooltip (link editor etc.) */
+.ql-snow .ql-tooltip {
+    background: hsl(var(--b1)) !important;
+    color: hsl(var(--bc)) !important;
+    border-color: hsl(var(--bc) / 0.2) !important;
+    box-shadow: 0 8px 24px hsl(0 0% 0% / 0.25);
+}
+
+.ql-snow .ql-tooltip input[type="text"] {
+    background: hsl(var(--b2)) !important;
+    color: hsl(var(--bc)) !important;
+    border-color: hsl(var(--bc) / 0.2) !important;
+}

@@ -80,4 +80,18 @@ interface NotificationInteraction extends NotificationBase {
 	config: NotificationInteractionInterviewConfig;
 }
 
-export type Notification = NotificationReaction | NotificationComment | NotificationReply | NotificationMention | NotificationInteraction;
+// FORM INTERACTION
+interface NotificationInteractionFormConfig {
+	// Placeholder structure matching interview for now, or simplified
+	interactionDetails?: {
+		nbTotalSteps: number;
+		nbStepsSeen: number;
+	};
+}
+interface NotificationInteractionForm extends NotificationBase {
+	targetId: string;
+	kind: 'interaction.form';
+	config: NotificationInteractionFormConfig;
+}
+
+export type Notification = NotificationReaction | NotificationComment | NotificationReply | NotificationMention | NotificationInteraction | NotificationInteractionForm;

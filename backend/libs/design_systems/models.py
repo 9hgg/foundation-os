@@ -63,4 +63,8 @@ class DesignSystem(ResourceWithConfig, table=True):
 class ThemeDetails(BaseModelWithConfig):
     default_background_color: str = "#ffffff"
     default_text_color: str = "#000000"
+    dark_background_color: Optional[str] = None
+    dark_text_color: Optional[str] = None
     design_system_ids: list[str] = Field(default_factory=list)
+    theme_mode: str = "light"  # 'light' or 'system'
+    extra_properties: Optional[dict] = Field(default_factory=dict)

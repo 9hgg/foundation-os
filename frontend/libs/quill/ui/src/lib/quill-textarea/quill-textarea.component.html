@@ -1,0 +1,19 @@
+<div class="quill-textarea-wrapper">
+	@if (isRawHtmlMode()) {
+		<textarea class="raw-html-textarea textarea textarea-bordered w-full" [ngModel]="html()" (ngModelChange)="html.set($event)"></textarea>
+	} @else {
+		<div #quillContainer class="quill-container border-base-300 rounded-box border"></div>
+	}
+
+	@if (isToggleVisible()) {
+		<div class="editor-mode-toggle-wrapper">
+			<button class="editor-mode-toggle btn btn-xs btn-outline" type="button" (click)="toggleEditorMode()">
+				@if (isRawHtmlMode()) {
+					Rich text
+				} @else {
+					HTML
+				}
+			</button>
+		</div>
+	}
+</div>

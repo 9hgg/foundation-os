@@ -7,7 +7,7 @@ import { Team } from '@foundation/teams/models';
 import { TeamsRepository } from '@foundation/teams/state';
 import { TeamTableComponent } from '@foundation/teams/ui';
 import { UsersRepository } from '@foundation/users/state';
-import { CommonModule } from '@angular/common';
+
 import { ChangeDetectionStrategy, Component, inject, model } from '@angular/core';
 import { Router } from '@angular/router';
 import { of, switchMap, tap } from 'rxjs';
@@ -17,11 +17,9 @@ import { v4 as uuidv4 } from 'uuid';
 	selector: 'lib-team-list-page',
 	standalone: true,
 	imports: [
-		//
-		CommonModule,
-		TranslateDirective,
-		TeamTableComponent,
-	],
+    TranslateDirective,
+    TeamTableComponent
+],
 	templateUrl: './team-list-page.component.html',
 	styleUrl: './team-list-page.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,

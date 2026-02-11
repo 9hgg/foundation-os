@@ -1,3 +1,10 @@
+import { CdkDrag, CdkDragDrop, CdkDragPlaceholder, CdkDragPreview, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
+import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
+import { CommonModule } from '@angular/common';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, OnDestroy, signal, untracked, ViewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { InterceptorSkipHeader } from '@foundation/auth/state';
 import { ExportOption, ExportOptionKind } from '@foundation/canvas';
 import { EntityFile } from '@foundation/files/models';
@@ -9,13 +16,6 @@ import { ASPECT_RATIO_CONSTRAINTS, DEFAULT_RECORDING_PROPS, MediaModeOptions, Re
 import { QuestionMarkHelpComponent } from '@foundation/notification';
 import { TranslationService } from '@foundation/translations/services';
 import { getContrastingColor } from '@foundation/utils';
-import { CdkDrag, CdkDragDrop, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
-import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
-import { CommonModule } from '@angular/common';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, inject, OnDestroy, signal, untracked, ViewChild } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule } from '@angular/forms';
 import { cloneDeep, mean } from 'lodash-es';
 import { catchError, EMPTY, map, of } from 'rxjs';
 import { filter, finalize, switchMap, take, tap } from 'rxjs/operators';
@@ -81,10 +81,16 @@ interface Recording {
 		// TrackScrollDirective, => does not disappear if scroll length to short at this time
 		QuestionMarkHelpComponent,
 		TwChevronLeftIcon,
+		CdkDragPreview,
+		CdkDragPlaceholder,
 	],
 	templateUrl: './audio-request-block.component.html',
 	styleUrl: './audio-request-block.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,
+	host: {
+		'(window:keydown.shift)': 'onShiftDown()',
+		'(window:keyup.shift)': 'onShiftUp()',
+	},
 })
 export class AudioRequestBlockComponent extends MotherComponent implements OnDestroy {
 	private _filesRepository = inject(FilesRepository);
@@ -93,11 +99,11 @@ export class AudioRequestBlockComponent extends MotherComponent implements OnDes
 
 	//#region shift handler
 	public shiftPressed = signal<boolean>(false);
-	@HostListener('window:keydown.shift', ['$event'])
+
 	onShiftDown() {
 		this.shiftPressed.set(true);
 	}
-	@HostListener('window:keyup.shift', ['$event'])
+
 	onShiftUp() {
 		this.shiftPressed.set(false);
 	}

@@ -18,6 +18,7 @@ from libs.acl.models import Who
 from libs.auth.providers.auth_provider_manager import AuthProvidersManager
 from libs.db import context_db
 from libs.endpoints import create_crud_endpoints
+from libs.endpoints.config import ENDPOINTS_SETTINGS
 from libs.i18n.deps import Translator__dep
 from libs.logger import print, print_error
 from libs.mails.methods import add_mail_to_db
@@ -482,6 +483,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
     async def get_user_public_details(
         user_id: str,
         translator: Translator__dep,
+        current_user: User = Depends(get_current_user_optional),
     ):
         # check if user_id is a valid UUID
         try:
@@ -502,24 +504,50 @@ def create_crud_user_router(prefix: str = "/api/users"):
                     code="user_not_found",
                 )
             )
-        emailWithStar = user_db.email
-        if user_db.email is not None and len(user_db.email.split("@")[0]) > 2:
-            # replace all characters except the first and last with *
-            # e.g. if email is "john.doe@example.com", it becomes "j***e@example.com"
-            emailWithStar = (
-                user_db.email[0]
-                + "***"
-                + user_db.email.split("@")[0][-1]
-                + "@"
-                + user_db.email.split("@")[1][0]
-                + "***"
-            )
+
+        is_admin_or_self = False
+        if current_user:
+            if current_user.id == user_id:
+                is_admin_or_self = True
+            elif current_user.email_verified and current_user.email in ENDPOINTS_SETTINGS.ADMIN_EMAILS:
+                is_admin_or_self = True
+
+        public_name = user_db.pseudo
+        starred_email = None
+
+        if is_admin_or_self:
+            # Return enhanced details for admin
+            # For admin, publicName can be "First Last (email)" or just "First Last" depending on preference,
+            # but usually we want to see who it is.
+            name = user_db.first_name or user_db.last_name
+            if user_db.first_name and user_db.last_name:
+                name = f"{user_db.first_name} {user_db.last_name}"
+
+            public_name = name if name else user_db.pseudo
+            # We retun the real email as starredEmail to reuse the field or careful naming?
+            # The interface is { publicName, profilePictureId, starredEmail }
+            # Let's reuse starredEmail key but put real email in it if admin
+            starred_email = user_db.email
+        else:
+            # Default public behavior
+            emailWithStar = user_db.email
+            if user_db.email is not None and len(user_db.email.split("@")[0]) > 2:
+                # replace all characters except the first and last with *
+                emailWithStar = (
+                    user_db.email[0]
+                    + "***"
+                    + user_db.email.split("@")[0][-1]
+                    + "@"
+                    + user_db.email.split("@")[1][0]
+                    + "***"
+                )
+            starred_email = emailWithStar
 
         return EndpointOutput(
             result={
-                "publicName": user_db.pseudo,
+                "publicName": public_name,
                 "profilePictureId": user_db.config.profile_picture_id,
-                "starredEmail": emailWithStar,
+                "starredEmail": starred_email,
             }
         )
 

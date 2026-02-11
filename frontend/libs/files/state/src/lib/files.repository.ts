@@ -3,7 +3,7 @@ import { EntityFile } from '@foundation/files/models';
 import { DEFAULT_BACKEND_URL, RequestResponse, SimpleResponse } from '@foundation/network/services';
 import { GenericRepository } from '@foundation/table/state';
 import { HttpClient, HttpEventType, HttpHeaders } from '@angular/common/http';
-import { ElementRef, Injectable, Renderer2, RendererFactory2 } from '@angular/core';
+import { ElementRef, inject, Injectable, Renderer2, RendererFactory2 } from '@angular/core';
 import { combineLatest, EMPTY, filter, finalize, interval, NEVER, Observable, of, shareReplay, skipUntil, switchMap, take, tap } from 'rxjs';
 
 interface TaskProgressResponse {
@@ -44,6 +44,9 @@ export function convertToUrl(fileInput: string | EntityFile, alternative: string
 
 @Injectable({ providedIn: 'root' })
 export class FilesRepository extends GenericRepository<EntityFile> {
+	private _httpClient = inject(HttpClient);
+	private _rendererFactory = inject(RendererFactory2);
+
 	isUploading = false;
 	nbFilesToUpload = 0;
 	private backgroundDiv: HTMLDivElement | null = null;
@@ -52,10 +55,7 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 	allProgress: number[] = [];
 	_renderer: Renderer2;
 
-	constructor(
-		private _httpClient: HttpClient,
-		private _rendererFactory: RendererFactory2
-	) {
+	constructor() {
 		super('file');
 		this._renderer = this._rendererFactory.createRenderer(null, null);
 		window.addEventListener('beforeunload', this.unloadNotification.bind(this));
@@ -297,6 +297,7 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 					if (!url) return EMPTY;
 					url = url.replace(':4200', ':8000');
 					const headers = new HttpHeaders().set(InterceptorSkipHeader, '');
+
 					return combineLatest([
 						of(fileDb),
 

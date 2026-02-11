@@ -1,11 +1,9 @@
-import { TranslationsRepository } from '@foundation/translations/state';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
+/* eslint-disable @angular-eslint/prefer-inject */
 import { Dialog, DIALOG_DATA, DialogConfig, DialogRef } from '@angular/cdk/dialog';
 import { CdkMenuModule } from '@angular/cdk/menu';
 import { GlobalPositionStrategy, Overlay } from '@angular/cdk/overlay';
-import { Component, Inject, inject, Injectable, OnDestroy, signal } from '@angular/core';
+import { Component, Inject, inject, Injectable, signal } from '@angular/core';
+import { TranslationService } from '@foundation/translations/services';
 
 interface DataType {
 	title?: string;
@@ -78,7 +76,7 @@ type SelectionDialogConfig = BaseDialogConfig & {
 	cancelButtonText?: string;
 };
 
-const DEFAULT_DIALOG_CONFIG: BaseDialogConfig = {
+const DEFAULT_DIALOG_CONFIG: BaseDialogConfig & { snackPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' } = {
 	width: 'auto',
 	height: 'auto',
 	maxWidth: '90%',
@@ -184,7 +182,7 @@ export class NotificationService {
 				if (config.snack) {
 					const snackConfig = {
 						...config,
-						positionStrategy: config.positionStrategy || this.createSnackPositionStrategy(config.snackPosition!),
+						positionStrategy: config.positionStrategy || this.createSnackPositionStrategy(config.snackPosition ?? DEFAULT_DIALOG_CONFIG.snackPosition),
 					};
 					// Ensure autoCloseMs is available in the component via the config itself
 					dialogRef = this.dialog.open<void, DataType, SnackNotificationComponent>(SnackNotificationComponent, snackConfig);
@@ -525,8 +523,13 @@ export class ConfirmationDialogComponent {
 				}
 
 				<div class="form-control w-full">
-					<label class="mb-2 text-xs font-medium opacity-60">Your input</label>
+					<label
+						for="content-name"
+						class="mb-2 text-xs font-medium opacity-60"
+						>Your input</label
+					>
 					<input
+						id="content-name"
 						name="content-name"
 						type="text"
 						class="input input-bordered w-full"
@@ -800,9 +803,8 @@ export class SelectionDialogComponent {
 		</div>
 	`,
 })
-export class SnackNotificationComponent implements OnDestroy {
+export class SnackNotificationComponent {
 	dialogRef = inject(DialogRef);
-	private _translationService = inject(TranslationService);
 
 	title?: string;
 	message?: string;
@@ -812,7 +814,6 @@ export class SnackNotificationComponent implements OnDestroy {
 	progressTransitionDuration = signal(0);
 	isHovered = signal(false);
 
-	private progressInterval?: any;
 	private startTime?: number;
 	private remainingTime?: number;
 
@@ -885,10 +886,6 @@ export class SnackNotificationComponent implements OnDestroy {
 				}, 50);
 			}
 		}
-	}
-
-	ngOnDestroy() {
-		// Clean up if needed (currently no intervals to clear)
 	}
 }
 

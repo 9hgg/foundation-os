@@ -1,16 +1,13 @@
-import { EntityFile } from '@foundation/files/models';
-import { FilesRepository } from '@foundation/files/state';
+/* eslint-disable @angular-eslint/prefer-inject */
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
+import { EntityFile } from '@foundation/files/models';
 
 import { ChangeDetectionStrategy, Component, effect, Inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { FileTableComponent } from '@foundation/files/ui';
-import { TranslationsRepository } from '@foundation/translations/state';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
 import { Filter } from '@foundation/network/store';
+import { TranslateDirective } from '@foundation/translations/services';
 import { dialogCloser$ } from '@foundation/utils';
 import { tap } from 'rxjs';
 
@@ -45,17 +42,12 @@ export interface FileSelectionModalResult {
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FilesSelectionModalComponent {
-	// paginatedFiles: PaginatorState<EntityFile>;
-
-	// selectedFiles: Selector<EntityFile>;
-
 	fileTableChild = viewChild.required(FileTableComponent);
 
 	constructor(
 		private _dialogRef: DialogRef<FileSelectionModalResult, FilesSelectionModalComponent>,
 		@Inject(DIALOG_DATA)
-		public fileSelectionModalData: FileSelectionModalData,
-		private _filesRepository: FilesRepository
+		public fileSelectionModalData: FileSelectionModalData
 	) {
 		// following modal parameters to the file table
 		effect(() => {
@@ -68,9 +60,7 @@ export class FilesSelectionModalComponent {
 		dialogCloser$(this._dialogRef)
 			.pipe(
 				takeUntilDestroyed(),
-				tap((e) => {
-					this.dismiss();
-				})
+				tap(() => this.dismiss())
 			)
 			.subscribe();
 	}

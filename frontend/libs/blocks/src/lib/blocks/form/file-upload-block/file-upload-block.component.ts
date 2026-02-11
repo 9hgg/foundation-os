@@ -5,7 +5,7 @@ import { TwDeleteIcon, TwDownloadIcon, TwUploadIcon } from '@foundation/icons';
 import { OctetHumanReadablePipe } from '@foundation/utils';
 
 import { ExportOption } from '@foundation/canvas';
-import { CommonModule } from '@angular/common';
+
 import { ChangeDetectionStrategy, Component, computed, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MotherComponent } from '../../../mother.component';
@@ -13,7 +13,7 @@ import { MotherComponent } from '../../../mother.component';
 @Component({
 	selector: 'lib-file-upload-block',
 	standalone: true,
-	imports: [CommonModule, FormsModule, UploadButtonComponent, TwUploadIcon, TwDownloadIcon, TwDeleteIcon, OctetHumanReadablePipe],
+	imports: [FormsModule, UploadButtonComponent, TwUploadIcon, TwDownloadIcon, TwDeleteIcon, OctetHumanReadablePipe],
 	templateUrl: './file-upload-block.component.html',
 	styleUrl: './file-upload-block.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,13 +1,11 @@
 import { Block, CanvasManager } from '@foundation/canvas';
 import { MotherComponent } from './lib/mother.component';
-export { MotherComponent, InteractionRepositoryInterface } from './lib/mother.component';
-export { RootContainerBlockComponent } from './lib/blocks/containers/abcd/abcd-container-block.component';
 export { DimensionToolbarComponent } from './lib/blocks/common/dimension-toolbar/dimension-toolbar.component';
-
+export { RootContainerBlockComponent } from './lib/blocks/containers/abcd/abcd-container-block.component';
+export { Area, InteractionRepositoryInterface, MotherComponent } from './lib/mother.component';
 // BLOCKS IMPORTS
 import { AudioBlockComponent } from './lib/blocks/audio/audio-play-block/audio-block.component';
 import { AudioRequestBlockComponent } from './lib/blocks/audio/audio-request-block/audio-request-block.component';
-import { AbcdContainerBlockComponent } from './lib/blocks/containers/abcd/abcd-container-block.component';
 import { CheckboxBlockComponent } from './lib/blocks/form/checkbox-block/checkbox-block.component';
 import { FileUploadBlockComponent } from './lib/blocks/form/file-upload-block/file-upload-block.component';
 import { MultiSelectBlockComponent } from './lib/blocks/form/multi-select-block/multi-select-block.component';

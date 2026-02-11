@@ -1,5 +1,5 @@
 import { ExportOption } from '@foundation/canvas';
-import { SpokenTheme } from '@foundation/quill/themes';
+import { DefaultTheme } from '@foundation/quill/themes';
 import { QuillService } from '@foundation/quill/utils';
 import { isEqual, SanitizeHtmlPipe } from '@foundation/utils';
 import { ChangeDetectionStrategy, Component, effect, ElementRef, inject, OnDestroy, signal, untracked, viewChild } from '@angular/core';
@@ -7,7 +7,7 @@ import { FormsModule } from '@angular/forms';
 import Quill, { Delta } from 'quill';
 import { MotherComponent } from '../../../mother.component';
 
-Quill.register('themes/spoken', SpokenTheme, true);
+Quill.register('themes/spoken', DefaultTheme, true);
 
 @Component({
 	selector: 'lib-text-block',

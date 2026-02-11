@@ -1,11 +1,12 @@
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
-import { Translation } from '@foundation/translations/models';
-import { TranslateDirective } from '@foundation/translations/services';
-import { TranslationsRepository } from '@foundation/translations/state';
+/* eslint-disable @angular-eslint/prefer-inject */
 import { CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { Translation } from '@foundation/translations/models';
+import { TranslateDirective } from '@foundation/translations/services';
+import { TranslationsRepository } from '@foundation/translations/state';
 import { of, switchMap } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 @Component({

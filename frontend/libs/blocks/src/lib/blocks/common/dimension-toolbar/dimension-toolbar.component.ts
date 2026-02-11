@@ -1,12 +1,12 @@
 import { CanvasManager, convertFromPixels, convertToPixels, CssUnits } from '@foundation/canvas';
-import { CommonModule } from '@angular/common';
+
 import { Component, effect, input, model } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 @Component({
 	selector: 'lib-dimension-toolbar',
 	standalone: true,
-	imports: [CommonModule, FormsModule],
+	imports: [FormsModule],
 	templateUrl: './dimension-toolbar.component.html',
 	styleUrl: './dimension-toolbar.component.css',
 })

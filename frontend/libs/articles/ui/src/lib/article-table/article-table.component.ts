@@ -1,17 +1,14 @@
-import { Article } from '@foundation/articles/models';
-import { ArticlesRepository } from '@foundation/articles/state';
-import { FoldersModals } from '@foundation/folders/modals';
-import { TranslationsRepository } from '@foundation/translations/state';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
-import { AccessService } from '@foundation/shared/access';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
-import { DateAsAgoPipe } from '@foundation/utils';
-import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
+/* eslint-disable @angular-eslint/prefer-inject */ import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { Article } from '@foundation/articles/models';
+import { ArticlesRepository } from '@foundation/articles/state';
+import { FoldersModals } from '@foundation/folders/modals';
+import { AccessService } from '@foundation/shared/access';
+import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
+import { DateAsAgoPipe } from '@foundation/utils';
 import { switchMap } from 'rxjs';
 
 @Component({
@@ -84,11 +81,13 @@ export class ArticleTableComponent extends RepositoryTableComponent<Article, Art
 
 	private _i18n_deleteSentence = this._translationService.prep('Are you sure you want to delete this article?');
 	public deleteArticle(article: Article) {
-		if (!confirm(this._i18n_deleteSentence())) return;
-		this._repository.store
-			.deleteObject$(article.id)
-			.pipe(switchMap(() => this.paginator.refresh()))
-			.subscribe();
+		this._notificationService.confirm(this._i18n_deleteSentence()).closed.subscribe((confirmed) => {
+			if (!confirmed) return;
+			this._repository.store
+				.deleteObject$(article.id)
+				.pipe(switchMap(() => this.paginator.refresh()))
+				.subscribe();
+		});
 	}
 
 	public goToArticle(articleId: string) {

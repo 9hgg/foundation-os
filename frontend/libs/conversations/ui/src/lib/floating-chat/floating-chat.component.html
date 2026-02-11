@@ -10,7 +10,7 @@
 	(click)="togglePanel()"
 	[style.transform]="'translate(' + position().x + 'px, ' + position().y + 'px)'"
 	class="group fixed z-50 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg transition-shadow duration-200 select-none hover:shadow-2xl hover:shadow-violet-500/40 focus:ring-4 focus:ring-violet-500/30 focus:outline-none"
-	aria-label="Open support chat"
+	[attr.aria-label]="'Open support chat' | translate | async"
 >
 	<tw-info-circle class="h-6 w-6 transition-transform duration-200 group-hover:scale-110"></tw-info-circle>
 	@if (displayRedPulse()) {
@@ -201,8 +201,8 @@
 					<button
 						(click)="backToList()"
 						class="btn btn-sm btn-circle btn-ghost text-base-content/70 mr-2"
-						aria-label="Back to support tickets"
-						[translate]
+						[title]="'Back to support tickets' | translate | async"
+						[attr.aria-label]="'Back to support tickets' | translate | async"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

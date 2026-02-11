@@ -2,7 +2,7 @@ import datetime
 import os
 import time
 import uuid
-
+from libs.utils.origin import get_origin
 import fastapi
 from fastapi import (
     BackgroundTasks,
@@ -86,7 +86,9 @@ def create_crud_file_router(prefix: str = "/api/files"):
         storage_to_use = current_storage_
 
         # origin is used for presigned resumable PUT url
-        origin = request.headers.get("origin")
+        origin = get_origin(
+            request=request, default_origin=request.headers.get("origin")
+        )
 
         # folder management
         parent_id = None

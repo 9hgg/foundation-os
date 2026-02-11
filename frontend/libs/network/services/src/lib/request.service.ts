@@ -1,4 +1,4 @@
-import { HttpClient, HttpEvent, HttpHeaders, HttpParams, HttpParamsOptions } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpHeaders, HttpParams, HttpParamsOptions, HttpResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, of, Subject } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
@@ -386,6 +386,25 @@ export class RequestService {
 					return of(result);
 				})
 			);
+	}
+
+	/**
+	 * Post JSON and receive a Blob response with headers.
+	 * Used for binary responses like PDFs.
+	 */
+	postBlob$<RequestParam = unknown>(
+		endpoint: string,
+		data: RequestParam,
+		options: Partial<RequestOptions> = defaultRequestOptions
+	): Observable<HttpResponse<Blob>> {
+		const _options = { ...defaultRequestOptions, ...options };
+
+		return this._httpClient.post(_options.apiRoot + endpoint, data, {
+			withCredentials: true,
+			observe: 'response',
+			responseType: 'blob',
+			headers: options.extraHeaders,
+		});
 	}
 
 	put$<ResponseType extends StringRecord, RequestParam = Record<string, any>>(endpoint: string, data: RequestParam, options: Partial<RequestOptions> = defaultRequestOptions): Observable<RequestResponse<ResponseType>> {

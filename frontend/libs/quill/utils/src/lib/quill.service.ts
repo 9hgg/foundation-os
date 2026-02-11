@@ -10,6 +10,15 @@ import { ImageBlot, ImageBlotContextMenuService, VideoBlot, VideoBlotContextMenu
 Quill.register(ImageBlot, true);
 Quill.register(VideoBlot, true);
 
+const DEFAULT_TOOLBAR_CONFIG = [
+	[{ header: ['1', '2', '3', false] }],
+	['bold', 'italic', 'underline', 'link'],
+	[{ list: 'ordered' }, { list: 'bullet' }],
+	[{ align: ['', 'center', 'right', 'justify'] }],
+	['image', 'video'],
+	['clean'],
+];
+
 @Injectable({ providedIn: 'root' })
 export class QuillService {
 	private _filesRepository = inject(FilesRepository);
@@ -26,9 +35,8 @@ export class QuillService {
 		const quill = new Quill(htmlElement, {
 			theme: 'snow',
 			modules: {
-				// toolbar: '[data-toolbar-id="toolbar-' + this.articleId() + '"]',
 				toolbar: {
-					container: quillId ? '[data-toolbar-id="toolbar-' + quillId + '"]' : undefined,
+					container: quillId ? '[data-toolbar-id="toolbar-' + quillId + '"]' : DEFAULT_TOOLBAR_CONFIG,
 					handlers: {
 						image: () => this._useAnExistingFileInQuill(quill, 'image'),
 						video: () => this._useAnExistingFileInQuill(quill, 'video'),

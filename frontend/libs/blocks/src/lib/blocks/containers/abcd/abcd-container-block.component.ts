@@ -1,5 +1,5 @@
 import { CdkMenuModule } from '@angular/cdk/menu';
-import { CommonModule } from '@angular/common';
+
 import { Component, computed, ElementRef, inject, signal, viewChildren } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +11,7 @@ import { DimensionToolbarComponent } from '../../common/dimension-toolbar/dimens
 @Component({
 	selector: 'lib-root-container-block',
 	standalone: true,
-	imports: [CommonModule, CdkMenuModule, FormsModule],
+	imports: [CdkMenuModule, FormsModule],
 	template: '',
 })
 export class RootContainerBlockComponent extends MotherComponent {
@@ -194,7 +194,7 @@ export class RootContainerBlockComponent extends MotherComponent {
 @Component({
 	selector: 'lib-abcd-container-block',
 	standalone: true,
-	imports: [CommonModule, CdkMenuModule, FormsModule, DimensionToolbarComponent],
+	imports: [CdkMenuModule, FormsModule, DimensionToolbarComponent],
 	templateUrl: './abcd-container-block.component.html',
 	styleUrl: './abcd-container-block.component.css',
 })

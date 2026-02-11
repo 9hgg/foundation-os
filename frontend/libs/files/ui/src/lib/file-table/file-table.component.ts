@@ -1,20 +1,18 @@
-import { AccessService } from '@foundation/shared/access';
-import { EntityFile } from '@foundation/files/models';
-import { convertToUrl, FilesRepository } from '@foundation/files/state';
-import { FoldersModals } from '@foundation/folders/modals';
-import { TranslationsRepository } from '@foundation/translations/state';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
-import { PlayButtonComponent, SubtitleLoaderComponent } from '@foundation/media/play/ui';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
-import { OctetHumanReadablePipe } from '@foundation/utils';
+/* eslint-disable @angular-eslint/prefer-inject */
 import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Attribute, ChangeDetectionStrategy, Component, HostListener, inject, model, signal } from '@angular/core';
+import { Attribute, ChangeDetectionStrategy, Component, inject, model, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
+import { EntityFile } from '@foundation/files/models';
+import { convertToUrl, FilesRepository } from '@foundation/files/state';
+import { FoldersModals } from '@foundation/folders/modals';
+import { PlayButtonComponent, SubtitleLoaderComponent } from '@foundation/media/play/ui';
+import { AccessService } from '@foundation/shared/access';
+import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
+import { OctetHumanReadablePipe } from '@foundation/utils';
 import { map, switchMap, take, tap } from 'rxjs';
 import { DownloadButtonComponent } from '../download-button/download-button.component';
 
@@ -27,6 +25,10 @@ const DEBUG = false;
 	templateUrl: './file-table.component.html',
 	styleUrl: './file-table.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,
+	host: {
+		'(window:keydown.shift)': 'onShiftDown()',
+		'(window:keyup.shift)': 'onShiftUp()',
+	},
 })
 export class FileTableComponent extends RepositoryTableComponent<EntityFile, FilesRepository> {
 	private _accessService = inject(AccessService);
@@ -38,12 +40,10 @@ export class FileTableComponent extends RepositoryTableComponent<EntityFile, Fil
 
 	public shiftPressed = signal<boolean>(false);
 
-	@HostListener('window:keydown.shift', ['$event'])
 	onShiftDown() {
 		this.shiftPressed.set(true);
 	}
 
-	@HostListener('window:keyup.shift', ['$event'])
 	onShiftUp() {
 		this.shiftPressed.set(false);
 	}

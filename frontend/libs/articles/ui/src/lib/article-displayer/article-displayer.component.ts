@@ -70,6 +70,12 @@ export class ArticleDisplayerComponent implements AfterViewInit {
 		return id ? this._articlesRepository.store.getObjectById$$$(id, true).$ : of(null);
 	}, null);
 
+	private _translationService = inject(TranslationService);
+
+	private _i18n_supportChat = this._translationService.prep('Support chat');
+	private _i18n_backlog = this._translationService.prep('Feature request');
+	private _i18n_comments = this._translationService.prep('Comments');
+
 	constructor() {
 		// react if the reference is the articleId
 		effect(() => {
@@ -110,13 +116,13 @@ export class ArticleDisplayerComponent implements AfterViewInit {
 					if (!this.commentTitle())
 						switch (article.kind) {
 							case 'support':
-								this.commentTitle.set('Support chat');
+								this.commentTitle.set(this._i18n_supportChat());
 								break;
 							case 'backlog':
-								this.commentTitle.set('Discussion');
+								this.commentTitle.set(this._i18n_backlog());
 								break;
 							case 'default':
-								this.commentTitle.set('Comments');
+								this.commentTitle.set(this._i18n_comments());
 								break;
 							default:
 								console.warn('Unsupported article kind:', article.kind);

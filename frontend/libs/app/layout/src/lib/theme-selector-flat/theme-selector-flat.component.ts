@@ -1,7 +1,10 @@
 import { CommonModule, TitleCasePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, inject } from '@angular/core';
 import { AppConfigService } from '@foundation/app/config';
+import { UsersRepository } from '@foundation/users/state';
+import { RequestService } from '@foundation/network/services';
 import { LayoutService } from '../layout.service';
+import { ThemeConfig } from '@foundation/users/models';
 
 @Component({
 	selector: 'lib-theme-selector-flat',
@@ -14,26 +17,55 @@ import { LayoutService } from '../layout.service';
 export class ThemeSelectorFlatComponent {
 	layoutService = inject(LayoutService);
 	private _appConfig = inject(AppConfigService);
+	private _usersRepository = inject(UsersRepository);
+	private _requestService = inject(RequestService);
 
 	get themes(): string[] {
-		return (this._appConfig.config$_.environment as any).availableThemes || [];
+		return this._appConfig.config$_.environment.availableThemes || [];
 	}
 
-	setMode(mode: 'light' | 'dark' | 'system') {
+	setMode(mode: 'light' | 'dark' | 'system', extraConfig: Partial<ThemeConfig> = {}) {
+		console.log('ThemeSelectorFlatComponent.setMode', mode);
 		this.layoutService.setMode(mode);
+		this.syncThemeConfig({ mode, ...extraConfig });
 	}
 
 	updateLightTheme(theme: string) {
-		this.layoutService.updateLightTheme(theme);
-		if (this.layoutService.effectiveMode() !== 'light') {
-			this.layoutService.setMode('light');
+		console.log('updateLightTheme', theme);
+		if (this.layoutService.effectiveMode() === 'light') {
+			this.layoutService.setLightThemePref(theme);
+			this.syncThemeConfig({ light: theme });
+		} else {
+			this.layoutService.updateLightTheme(theme);
+			this.syncThemeConfig({ light: theme, mode: 'light' });
 		}
 	}
 
 	updateDarkTheme(theme: string) {
-		this.layoutService.updateDarkTheme(theme);
-		if (this.layoutService.effectiveMode() !== 'dark') {
-			this.layoutService.setMode('dark');
+		console.log('updateDarkTheme', theme);
+		if (this.layoutService.effectiveMode() === 'dark') {
+			this.layoutService.setDarkThemePref(theme);
+			this.syncThemeConfig({ dark: theme });
+		} else {
+			this.layoutService.updateDarkTheme(theme);
+			this.syncThemeConfig({ dark: theme, mode: 'dark' });
 		}
+	}
+
+	private syncThemeConfig(changes: Partial<ThemeConfig>) {
+		const user = this._usersRepository.currentProfile();
+		if (!user) return;
+
+		const currentTheme = user.config.theme || {};
+		const newTheme = { ...currentTheme, ...changes };
+
+		this._requestService
+			.post$('/api/users/profile/update', {
+				config: { theme: newTheme },
+			})
+			.subscribe({
+				next: () => this._usersRepository.refreshUsers(),
+				error: (e) => console.error('Failed to sync theme', e),
+			});
 	}
 }

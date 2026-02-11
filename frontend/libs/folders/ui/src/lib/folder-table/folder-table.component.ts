@@ -1,12 +1,13 @@
+/* eslint-disable @angular-eslint/prefer-inject */
+import { CdkMenuModule } from '@angular/cdk/menu';
+import { CommonModule } from '@angular/common';
+import { Attribute, ChangeDetectionStrategy, Component, effect, model } from '@angular/core';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Folder } from '@foundation/folders/models';
 import { FoldersRepository } from '@foundation/folders/state';
 import { Filter } from '@foundation/network/store';
 import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
 import { BehaviorSubjectReplayedProxied } from '@foundation/utils';
-import { CdkMenuModule } from '@angular/cdk/menu';
-import { CommonModule } from '@angular/common';
-import { Attribute, ChangeDetectionStrategy, Component, effect, model } from '@angular/core';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { of, switchMap } from 'rxjs';
 
 @Component({

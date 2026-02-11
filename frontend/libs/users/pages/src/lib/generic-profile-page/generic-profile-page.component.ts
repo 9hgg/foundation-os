@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { AppConfigService } from '@foundation/app/config';
 import { RequestService } from '@foundation/network/services';
 import { NotificationService } from '@foundation/notification';
@@ -15,7 +15,7 @@ import { tap } from 'rxjs';
 @Component({
 	template: '',
 	standalone: true,
-	imports: [CommonModule],
+	imports: [],
 })
 export class GenericProfilePageComponent {
 	public usersRepository = inject(UsersRepository);

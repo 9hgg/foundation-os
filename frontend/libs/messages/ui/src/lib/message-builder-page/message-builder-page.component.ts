@@ -1,17 +1,3 @@
-import { FileModals } from '@foundation/files/modals';
-import { EntityFile } from '@foundation/files/models';
-import { convertToUrl, FilesRepository } from '@foundation/files/state';
-import { UploadButtonComponent } from '@foundation/files/ui';
-import { TranslationsRepository } from '@foundation/translations/state';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
-import { Message } from '@foundation/messages/models';
-import { MessagesRepository } from '@foundation/messages/state';
-import { NotificationService, QuestionMarkHelpComponent } from '@foundation/notification';
-import { ImageBlot, ImageBlotContextMenuService } from '@foundation/quill/blots';
-import { extractSemanticAndContent } from '@foundation/quill/utils';
-import { BehaviorSubjectReplayed, BehaviorSubjectReplayedProxied, SanitizeHtmlPipe } from '@foundation/utils';
 import { CdkDropList } from '@angular/cdk/drag-drop';
 import { CdkMenuModule } from '@angular/cdk/menu';
 import { PortalModule } from '@angular/cdk/portal';
@@ -20,6 +6,15 @@ import { ChangeDetectionStrategy, Component, effect, ElementRef, inject, model, 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { FileModals } from '@foundation/files/modals';
+import { EntityFile } from '@foundation/files/models';
+import { convertToUrl, FilesRepository } from '@foundation/files/state';
+import { Message } from '@foundation/messages/models';
+import { MessagesRepository } from '@foundation/messages/state';
+import { ImageBlot, ImageBlotContextMenuService } from '@foundation/quill/blots';
+import { extractSemanticAndContent } from '@foundation/quill/utils';
+import { TranslateDirective } from '@foundation/translations/services';
+import { BehaviorSubjectReplayed, BehaviorSubjectReplayedProxied, SanitizeHtmlPipe } from '@foundation/utils';
 import Quill, { Delta } from 'quill';
 import { debounceTime, filter, map, of, skip, take, tap } from 'rxjs';
 
@@ -38,8 +33,6 @@ Quill.register(ImageBlot, true);
 		PortalModule,
 		CdkDropList,
 		SanitizeHtmlPipe,
-		UploadButtonComponent,
-		QuestionMarkHelpComponent,
 	],
 	templateUrl: './message-builder-page.component.html',
 	styleUrls: ['./message-builder-page.component.css'],

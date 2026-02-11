@@ -27,6 +27,9 @@ import { TranslatePipe, TranslateDirective } from '@foundation/translations/serv
 	templateUrl: './upload-button.component.html',
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	styleUrls: ['./upload-button.component.css'],
+	host: {
+		'(change)': 'handleFileInputEvent($event)',
+	},
 })
 export class UploadButtonComponent {
 	private _el = inject(ElementRef);
@@ -79,9 +82,11 @@ export class UploadButtonComponent {
 			});
 	}
 
-	@HostListener('change', ['$event.target.files'])
-	handleFileInputEvent(fileList: FileList) {
-		this._handleFileList(fileList);
+	handleFileInputEvent(event: Event) {
+		const target = event.target as HTMLInputElement;
+		if (target?.files) {
+			this._handleFileList(target.files);
+		}
 	}
 
 	public selectFile() {

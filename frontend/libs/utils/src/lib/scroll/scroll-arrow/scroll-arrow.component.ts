@@ -1,10 +1,10 @@
-import { CommonModule } from '@angular/common';
+
 import { Component } from '@angular/core';
 
 @Component({
 	selector: 'scroll-arrow',
 	standalone: true,
-	imports: [CommonModule],
+	imports: [],
 	templateUrl: './scroll-arrow.component.html',
 	styleUrls: ['./scroll-arrow.component.css'],
 })
