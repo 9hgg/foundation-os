@@ -1,24 +1,29 @@
 /* eslint-disable @angular-eslint/prefer-inject */
 import { CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
-import { Attribute, ChangeDetectionStrategy, Component } from '@angular/core';
+import { Attribute, ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
 import { Translation } from '@foundation/translations/models';
-import { TranslateDirective } from '@foundation/translations/services';
+import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { TranslationsRepository } from '@foundation/translations/state';
-import { of, switchMap } from 'rxjs';
+import { combineLatest, concatMap, finalize, forkJoin, map, of, range, switchMap } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 @Component({
 	selector: 'lib-translation-table',
 	standalone: true,
-	imports: [CommonModule, ReactiveFormsModule, FormsModule, CdkMenuModule, TranslateDirective],
+	imports: [CommonModule, ReactiveFormsModule, FormsModule, CdkMenuModule, TranslateDirective, TranslatePipe],
 	templateUrl: './translation-table.component.html',
 	styleUrl: './translation-table.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TranslationTableComponent extends RepositoryTableComponent<Translation, TranslationsRepository> {
 	availableLanguages = ['en', 'fr', 'es', 'it', 'de', 'pt', 'ru', 'zh', 'ja'];
+	isSelectingAll = signal(false);
+	selectedTranslationsCount = signal(0);
+	hasTranslations = signal(false);
+	areAllTranslationsSelected = signal(false);
 
 	constructor(
 		private _repository: TranslationsRepository,
@@ -36,6 +41,16 @@ export class TranslationTableComponent extends RepositoryTableComponent<Translat
 			},
 			clickBehavior
 		);
+
+		combineLatest([this.itemsSelector.selectedItems$, this.paginator.totalNumberOfItems$$$.$])
+			.pipe(takeUntilDestroyed())
+			.subscribe(([selectedItems, totalNumberOfItems]) => {
+				const selectedCount = selectedItems.length;
+				const hasAtLeastOneTranslation = totalNumberOfItems > 0;
+				this.selectedTranslationsCount.set(selectedCount);
+				this.hasTranslations.set(hasAtLeastOneTranslation);
+				this.areAllTranslationsSelected.set(hasAtLeastOneTranslation && selectedCount >= totalNumberOfItems);
+			});
 	}
 
 	requestTranslation(translation: Translation) {
@@ -49,6 +64,7 @@ export class TranslationTableComponent extends RepositoryTableComponent<Translat
 					inputSentence: sentenceToTranslate,
 					sentenceToTranslate: sentenceToTranslate,
 					langCode: targetLang,
+					inputLanguage: translation.languageSource || 'en',
 					translationContext: context,
 					rpbt: false,
 				},
@@ -90,6 +106,38 @@ export class TranslationTableComponent extends RepositoryTableComponent<Translat
 
 	private _i18n_deleteTitle = this._translationService.prep('Delete Translation');
 	private _i18n_deleteMessage = this._translationService.prep('Are you sure you want to delete this translation?');
+	private _i18n_deleteSelectedTitle = this._translationService.prep('Delete selected translations');
+	private _i18n_deleteSelectedMessage = this._translationService.prep('Are you sure you want to delete all selected translations?');
+
+	toggleSelectAllTranslations() {
+		if (this.isSelectingAll()) return;
+
+		if (this.areAllTranslationsSelected()) {
+			this.itemsSelector.unselectAll();
+			return;
+		}
+
+		const totalNumberOfPages = this.paginator.totalNumberOfPages$$$.value;
+		if (totalNumberOfPages === 0) return;
+
+		const currentPageBeforeSelectAll = this.paginator.currentPage$$$.value;
+		this.isSelectingAll.set(true);
+
+		range(1, totalNumberOfPages)
+			.pipe(
+				concatMap((pageNumber) => this.paginator.requestPage$(pageNumber, undefined, true)),
+				map((pageResult) => pageResult.data.filter((translation): translation is Translation => translation !== null)),
+				finalize(() => {
+					this.isSelectingAll.set(false);
+					if (this.paginator.currentPage$$$.value !== currentPageBeforeSelectAll) {
+						this.paginator.requestPage$(currentPageBeforeSelectAll, undefined, true).subscribe();
+					}
+				})
+			)
+			.subscribe((translationsOnPage) => {
+				this.itemsSelector.selectMultiple(translationsOnPage);
+			});
+	}
 
 	deleteTranslation(translation: Translation) {
 		this._notificationService
@@ -101,7 +149,33 @@ export class TranslationTableComponent extends RepositoryTableComponent<Translat
 					return this._repository.delete$(translation.id);
 				})
 			)
-			.subscribe(() => {
+				.subscribe(() => {
+					this.paginator.refresh().subscribe();
+				});
+	}
+
+	deleteSelectedTranslations() {
+		const selectedTranslationIds = this.itemsSelector.selectedItems
+			.map((selectedTranslation) => selectedTranslation.id)
+			.filter((selectedTranslationId): selectedTranslationId is string => !!selectedTranslationId);
+
+		if (selectedTranslationIds.length === 0) return;
+
+		this._notificationService
+			.confirm(this._i18n_deleteSelectedMessage(), this._i18n_deleteSelectedTitle())
+			.closed.pipe(
+				switchMap((confirmed) => {
+					if (!confirmed) return of(false);
+					const deleteSelectedTranslationRequests = selectedTranslationIds.map((selectedTranslationId) =>
+						this._repository.delete$(selectedTranslationId)
+					);
+					if (deleteSelectedTranslationRequests.length === 0) return of(false);
+					return forkJoin(deleteSelectedTranslationRequests).pipe(map(() => true));
+				})
+			)
+			.subscribe((hasDeletedSelectedTranslations) => {
+				if (!hasDeletedSelectedTranslations) return;
+				this.itemsSelector.unselectAll();
 				this.paginator.refresh().subscribe();
 			});
 	}

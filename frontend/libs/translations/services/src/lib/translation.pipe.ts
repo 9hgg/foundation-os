@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Directive, ElementRef, inject, Input, OnInit, Pipe, PipeTransform } from '@angular/core';
+import { ChangeDetectorRef, Directive, ElementRef, effect, inject, input, OnInit, Pipe, PipeTransform, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslationService } from './translation.service';
 import { BehaviorSubjectReplayed } from '@foundation/utils';
@@ -17,6 +17,7 @@ export class TranslatePipe implements PipeTransform {
 		// return of(inputSentence);
 		return this._translationService.translate$({
 			inputSentence,
+			inputLanguage: 'en',
 			kv,
 			rpbt,
 			translationContext,
@@ -30,20 +31,36 @@ export class TranslatePipe implements PipeTransform {
 	standalone: true,
 })
 export class TranslateDirective implements OnInit {
-	@Input('translate') kv?: { [key: string]: any } = {};
-	@Input() rpbt: boolean = false;
-	@Input() translationContext?: string;
+	kv = input<{ [key: string]: any } | undefined>(undefined, { alias: 'translate' });
+	rpbt = input<boolean>(false);
+	translationContext = input<string | undefined>(undefined);
+	inputLanguage = input<string>('en');
 
 	translation$$$ = new BehaviorSubjectReplayed<string | null>(null);
+	private _originalText = signal<string>('');
 
-	constructor(
-		private _cdr: ChangeDetectorRef,
-		private _elementRef: ElementRef<HTMLElement>,
-		private _translationService: TranslationService
-	) {
+	private _cdr = inject(ChangeDetectorRef);
+	private _elementRef = inject(ElementRef<HTMLElement>);
+	private _translationService = inject(TranslationService);
+
+	constructor() {
+		effect(() => {
+			const originalText = this._originalText();
+			if (!originalText) return;
+
+			this.translation$$$.setSource(
+				this._translationService.translate$({
+					inputSentence: originalText,
+					kv: this.kv(),
+					rpbt: this.rpbt(),
+					translationContext: this.translationContext(),
+					inputLanguage: this.inputLanguage(),
+				})
+			);
+		});
+
 		this.translation$$$
 			.pipe(
-				// debounceTime(1000),
 				takeUntilDestroyed(),
 				tap((translation) => {
 					if (!translation) return;
@@ -60,18 +77,8 @@ export class TranslateDirective implements OnInit {
 	}
 
 	ngOnInit(): void {
-		const element = this._elementRef.nativeElement;
-		const originalText = element.innerHTML;
-		if (DEBUG) {
-			console.log('translation asked for:', originalText, 'CONTEXT:', this.translationContext);
-		}
-		this.translation$$$.setSource(
-			this._translationService.translate$({
-				inputSentence: originalText,
-				kv: this.kv,
-				rpbt: this.rpbt,
-				translationContext: this.translationContext,
-			})
-		);
+		const originalText = this._elementRef.nativeElement.innerHTML;
+		if (DEBUG) console.log('translation asked for:', originalText, 'CONTEXT:', this.translationContext());
+		this._originalText.set(originalText);
 	}
 }

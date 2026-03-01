@@ -233,8 +233,8 @@ export class BehaviorSubjectReplayed<T> {
  */
 export class BehaviorSubjectReplayedProxied<I, T> {
 	// subject$ = new Subject<I>();
-	$$$: BehaviorSubjectReplayed<T | null>;
-	buildObservable: (arg: I) => Observable<T | null>;
+	$$$: BehaviorSubjectReplayed<T>;
+	buildObservable: (arg: I) => Observable<T>;
 
 	// proxies for $$$
 	pipe;
@@ -244,12 +244,12 @@ export class BehaviorSubjectReplayedProxied<I, T> {
 
 	constructor(
 		//
-		buildObservable: (arg: I) => Observable<T | null>,
+		buildObservable: (arg: I) => Observable<T>,
 		initialValue: T,
 		title?: string,
 		bufferSize = 1
 	) {
-		this.$$$ = new BehaviorSubjectReplayed<T | null>(initialValue, title, bufferSize);
+		this.$$$ = new BehaviorSubjectReplayed<T>(initialValue, title, bufferSize);
 		this.buildObservable = buildObservable;
 
 		this.pipe = this.$$$.pipe.bind(this.$$$);

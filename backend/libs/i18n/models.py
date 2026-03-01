@@ -33,6 +33,7 @@ class TranslateFn(Protocol):
         *,
         kv: dict[str, str] | None = None,
         lang: str | None = "en",
+        input_language: str | None = "en",
         rpbt: bool = False,
         translation_context: str | None = None,
     ) -> str: ...

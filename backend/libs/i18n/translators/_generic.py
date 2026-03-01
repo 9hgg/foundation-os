@@ -11,11 +11,10 @@ from libs.logger import print_error, print_warning
 
 from ..models import Translation
 
+# # remove print
+# def print(*args, **kwargs):
 
-# remove print
-def print(*args, **kwargs):
-
-    return None
+#     return None
 
 
 class Translator:
@@ -24,7 +23,7 @@ class Translator:
         self,
         name: str,
         version: str,
-        translate_content: typing.Callable[[str, str], str],
+        translate_content: typing.Callable[[str, str, str | None], str | None],
         string_hasher=lambda x: hashlib.sha256(x.encode("utf-8")).hexdigest(),
     ):
         self.name = name
@@ -74,6 +73,7 @@ class Translator:
         self,
         hash_string: str,
         source_content: str,
+        language_source: str,
         language_target: str,
         translated_content: str,
         translation_context: str | None = None,
@@ -89,6 +89,7 @@ class Translator:
         new_translation_db = Translation(
             hash=hash_string,
             source_content=source_content,
+            language_source=language_source,
             language_target=language_target,
             translated_content=translated_content,
             translation_context=translation_context,
@@ -102,6 +103,7 @@ class Translator:
         source_content: str,
         language_target: str,
         translation_context: str | None = None,
+        input_language: str | None = "en",
     ) -> str:
         print(
             "getting translation", source_content, language_target, translation_context
@@ -109,12 +111,12 @@ class Translator:
         if isinstance(source_content, bytes):
             source_content = source_content.decode("utf-8")
 
+        hash_payload = source_content
         if translation_context is not None:
-            hash_string = self._compute_hash(
-                source_content + "{{" + translation_context + "}}"
-            )
-        else:
-            hash_string = self._compute_hash(source_content)
+            hash_payload += "{{" + translation_context + "}}"
+        if input_language:
+            hash_payload += "{{src:" + input_language + "}}"
+        hash_string = self._compute_hash(hash_payload)
 
         # check if the translation already exists
         existing_translation = self._get_existing_translation(
@@ -124,18 +126,19 @@ class Translator:
             print("Using existing translation", existing_translation)
             return existing_translation
         else:
-            print("Generating new translation")
+            print(f"Generating new translation from {input_language} to {language_target} for content: {source_content[:50]}...")
 
         # translate the content
         try:
-            translated_content = self.translate_content(source_content, language_target)
-            translated_content = html.unescape(translated_content)
+            translated_content: str | None = self.translate_content(
+                source_content, language_target, input_language
+            )
         except Exception:
             # stack
             traceback.print_exc(file=sys.stdout)
 
             print_error(
-                "Translation not working",
+                "Translation failed",
                 payload={
                     "source_content": source_content,
                     "language_target": language_target,
@@ -144,6 +147,19 @@ class Translator:
                 },
             )
             return source_content
+        if translated_content is None:
+            print_warning(
+                "Translation function returned None",
+                payload={
+                    "source_content": source_content,
+                    "language_target": language_target,
+                    "translator": self.name,
+                    "version": self.version,
+                    "translation_context": translation_context,
+                },
+            )
+            return source_content
+        translated_content = html.unescape(translated_content)
 
         if translated_content:
             print("Translation successful", translated_content)
@@ -151,6 +167,7 @@ class Translator:
             self._save_translation(
                 hash_string,
                 source_content,
+                input_language,
                 language_target,
                 translated_content,
                 translation_context=translation_context,
@@ -159,7 +176,7 @@ class Translator:
             return translated_content
         else:
             print_warning(
-                "Translation not working",
+                "Translation failed with empty result",
                 payload={
                     "source_content": source_content,
                     "language_target": language_target,
@@ -174,5 +191,5 @@ class Translator:
 dummy_translator = Translator(
     "dummy",
     "v0",
-    lambda text, target_language: text,
+    lambda text, target_language, input_language=None: None,
 )

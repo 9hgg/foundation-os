@@ -11,6 +11,10 @@ const DEFAULT_LANG_CODE: string = 'en';
 interface TranslatableSentence {
 	/** value from the template */
 	inputSentence: string;
+	/** optional target language override */
+	langCode?: string;
+	/** source language of inputSentence */
+	inputLanguage: string;
 	/** key-value dict to fill the rawSentence */
 	kv?: Record<string, string>;
 	/** replace placeholders before translation (default to false in the backend) */
@@ -23,7 +27,7 @@ interface TranslatableSentence {
 interface SentenceToTranslate extends TranslatableSentence {
 	/** the sentenceToTranslate is a conversion from the input sentence depending on rpbt */
 	sentenceToTranslate: string;
-	/** lang to translate in (default to en in the backend) */
+	/** target language to translate to */
 	langCode: string;
 }
 
@@ -101,7 +105,7 @@ export class TranslationService {
 					if (translationsToVerify.length > 0) {
 						if (DEBUG) console.log('%c[TranslationService] Verifying translations (background)', 'color: orange', translationsToVerify);
 						// We filter out duplicates in the batch
-						const uniqueTranslationsToVerify = translationsToVerify.filter((v, i, a) => a.findIndex((t) => t.inputSentence === v.inputSentence && t.langCode === v.langCode && t.translationContext === v.translationContext) === i);
+						const uniqueTranslationsToVerify = translationsToVerify.filter((v, i, a) => a.findIndex((t) => t.inputSentence === v.inputSentence && t.langCode === v.langCode && t.inputLanguage === v.inputLanguage && t.translationContext === v.translationContext) === i);
 						// clear the list for next batch
 						this.translationsToVerify$$$.next([]);
 						return this.requestTranslations$(uniqueTranslationsToVerify);
@@ -175,6 +179,7 @@ export class TranslationService {
 						availableTranslations[sentenceTranslatedhash] = {
 							details: {
 								inputSentence: sentenceTranslated.sentenceToTranslate,
+								inputLanguage: sentenceTranslated.inputLanguage || 'en',
 								kv: sentenceTranslated.kv,
 								rpbt: sentenceTranslated.rpbt,
 								translationContext: sentenceTranslated.translationContext,
@@ -212,6 +217,10 @@ export class TranslationService {
 				if (DEBUG) console.log('combineLatest', lang, translations);
 			}),
 			switchMap(([langCode, translations]) => {
+				const inputLanguage = translatableSentence.inputLanguage.includes('-') ? translatableSentence.inputLanguage.split('-')[0] : translatableSentence.inputLanguage;
+				const requestedLangCode = translatableSentence.langCode?.includes('-') ? translatableSentence.langCode.split('-')[0] : translatableSentence.langCode;
+				const targetLangCode = requestedLangCode ?? langCode;
+
 				// check key in translations
 
 				let sentenceToTranslate: string = translatableSentence.inputSentence;
@@ -223,9 +232,9 @@ export class TranslationService {
 
 				if (sentenceToTranslateHash in translations) {
 					if (DEBUG) console.log('%c[TranslationService] Raw sentence found,', 'color: cyan', sentenceToTranslate);
-					if (langCode in translations[sentenceToTranslateHash].availableLangCodes) {
-						if (DEBUG) console.log('%c[TranslationService] lang available,', 'color: cyan', sentenceToTranslate, langCode);
-						const rawTranslatedSentence = translations[sentenceToTranslateHash].availableLangCodes[langCode];
+					if (targetLangCode in translations[sentenceToTranslateHash].availableLangCodes) {
+						if (DEBUG) console.log('%c[TranslationService] lang available,', 'color: cyan', sentenceToTranslate, targetLangCode);
+						const rawTranslatedSentence = translations[sentenceToTranslateHash].availableLangCodes[targetLangCode];
 						if (translations[sentenceToTranslateHash].details.rpbt) {
 							if (DEBUG) console.log("%c[TranslationService] replacement was done in the backend, we don't need to do it here", 'color: cyan', rawTranslatedSentence);
 
@@ -233,7 +242,8 @@ export class TranslationService {
 							this.triggerVerification({
 								...translatableSentence,
 								sentenceToTranslate: translatableSentence.inputSentence, // approx but ok for verification context
-								langCode,
+								langCode: targetLangCode,
+								inputLanguage,
 							});
 
 							return of(rawTranslatedSentence);
@@ -244,20 +254,22 @@ export class TranslationService {
 							this.triggerVerification({
 								...translatableSentence,
 								sentenceToTranslate: translatableSentence.inputSentence,
-								langCode,
+								langCode: targetLangCode,
+								inputLanguage,
 							});
 
 							return of(this.fillPlaceholders(rawTranslatedSentence, translatableSentence.kv ?? {}));
 						}
 					} else {
-						if (DEBUG) console.log('%c[TranslationService] lang not available yet,', 'color: cyan', langCode);
+						if (DEBUG) console.log('%c[TranslationService] lang not available yet,', 'color: cyan', targetLangCode);
 						// add it to the list of missing translations if not already present
 						const newMissingTranslation: SentenceToTranslate = {
 							...translatableSentence,
 							sentenceToTranslate,
-							langCode,
+							langCode: targetLangCode,
+							inputLanguage,
 						};
-						if (!this.missingTranslations$$$.value.some((missingTranslation) => missingTranslation.sentenceToTranslate === newMissingTranslation.sentenceToTranslate && missingTranslation.langCode === newMissingTranslation.langCode && missingTranslation.translationContext === newMissingTranslation.translationContext)) {
+						if (!this.missingTranslations$$$.value.some((missingTranslation) => missingTranslation.sentenceToTranslate === newMissingTranslation.sentenceToTranslate && missingTranslation.langCode === newMissingTranslation.langCode && missingTranslation.inputLanguage === newMissingTranslation.inputLanguage && missingTranslation.translationContext === newMissingTranslation.translationContext)) {
 							this.missingTranslations$$$.next([...this.missingTranslations$$$.value, newMissingTranslation]);
 						}
 
@@ -267,7 +279,7 @@ export class TranslationService {
 						for (const preferredLang of preferredLanguages) {
 							const preferredLangCode = preferredLang.split('-')[0]; // Get the language code
 							if (preferredLangCode in translations[sentenceToTranslateHash].availableLangCodes) {
-								if (DEBUG) console.log('%c[TranslationService] Preferred language found, returning', 'color: cyan', preferredLangCode, 'instead of', langCode);
+								if (DEBUG) console.log('%c[TranslationService] Preferred language found, returning', 'color: cyan', preferredLangCode, 'instead of', targetLangCode);
 								const rawTranslatedSentence = translations[sentenceToTranslateHash].availableLangCodes[preferredLangCode];
 								if (translations[sentenceToTranslateHash].details.rpbt) {
 									if (DEBUG) console.log("%c[TranslationService](alternative preferred) replacement was done in the backend, we don't need to do it here", 'color: cyan', rawTranslatedSentence, preferredLangCode);
@@ -280,7 +292,7 @@ export class TranslationService {
 						} // end of preferred languages
 						// then we look in all already translated languages
 						for (const langCodeFallback in translations[sentenceToTranslateHash].availableLangCodes) {
-							if (DEBUG) console.log('No preferred language found, returning', langCodeFallback, 'instead of', langCode);
+							if (DEBUG) console.log('No preferred language found, returning', langCodeFallback, 'instead of', targetLangCode);
 							const rawTranslatedSentence = translations[sentenceToTranslateHash].availableLangCodes[langCodeFallback];
 							if (translations[sentenceToTranslateHash].details.rpbt) {
 								if (DEBUG) console.log("%c[TranslationService](alternative fallback) replacement was done in the backend, we don't need to do it here", 'color: cyan', rawTranslatedSentence, rawTranslatedSentence);
@@ -298,10 +310,11 @@ export class TranslationService {
 					const newMissingTranslation: SentenceToTranslate = {
 						...translatableSentence,
 						sentenceToTranslate,
-						langCode,
+						langCode: targetLangCode,
+						inputLanguage,
 					};
 					// we add it to the list of missing translations if not already present
-					if (!this.missingTranslations$$$.value.some((missingTranslation) => missingTranslation.sentenceToTranslate === newMissingTranslation.sentenceToTranslate && missingTranslation.langCode === newMissingTranslation.langCode && missingTranslation.translationContext === newMissingTranslation.translationContext)) {
+					if (!this.missingTranslations$$$.value.some((missingTranslation) => missingTranslation.sentenceToTranslate === newMissingTranslation.sentenceToTranslate && missingTranslation.langCode === newMissingTranslation.langCode && missingTranslation.inputLanguage === newMissingTranslation.inputLanguage && missingTranslation.translationContext === newMissingTranslation.translationContext)) {
 						this.missingTranslations$$$.next([...this.missingTranslations$$$.value, newMissingTranslation]);
 					}
 					return NEVER;
@@ -315,7 +328,7 @@ export class TranslationService {
 	 * triggerVerification
 	 */
 	public triggerVerification(translatableSentence: SentenceToTranslate) {
-		const hash = this._convertSentenceToTranslateToHash(translatableSentence) + '_' + translatableSentence.langCode;
+		const hash = this._convertSentenceToTranslateToHash(translatableSentence) + '_' + translatableSentence.langCode + '_' + translatableSentence.inputLanguage;
 		if (this._verifiedTranslations.has(hash)) {
 			return;
 		}
@@ -343,6 +356,7 @@ export class TranslationService {
 			kv,
 			rpbt,
 			translationContext,
+			inputLanguage: 'en',
 		};
 		const a = this.translate$(translatableSentence).pipe(shareReplay({ refCount: true, bufferSize: 1 }));
 		a.subscribe();
@@ -373,6 +387,7 @@ export class TranslationService {
 			kv,
 			rpbt,
 			translationContext,
+			inputLanguage: 'en',
 		};
 
 		const inputSentenceHash = inputSentence + (translatableSentence.translationContext ? '{{' + translatableSentence.translationContext + '}}' : '');

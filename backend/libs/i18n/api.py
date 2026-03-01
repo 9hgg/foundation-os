@@ -15,6 +15,10 @@ from . import models
 class SentenceToTranslate(BaseModelWithConfig):
     # value from the template
     input_sentence: str
+    # source language (language of input_sentence)
+    input_language: str = "en"
+    # target language
+    lang_code: str
     # key-value dict
     kv: dict[str, str] | None = None
     # replace placeholders before translation
@@ -25,7 +29,6 @@ class SentenceToTranslate(BaseModelWithConfig):
 
     # sentenceToTranslate is a conversion from the input sentence depending on rpbt
     sentence_to_translate: str
-    langCode: str = "en"
 
 
 class SentenceTranslated(SentenceToTranslate):
@@ -38,11 +41,14 @@ def _get_smart_translation(
     input_sentence: str,
     lang_code: str,
     translation_context: str | None = None,
+    input_language: str | None = None,
 ) -> str | None:
+    hash_payload = input_sentence
     if translation_context:
-        hash_string = hashlib.sha256((input_sentence + "{{" + translation_context + "}}").encode()).hexdigest()
-    else:
-        hash_string = hashlib.sha256(input_sentence.encode()).hexdigest()
+        hash_payload += "{{" + translation_context + "}}"
+    if input_language:
+        hash_payload += "{{src:" + input_language + "}}"
+    hash_string = hashlib.sha256(hash_payload.encode()).hexdigest()
 
     existing_translations = (
         models.Translation.query(db)
@@ -151,8 +157,9 @@ def create_crud_translation_router(prefix: str = "/api/translations"):
                 found_translation = _get_smart_translation(
                     db,
                     sentence_to_translate.input_sentence,
-                    sentence_to_translate.langCode,
+                    sentence_to_translate.lang_code,
                     sentence_to_translate.translation_context,
+                    sentence_to_translate.input_language,
                 )
 
                 if found_translation:
@@ -162,7 +169,8 @@ def create_crud_translation_router(prefix: str = "/api/translations"):
                     translated_sentence = translator.translate(
                         sentence_to_translate.input_sentence,
                         kv=sentence_to_translate.kv,
-                        lang=sentence_to_translate.langCode,
+                        lang=sentence_to_translate.lang_code,
+                        input_language=sentence_to_translate.input_language,
                         rpbt=sentence_to_translate.rpbt,
                         translation_context=sentence_to_translate.translation_context,
                     )
@@ -173,7 +181,8 @@ def create_crud_translation_router(prefix: str = "/api/translations"):
                         kv=sentence_to_translate.kv,
                         rpbt=sentence_to_translate.rpbt,
                         sentence_to_translate=sentence_to_translate.sentence_to_translate,
-                        langCode=sentence_to_translate.langCode,
+                        input_language=sentence_to_translate.input_language,
+                        lang_code=sentence_to_translate.lang_code,
                         translation_context=sentence_to_translate.translation_context,
                         # the added value: the translated sentence
                         raw_translated_sentence=translated_sentence,
@@ -192,7 +201,8 @@ def create_crud_translation_router(prefix: str = "/api/translations"):
             result=SentenceTranslated(
                 input_sentence=test_sentence,
                 sentence_to_translate=test_sentence,
-                langCode="en",
+                input_language="en",
+                lang_code="fr",
                 raw_translated_sentence=translated_sentence,
             )
         )

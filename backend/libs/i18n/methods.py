@@ -52,6 +52,7 @@ def translate(
     *,
     kv: dict | None = None,
     lang: str | None = "en",
+    input_language: str | None = "en",
     replace_placeholders_before_translation: bool = False,
     translation_context: str | None = None,
 ) -> str:
@@ -92,7 +93,9 @@ def translate(
             for k, v in kv.items():
                 sentence = sentence.replace("§" + k, v)
 
-        translated_sentence = translator_to_use.get_translation(sentence, lang, translation_context)
+        translated_sentence = translator_to_use.get_translation(
+            sentence, lang, translation_context, input_language=input_language
+        )
 
     else:
         # translate as it is then replace §prefixed values with
@@ -102,7 +105,9 @@ def translate(
             for k, v in kv.items():
                 sentence = sentence.replace("§" + k, '<span class="notranslate">§' + k + "</span>")
 
-        translated_sentence = translator_to_use.get_translation(sentence, lang, translation_context)
+        translated_sentence = translator_to_use.get_translation(
+            sentence, lang, translation_context, input_language=input_language
+        )
         if kv is not None:
             for k, v in kv.items():
                 translated_sentence = translated_sentence.replace("§" + k, v)
@@ -140,10 +145,11 @@ def get_translator(
     _, translator_title = get_translator_from_config()
 
     new_translator = SimpleTranslator(
-        translate=lambda sentence, kv=None, lang=default_lang, rpbt=False, translation_context=None: translate(
+        translate=lambda sentence, kv=None, lang=default_lang, input_language="en", rpbt=False, translation_context=None: translate(
             sentence,
             kv=kv,
             lang=lang,
+            input_language=input_language,
             replace_placeholders_before_translation=rpbt,
             translation_context=translation_context,
         ),
