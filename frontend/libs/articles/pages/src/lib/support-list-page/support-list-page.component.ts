@@ -1,15 +1,12 @@
+import { AsyncPipe } from '@angular/common';
 import { AppConfigService } from '@foundation/app/config';
 import { Article } from '@foundation/articles/models';
 import { ArticlesRepository } from '@foundation/articles/state';
 import { ArticleTableComponent } from '@foundation/articles/ui';
 import { ConversationsRepository } from '@foundation/conversations/state';
-import { TranslationsRepository } from '@foundation/translations/state';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
 import { NotificationService } from '@foundation/notification';
+import { TranslateDirective, TranslationService } from '@foundation/translations/services';
 import { slugify } from '@foundation/utils';
-import { AsyncPipe } from '@angular/common';
 
 import { ChangeDetectionStrategy, Component, effect, inject, model, viewChild } from '@angular/core';
 import { Router } from '@angular/router';

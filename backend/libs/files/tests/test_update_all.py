@@ -1,9 +1,11 @@
-import pytest
-from unittest.mock import MagicMock
 import uuid
-from libs.files.api import create_crud_file_router
+from unittest.mock import MagicMock
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+from libs.files.api import create_crud_file_router
 from libs.files.models import File
 
 
@@ -64,8 +66,8 @@ def test_update_all_success(
     mock_context_db,
 ):
     app = client.app
-    from libs.users.methods import get_current_user_optional
     from libs.files.methods.deps import get_default_file_storage
+    from libs.users.methods import get_current_user_optional
 
     mock_user.email = "joris@example.com"
     app.dependency_overrides[get_current_user_optional] = lambda: mock_user
@@ -101,8 +103,8 @@ def test_update_all_unprocessable(
     client, mock_file_storage, mock_file_cls, mock_user, mock_session, mock_translator, mock_context_db
 ):
     app = client.app
-    from libs.users.methods import get_current_user_optional
     from libs.files.methods.deps import get_default_file_storage
+    from libs.users.methods import get_current_user_optional
 
     mock_user.email = "joris@example.com"
     app.dependency_overrides[get_current_user_optional] = lambda: mock_user

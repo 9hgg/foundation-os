@@ -1,0 +1,111 @@
+<div class="space-y-6">
+	<!-- Year filter -->
+	<div class="flex flex-wrap items-center gap-2">
+		<span class="text-base-content/70 text-sm font-medium" [translate]>Filtrer par année :</span>
+		<div class="join">
+			<button
+				class="btn btn-sm join-item"
+				[class.btn-primary]="selectedYear() === null"
+				[class.btn-outline]="selectedYear() !== null"
+				(click)="selectedYear.set(null)"
+			>
+				Toutes
+			</button>
+			@for (year of availableYears(); track year) {
+				<button
+					class="btn btn-sm join-item"
+					[class.btn-primary]="selectedYear() === year"
+					[class.btn-outline]="selectedYear() !== year"
+					(click)="selectedYear.set(year)"
+				>
+					{{ year }}
+				</button>
+			}
+		</div>
+	</div>
+
+	<!-- Summary per year -->
+	<div class="bg-base-200/60 rounded-xl p-4">
+		<h3 class="text-base-content mb-3 text-sm font-semibold" [translate]>Total par année</h3>
+		<div class="flex flex-wrap gap-3">
+			@for (year of availableYears(); track year) {
+				<div
+					class="bg-base-100 border-base-300 flex cursor-pointer flex-col items-center rounded-lg border px-4 py-2 shadow-sm transition-colors"
+					[class.ring-primary]="selectedYear() === year"
+					[class.ring-2]="selectedYear() === year"
+					(click)="selectedYear.set(selectedYear() === year ? null : year)"
+					(keyup.enter)="selectedYear.set(selectedYear() === year ? null : year)"
+					tabindex="0"
+					role="button"
+					[attr.aria-label]="'Filtrer sur ' + year"
+				>
+					<span class="text-base-content/60 text-xs">{{ year }}</span>
+					<span class="text-base-content text-lg font-bold">{{ formatKeur(totalsByYear()[year]) }}</span>
+				</div>
+			}
+			<div class="bg-primary/10 border-primary flex flex-col items-center rounded-lg border px-4 py-2 shadow-sm">
+				<span class="text-base-content/60 text-xs" [translate]>Total</span>
+				<span class="text-primary text-lg font-bold">{{ formatKeur(grandTotal()) }}</span>
+			</div>
+		</div>
+	</div>
+
+	<!-- Purchases table -->
+	@if (filteredPurchases().length > 0) {
+		<div class="overflow-x-auto rounded-xl">
+			<table class="table table-sm w-full">
+				<thead>
+					<tr class="bg-base-200">
+						<th [translate]>Année</th>
+						<th [translate]>Activité</th>
+						<th [translate]>Titre</th>
+						<th [translate]>Fournisseur</th>
+						<th class="text-right" [translate]>Min (k€)</th>
+						<th class="text-right" [translate]>Estimé (k€)</th>
+						<th class="text-right" [translate]>Max (k€)</th>
+					</tr>
+				</thead>
+				<tbody>
+					@for (ep of filteredPurchases(); track ep.purchase.id) {
+						<tr class="hover:bg-base-200/50">
+							<td>
+								<span class="badge badge-ghost badge-sm">{{ ep.purchase.year }}</span>
+							</td>
+							<td>
+								<button
+									class="btn btn-xs btn-ghost text-left font-mono"
+									(click)="goToActivity(ep.activityId)"
+									[title]="ep.activityTitle"
+								>
+									<span class="font-semibold">{{ ep.activityMergedPrefix }}</span>
+									<span class="text-base-content/60 ml-1 max-w-40 truncate text-xs">{{ ep.activityTitle }}</span>
+								</button>
+							</td>
+							<td class="max-w-60">
+								<span class="block truncate font-medium">{{ ep.purchase.title }}</span>
+								@if (ep.purchase.description) {
+									<span class="text-base-content/50 block truncate text-xs">{{ ep.purchase.description }}</span>
+								}
+							</td>
+							<td class="text-base-content/70 text-sm">{{ ep.purchase.supplier || '—' }}</td>
+							<td class="text-right tabular-nums">{{ formatKeur(ep.purchase.minEstimatedCost) }}</td>
+							<td class="text-right font-medium tabular-nums">{{ formatKeur(ep.purchase.estimatedCost) }}</td>
+							<td class="text-right tabular-nums">{{ formatKeur(ep.purchase.maxEstimatedCost) }}</td>
+						</tr>
+					}
+				</tbody>
+				<tfoot>
+					<tr class="bg-base-200 font-semibold">
+						<td colspan="6" class="text-right text-sm" [translate]>Total sélection</td>
+						<td class="text-right tabular-nums">{{ formatKeur(filteredTotal()) }}</td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	} @else {
+		<div class="text-base-content/40 py-12 text-center">
+			<div class="mb-2 text-4xl">🛒</div>
+			<p class="text-sm" [translate]>Aucun achat pour cette sélection</p>
+		</div>
+	}
+</div>

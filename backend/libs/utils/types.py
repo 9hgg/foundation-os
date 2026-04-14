@@ -63,10 +63,13 @@ PYDANTIC_BASE_CONFIG_DICT = ConfigDict(
     extra="forbid",
     from_attributes=True,
     alias_generator=to_camel,
-    populate_by_name=True,
-    populate_by_alias=True,
+    # populate_by_name=True,
+    # populate_by_alias=True,
+    validate_by_alias=True,
+    validate_by_name=True,
     arbitrary_types_allowed=True,
     validate_assignment=True,
+    serialize_by_alias=True, # will be True by default in pydantic v3
     # json_encoders={
     #     uuid.UUID: lambda v: str(v),
     #     # datetime.datetime: lambda v: v.isoformat(),

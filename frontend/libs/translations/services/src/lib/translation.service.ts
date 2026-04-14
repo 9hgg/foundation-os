@@ -6,6 +6,7 @@ import { NEVER, Observable, combineLatest, debounceTime, from, map, of, shareRep
 
 const DEBUG = false;
 const DEFAULT_LANG_CODE: string = 'en';
+const PREVENT_TRANSLATION = false;
 
 /** coming from pipe or directive */
 interface TranslatableSentence {
@@ -79,24 +80,25 @@ export class TranslationService {
 			)
 			.subscribe();
 
-		this.missingTranslations$$$
-			.pipe(
-				tap((missingTranslations) => {
-					if (DEBUG) console.log('%c[TranslationService] missingTranslations', 'color: cyan', missingTranslations);
-				}),
-				debounceTime(300),
-				switchMap((missingTranslations) => {
-					if (missingTranslations.length > 0) {
-						const missingTranslationsAlreadyRequested = missingTranslations.filter((missingTranslation) => this._convertSentenceToTranslateToHash(missingTranslation) in this.availableTranslations$$$.value && missingTranslation.langCode in this.availableTranslations$$$.value[this._convertSentenceToTranslateToHash(missingTranslation)].availableLangCodes);
-						if (DEBUG) console.log('%c[TranslationService] missingTranslationsAlreadyRequested', 'color: cyan', missingTranslationsAlreadyRequested);
-						const missingTranslationsToRequest = missingTranslations.filter((missingTranslation) => !(this._convertSentenceToTranslateToHash(missingTranslation) in this.availableTranslations$$$.value) || (this._convertSentenceToTranslateToHash(missingTranslation) in this.availableTranslations$$$.value && !(missingTranslation.langCode in this.availableTranslations$$$.value[this._convertSentenceToTranslateToHash(missingTranslation)].availableLangCodes)));
-						if (DEBUG) console.log('%c[TranslationService] missingTranslationsToRequest', 'color: cyan', missingTranslationsToRequest);
-						return this.requestTranslations$(missingTranslationsToRequest);
-					}
-					return NEVER;
-				})
-			)
-			.subscribe();
+		if (!PREVENT_TRANSLATION)
+			this.missingTranslations$$$
+				.pipe(
+					tap((missingTranslations) => {
+						if (DEBUG) console.log('%c[TranslationService] missingTranslations', 'color: cyan', missingTranslations);
+					}),
+					debounceTime(300),
+					switchMap((missingTranslations) => {
+						if (missingTranslations.length > 0) {
+							const missingTranslationsAlreadyRequested = missingTranslations.filter((missingTranslation) => this._convertSentenceToTranslateToHash(missingTranslation) in this.availableTranslations$$$.value && missingTranslation.langCode in this.availableTranslations$$$.value[this._convertSentenceToTranslateToHash(missingTranslation)].availableLangCodes);
+							if (DEBUG) console.log('%c[TranslationService] missingTranslationsAlreadyRequested', 'color: cyan', missingTranslationsAlreadyRequested);
+							const missingTranslationsToRequest = missingTranslations.filter((missingTranslation) => !(this._convertSentenceToTranslateToHash(missingTranslation) in this.availableTranslations$$$.value) || (this._convertSentenceToTranslateToHash(missingTranslation) in this.availableTranslations$$$.value && !(missingTranslation.langCode in this.availableTranslations$$$.value[this._convertSentenceToTranslateToHash(missingTranslation)].availableLangCodes)));
+							if (DEBUG) console.log('%c[TranslationService] missingTranslationsToRequest', 'color: cyan', missingTranslationsToRequest);
+							return this.requestTranslations$(missingTranslationsToRequest);
+						}
+						return NEVER;
+					})
+				)
+				.subscribe();
 
 		this.translationsToVerify$$$
 			.pipe(

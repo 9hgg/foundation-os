@@ -1,0 +1,17 @@
+<div class="bg-base-100 flex h-full w-full flex-col p-0">
+	<div class="border-base-200 flex items-center justify-between border-b px-6 py-4">
+		<h3 class="text-lg font-bold">{{ data.entityFile.publicFilename || data.entityFile.originalFilename || data.entityFile.id }}</h3>
+		<button
+			class="btn btn-sm btn-circle btn-ghost"
+			(click)="close()"
+		>
+			✕
+		</button>
+	</div>
+
+	<div class="flex-1 overflow-auto p-6">
+		<div class="bg-base-100 border-base-200 flex w-full flex-col items-center gap-4 rounded-lg border p-6 shadow-inner">
+			<lib-file-display [entityFile]="data.entityFile"></lib-file-display>
+		</div>
+	</div>
+</div>

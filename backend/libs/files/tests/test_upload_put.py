@@ -1,10 +1,11 @@
-import pytest
-from unittest.mock import MagicMock, patch
 import uuid
-import os
-from libs.files.api import create_crud_file_router
+from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+from libs.files.api import create_crud_file_router
 
 
 @pytest.fixture
@@ -26,8 +27,8 @@ def client(
 
 def test_upload_file_success(client, mock_file_storage, mock_file_cls, mock_user, mock_session, mock_translator):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value
@@ -68,8 +69,8 @@ def test_upload_file_already_in_storage(
     client, mock_file_storage, mock_file_cls, mock_user, mock_session, mock_translator
 ):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value
@@ -94,8 +95,8 @@ def test_upload_file_already_in_storage_check(
     client, mock_file_storage, mock_file_cls, mock_user, mock_session, mock_translator
 ):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value

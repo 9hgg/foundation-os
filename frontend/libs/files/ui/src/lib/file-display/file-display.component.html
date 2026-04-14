@@ -1,0 +1,111 @@
+@let file = entityFile();
+@switch (file.kind) {
+	@case ('image') {
+		@if (file.extra.width) {
+			<div class="badge badge-outline mb-2">{{ file.extra.width }} x {{ file.extra.height }}</div>
+		}
+		<img
+			[src]="getFileUrl(file)"
+			alt="preview"
+			class="max-h-[60vh] rounded object-contain shadow-lg"
+		/>
+	}
+	@case ('video') {
+		<div class="w-full max-w-4xl">
+			<video
+				class="w-full rounded bg-black shadow-lg"
+				[src]="getFileUrl(file)"
+				controls
+			></video>
+			<lib-subtitle-loader [entityFileId]="file.id"></lib-subtitle-loader>
+		</div>
+	}
+	@case ('audio') {
+		<div class="bg-base-200 flex w-full max-w-xl flex-col gap-4 rounded-lg p-4">
+			<div class="flex items-center gap-4">
+				<lib-play-button
+					[entityFileId]="file.id"
+					[alternative]="'default'"
+				></lib-play-button>
+				<audio
+					class="w-full"
+					[src]="getFileUrl(file)"
+					controls
+				></audio>
+			</div>
+			<lib-subtitle-loader
+				class="bg-base-100 max-h-32 overflow-y-auto rounded p-2 text-sm"
+				[entityFileId]="file.id"
+			></lib-subtitle-loader>
+		</div>
+	}
+	@case ('document') {
+		<!-- if pdf -->
+		@if (file.extension === '.pdf') {
+			<iframe [src]="getSafeFileResourceUrl(file)" class="h-[80vh] w-full rounded shadow-lg"></iframe>
+		}
+
+		<!-- else if office document -->
+		@else if (['.doc', '.docx', '.ppt', '.pptx'].includes(file.extension ?? '')) {
+			@if (hasPdfAlternative(file)) {
+				<iframe [src]="getSafeFileResourceUrl(file, 'pdf')" class="h-[80vh] w-full rounded shadow-lg"></iframe>
+			} @else {
+				<iframe [src]="getSafeOfficeViewerUrl(file)" class="h-[80vh] w-full rounded shadow-lg"></iframe>
+			}
+		}
+
+		<!-- else blank link -->
+		@else {
+			<div class="alert alert-info">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					class="h-6 w-6 shrink-0 stroke-current"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					></path>
+				</svg>
+				<span>Preview not available for {{ file.extension }} files.</span>
+			</div>
+			@if (file.inStorage) {
+				<a
+					[href]="getFileUrl(file)"
+					target="_blank"
+					class="btn btn-primary"
+					>Open File</a
+				>
+			}
+		}
+	}
+	@default {
+		<div class="alert alert-info">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				class="h-6 w-6 shrink-0 stroke-current"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				></path>
+			</svg>
+			<span>Preview not available for {{ file.kind }} files.</span>
+		</div>
+		@if (file.inStorage) {
+			<a
+				[href]="getFileUrl(file)"
+				target="_blank"
+				class="btn btn-primary"
+				>Open File</a
+			>
+		}
+	}
+}

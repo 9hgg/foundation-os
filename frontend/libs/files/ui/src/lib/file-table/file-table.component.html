@@ -1,256 +1,200 @@
 @if (paginator.state$ | async; as paginatorState) {
-	<div class="bg-base-100 flex h-full w-full flex-col overflow-x-auto rounded-lg shadow">
-		<table class="table-zebra table-pin-rows text-base-content table w-full">
-			<!-- Head -->
-			<thead class="bg-base-200/50 z-10 backdrop-blur">
-				<tr>
-					<th class="w-12">
-						<span class="text-xs font-bold">{{ numSelected() ? numSelected() : '' }}</span>
-					</th>
-					<th class="w-20">
-						<span [translate]>Preview</span>
-					</th>
-					<th>
-						<div class="flex flex-col gap-1">
+	<div class="flex h-full w-full flex-col">
+		<div
+			name="table-container"
+			class="bg-base-100 card border-base-200 w-full border shadow-sm"
+		>
+			<table
+				name="table-body"
+				class="table w-full"
+			>
+				<!-- Head -->
+				<thead class="bg-base-200 text-base-content/60 text-xs font-bold tracking-wider uppercase">
+					<tr>
+						<th class="top-0 z-50 w-12">
+							<span class="text-xs font-bold">{{ numSelected() ? numSelected() : '' }}</span>
+						</th>
+						<th class="top-0 w-20 bg-inherit">
+							<span [translate]>Preview</span>
+						</th>
+						<th class="top-0 bg-inherit">
+							<div class="flex flex-col gap-1">
+								<div class="flex items-center gap-2">
+									<span [translate]>File Name</span>
+									<button
+										class="btn btn-ghost btn-xs btn-circle"
+										(click)="paginator.setOrderingBy('public_filename')"
+									>
+										<span class="text-xs">⇅</span>
+									</button>
+									<button
+										class="btn btn-ghost btn-xs btn-circle"
+										(click)="toggleSearchByField('public_filename')"
+									>
+										<span class="text-xs">🔍</span>
+									</button>
+								</div>
+								@if (displaySearchByFields$_['public_filename']) {
+									<input
+										class="input input-xs input-bordered w-full max-w-xs"
+										type="text"
+										[(ngModel)]="filterByFields$_['public_filename']"
+										placeholder="Filter..."
+									/>
+								}
+							</div>
+						</th>
+						<th class="top-0 bg-inherit">
+							<div class="flex flex-col gap-1">
+								<div class="flex items-center gap-2">
+									<span [translate]>Type</span>
+									<button
+										class="btn btn-ghost btn-xs btn-circle"
+										(click)="paginator.setOrderingBy('kind')"
+									>
+										<span class="text-xs">⇅</span>
+									</button>
+									<button
+										class="btn btn-ghost btn-xs btn-circle"
+										(click)="toggleSearchByField('kind')"
+									>
+										<span class="text-xs">🔍</span>
+									</button>
+								</div>
+								@if (displaySearchByFields$_['kind']) {
+									<select
+										class="select select-bordered select-xs w-full max-w-xs"
+										[(ngModel)]="filterByFields$_['kind']"
+									>
+										<option value="">All types</option>
+										<option value="audio">Audio</option>
+										<option value="video">Video</option>
+										<option value="image">Image</option>
+										<option value="document">Document</option>
+										<option value="text">Text</option>
+									</select>
+								}
+							</div>
+						</th>
+						<th class="top-0 bg-inherit">
 							<div class="flex items-center gap-2">
-								<span [translate]>File Name</span>
+								<span [translate]>Size</span>
 								<button
 									class="btn btn-ghost btn-xs btn-circle"
-									(click)="paginator.setOrderingBy('public_filename')"
+									(click)="paginator.setOrderingBy('size')"
 								>
 									<span class="text-xs">⇅</span>
 								</button>
-								<button
-									class="btn btn-ghost btn-xs btn-circle"
-									(click)="toggleSearchByField('public_filename')"
-								>
-									<span class="text-xs">🔍</span>
-								</button>
 							</div>
-							@if (displaySearchByFields$_['public_filename']) {
-								<input
-									class="input input-xs input-bordered w-full max-w-xs"
-									type="text"
-									[(ngModel)]="filterByFields$_['public_filename']"
-									placeholder="Filter..."
-								/>
-							}
-						</div>
-					</th>
-					<th>
-						<div class="flex flex-col gap-1">
+						</th>
+						<th class="top-0 bg-inherit">
 							<div class="flex items-center gap-2">
-								<span [translate]>Type</span>
+								<span [translate]>Date</span>
 								<button
 									class="btn btn-ghost btn-xs btn-circle"
-									(click)="paginator.setOrderingBy('kind')"
+									(click)="paginator.setOrderingBy('time_created')"
 								>
 									<span class="text-xs">⇅</span>
 								</button>
-								<button
-									class="btn btn-ghost btn-xs btn-circle"
-									(click)="toggleSearchByField('kind')"
-								>
-									<span class="text-xs">🔍</span>
-								</button>
 							</div>
-							@if (displaySearchByFields$_['kind']) {
-								<select
-									class="select select-bordered select-xs w-full max-w-xs"
-									[(ngModel)]="filterByFields$_['kind']"
-								>
-									<option value="">All types</option>
-									<option value="audio">Audio</option>
-									<option value="video">Video</option>
-									<option value="image">Image</option>
-									<option value="document">Document</option>
-									<option value="text">Text</option>
-								</select>
-							}
-						</div>
-					</th>
-					<th>
-						<div class="flex items-center gap-2">
-							<span [translate]>Size</span>
-							<button
-								class="btn btn-ghost btn-xs btn-circle"
-								(click)="paginator.setOrderingBy('size')"
-							>
-								<span class="text-xs">⇅</span>
-							</button>
-						</div>
-					</th>
-					<th>
-						<div class="flex items-center gap-2">
-							<span [translate]>Date</span>
-							<button
-								class="btn btn-ghost btn-xs btn-circle"
-								(click)="paginator.setOrderingBy('time_created')"
-							>
-								<span class="text-xs">⇅</span>
-							</button>
-						</div>
-					</th>
-					<th><span [translate]>Download</span></th>
-					<th><span [translate]>Actions</span></th>
-				</tr>
-			</thead>
+						</th>
+						<th class="top-0 bg-inherit"><span [translate]>Download</span></th>
+						<th class="top-0 bg-inherit"><span [translate]>Actions</span></th>
+					</tr>
+				</thead>
 
-			<tbody>
-				@for (entityFile of paginatorState.itemsOnCurrentPage; track entityFile?.id) {
-					@if (entityFile) {
-						<tr
-							#draggableRow
-							tabindex="0"
-							class="hover group cursor-pointer transition-colors"
-							[class.bg-base-200]="itemsSelector.isSelected(entityFile)"
-							(click)="processClick(entityFile)"
-						>
-							<!-- Checkbox -->
-							<th>
-								<label>
+				<tbody>
+					@for (entityFile of paginatorState.itemsOnCurrentPage; track entityFile?.id) {
+						@if (entityFile) {
+							<tr
+								#draggableRow
+								tabindex="0"
+								class="hover group cursor-pointer transition-colors"
+								[class.bg-base-200]="itemsSelector.isSelected(entityFile)"
+								(click)="processClick(entityFile)"
+							>
+								<!-- Checkbox -->
+								<td>
+									<!-- <label class="block h-10 w-10 bg-green-400"> -->
 									<input
 										type="checkbox"
-										class="checkbox checkbox-sm checkbox-primary"
+										class="checkbox checkbox-sm checkbox-primary relative z-1"
 										[checked]="itemsSelector.isSelected(entityFile)"
 										(click)="$event.stopImmediatePropagation(); itemsSelector.toggle(entityFile)"
 									/>
-								</label>
-							</th>
+									<!-- </label> -->
+								</td>
 
-							<!-- Preview Thumbnail -->
-							<td (click)="$event.stopImmediatePropagation(); openedItems.toggle(entityFile)">
-								<div class="avatar placeholder">
-									<div class="bg-neutral-focus text-neutral-content h-10 w-10 rounded-md opacity-80 shadow-sm transition-opacity group-hover:opacity-100">
-										@if (entityFile.kind === 'image') {
-											<img
-												[src]="getFileUrl(entityFile, 'thumbnail')"
-												(error)="onSrcError($event, getFileUrl(entityFile))"
-												alt="preview"
-											/>
-										} @else if (entityFile.kind === 'video') {
-											<img
-												#videoThumbnail
-												[src]="getFileUrl(entityFile, 'thumbnail')"
-												(error)="videoThumbnail.remove()"
-												alt="preview"
-											/>
-										} @else if (entityFile.kind === 'audio') {
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke-width="1.5"
-												stroke="currentColor"
-												class="h-6 w-6"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.593L19.5 15.652V4.5"
-												/>
-											</svg>
-										} @else {
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke-width="1.5"
-												stroke="currentColor"
-												class="h-6 w-6"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m4.125 0l4.125 4.125M8.25 12H12m-.375 3.75h-.625a2.625 2.625 0 00-2.625 2.625v.875c0 .621.504 1.125 1.125 1.125h.625m-3.75-3.75h-1.5m6 3.75h.375"
-												/>
-											</svg>
-										}
+								<!-- Preview Thumbnail -->
+								<td (click)="$event.stopImmediatePropagation(); openedItems.toggle(entityFile)">
+									<lib-file-thumbnail
+										[entityFile]="entityFile"
+										class="h-10 w-10"
+									></lib-file-thumbnail>
+								</td>
+
+								<!-- File Name -->
+								<td>
+									<div class="text-sm font-medium">{{ entityFile.publicFilename }}</div>
+								</td>
+
+								<!-- Kind -->
+								<td>
+									<div class="badge badge-sm badge-ghost">{{ entityFile.kind }}</div>
+								</td>
+
+								<!-- Size -->
+								<td>
+									<div class="font-mono text-xs">{{ (entityFile.size ? entityFile.size : 0) | octetHumanReadable }}</div>
+								</td>
+
+								<!-- Date -->
+								<td>
+									<div class="text-xs">{{ entityFile.timeCreated | date: 'shortDate' }}</div>
+								</td>
+
+								<!-- Download -->
+								<td>
+									<div>
+										<lib-download-button
+											(click)="$event.stopImmediatePropagation()"
+											[entityFileId]="entityFile.id"
+										></lib-download-button>
 									</div>
-								</div>
-							</td>
+								</td>
 
-							<!-- File Name -->
-							<td>
-								<div class="text-sm font-medium">{{ entityFile.publicFilename }}</div>
-							</td>
-
-							<!-- Kind -->
-							<td>
-								<div class="badge badge-sm badge-ghost">{{ entityFile.kind }}</div>
-							</td>
-
-							<!-- Size -->
-							<td>
-								<div class="font-mono text-xs opacity-70">{{ (entityFile.size ? entityFile.size : 0) | octetHumanReadable }}</div>
-							</td>
-
-							<!-- Date -->
-							<td>
-								<div class="text-xs opacity-70">{{ entityFile.timeCreated | date: 'shortDate' }}</div>
-							</td>
-
-							<!-- Download -->
-							<td>
-								<div (click)="$event.stopImmediatePropagation()">
-									<lib-download-button [entityFileId]="entityFile.id"></lib-download-button>
-								</div>
-							</td>
-
-							<!-- Actions Menu -->
-							<td>
-								<button
-									(click)="$event.stopImmediatePropagation()"
-									[cdkMenuTriggerFor]="menu"
-									class="btn btn-ghost btn-xs btn-circle"
-									[attr.aria-label]="'menu' | translate | async"
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="h-5 w-5"
+								<!-- Actions Menu -->
+								<td>
+									<button
+										(click)="$event.stopImmediatePropagation()"
+										[cdkMenuTriggerFor]="menu"
+										class="btn btn-ghost btn-xs btn-circle"
+										[attr.aria-label]="'menu' | translate | async"
 									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
-										/>
-									</svg>
-								</button>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke-width="1.5"
+											stroke="currentColor"
+											class="h-5 w-5"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
+											/>
+										</svg>
+									</button>
 
-								<ng-template #menu>
-									<ul
-										class="menu bg-base-100 rounded-box border-base-200 text-base-content z-50 w-56 border p-2 shadow-lg"
-										cdkMenu
-									>
-										<li>
-											<button
-												(click)="addToFolder(entityFile)"
-												cdkMenuItem
-											>
-												<svg
-													class="h-4 w-4"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M12 4v16m8-8H4"
-													/>
-												</svg>
-												Add to folder
-											</button>
-										</li>
-										@if (folderId()) {
+									<ng-template #menu>
+										<ul
+											class="menu bg-base-100 rounded-box border-base-200 text-base-content z-50 w-56 border p-2 shadow-lg"
+											cdkMenu
+										>
 											<li>
 												<button
-													(click)="removeFromFolder(folderId()!, entityFile)"
+													(click)="addToFolder(entityFile)"
 													cdkMenuItem
 												>
 													<svg
@@ -263,216 +207,173 @@
 															stroke-linecap="round"
 															stroke-linejoin="round"
 															stroke-width="2"
-															d="M20 12H4"
+															d="M12 4v16m8-8H4"
 														/>
 													</svg>
-													Remove from folder
+													Add to folder
 												</button>
 											</li>
-										}
-										<li>
-											<button
-												(click)="renameFile(entityFile)"
-												cdkMenuItem
-											>
-												<svg
-													class="h-4 w-4"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-													/>
-												</svg>
-												Rename
-											</button>
-										</li>
-										<li>
-											<button
-												class="text-error"
-												(click)="deleteFile(entityFile)"
-												cdkMenuItem
-											>
-												<svg
-													class="h-4 w-4"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-													/>
-												</svg>
-												Delete
-											</button>
-										</li>
-										<div class="divider my-0"></div>
-										<li>
-											<button
-												(click)="openSharingDetails(entityFile)"
-												cdkMenuItem
-											>
-												Manage Access
-											</button>
-										</li>
-										<li>
-											<button
-												(click)="shareWithTeam(entityFile)"
-												cdkMenuItem
-											>
-												Share with team
-											</button>
-										</li>
-										<li>
-											<button
-												(click)="displayFileDetails(entityFile)"
-												cdkMenuItem
-												class="text-xs opacity-70"
-											>
-												ID: {{ entityFile.id | slice: 0 : 8 }}
-											</button>
-										</li>
-										@if (shiftPressed()) {
+											@if (folderId()) {
+												<li>
+													<button
+														(click)="removeFromFolder(folderId()!, entityFile)"
+														cdkMenuItem
+													>
+														<svg
+															class="h-4 w-4"
+															fill="none"
+															viewBox="0 0 24 24"
+															stroke="currentColor"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M20 12H4"
+															/>
+														</svg>
+														Remove from folder
+													</button>
+												</li>
+											}
 											<li>
 												<button
-													(click)="refreshThumbnail(entityFile)"
+													(click)="renameFile(entityFile)"
 													cdkMenuItem
 												>
-													Refresh thumbnail
-												</button>
-											</li>
-										}
-									</ul>
-								</ng-template>
-							</td>
-						</tr>
-
-						<!-- Expanded Preview -->
-						@if (openedItems.isSelected(entityFile)) {
-							<tr>
-								<td
-									colspan="100%"
-									class="bg-base-200/50 p-6"
-								>
-									<div class="bg-base-100 border-base-200 relative flex w-full flex-col items-center gap-4 rounded-lg border p-6 shadow-inner">
-										<button
-											class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
-											(click)="openedItems.unselect(entityFile)"
-										>
-											✕
-										</button>
-
-										@switch (entityFile.kind) {
-											@case ('image') {
-												@if (entityFile.extra.width) {
-													<div class="badge badge-outline mb-2">{{ entityFile.extra.width }} x {{ entityFile.extra.height }}</div>
-												}
-												<img
-													[src]="getFileUrl(entityFile)"
-													alt="preview"
-													class="max-h-[60vh] rounded object-contain shadow-lg"
-												/>
-											}
-											@case ('video') {
-												<div class="w-full max-w-4xl">
-													<video
-														class="w-full rounded bg-black shadow-lg"
-														[src]="getFileUrl(entityFile)"
-														controls
-													></video>
-													<lib-subtitle-loader [entityFileId]="entityFile.id"></lib-subtitle-loader>
-												</div>
-											}
-											@case ('audio') {
-												<div class="bg-base-200 flex w-full max-w-xl flex-col gap-4 rounded-lg p-4">
-													<div class="flex items-center gap-4">
-														<lib-play-button
-															[entityFileId]="entityFile.id"
-															[alternative]="'default'"
-														></lib-play-button>
-														<audio
-															class="w-full"
-															[src]="getFileUrl(entityFile)"
-															controls
-														></audio>
-													</div>
-													<lib-subtitle-loader
-														class="bg-base-100 max-h-32 overflow-y-auto rounded p-2 text-sm"
-														[entityFileId]="entityFile.id"
-													></lib-subtitle-loader>
-												</div>
-											}
-											@default {
-												<div class="alert alert-info">
 													<svg
-														xmlns="http://www.w3.org/2000/svg"
+														class="h-4 w-4"
 														fill="none"
 														viewBox="0 0 24 24"
-														class="h-6 w-6 shrink-0 stroke-current"
+														stroke="currentColor"
 													>
 														<path
 															stroke-linecap="round"
 															stroke-linejoin="round"
 															stroke-width="2"
-															d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-														></path>
+															d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+														/>
 													</svg>
-													<span>Preview not available for {{ entityFile.kind }} files.</span>
-												</div>
-												@if (entityFile.inStorage) {
-													<a
-														[href]="getFileUrl(entityFile)"
-														target="_blank"
-														class="btn btn-primary"
-														>Open File</a
+													Rename
+												</button>
+											</li>
+											<li>
+												<button
+													class="text-error"
+													(click)="deleteFile(entityFile)"
+													cdkMenuItem
+												>
+													<svg
+														class="h-4 w-4"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
 													>
-												}
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+														/>
+													</svg>
+													Delete
+												</button>
+											</li>
+											<div class="divider my-0"></div>
+											<li>
+												<button
+													(click)="openSharingDetails(entityFile)"
+													cdkMenuItem
+												>
+													Manage Access
+												</button>
+											</li>
+											<li>
+												<button
+													(click)="shareWithTeam(entityFile)"
+													cdkMenuItem
+												>
+													Share with team
+												</button>
+											</li>
+											<li>
+												<button
+													(click)="displayFileDetails(entityFile)"
+													cdkMenuItem
+													class="text-xs opacity-70"
+												>
+													ID: {{ entityFile.id | slice: 0 : 8 }}
+												</button>
+											</li>
+											@if (shiftPressed()) {
+												<li>
+													<button
+														(click)="refreshThumbnail(entityFile)"
+														cdkMenuItem
+													>
+														Refresh thumbnail
+													</button>
+												</li>
 											}
-										}
-									</div>
+										</ul>
+									</ng-template>
 								</td>
 							</tr>
-						}
-					}
-				} @empty {
-					<tr>
-						<td
-							colspan="100%"
-							class="py-10 text-center opacity-50"
-						>
-							<span [translate]>Nothing here</span>
-						</td>
-					</tr>
-				}
-			</tbody>
-		</table>
-	</div>
 
-	<!-- Footer -->
-	@if (paginatorState.totalNumberOfPages > 1) {
-		<div class="bg-base-100 border-base-200 mt-4 flex items-center justify-between rounded-lg border p-4 shadow-sm">
-			<button
-				class="btn btn-sm btn-outline"
-				[disabled]="!paginatorState.hasPrev"
-				(click)="paginator.previousPage()"
-			>
-				<span [translate]>Previous</span>
-			</button>
-			<span class="text-sm font-medium"> <span [translate]>Page</span> {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} </span>
-			<button
-				class="btn btn-sm btn-outline"
-				[disabled]="!paginatorState.hasNext"
-				(click)="paginator.nextPage()"
-			>
-				<span [translate]>Next</span>
-			</button>
+							<!-- Expanded Preview -->
+							@if (openedItems.isSelected(entityFile)) {
+								<tr>
+									<td
+										colspan="100%"
+										class="bg-base-200/50 p-6"
+									>
+										<div class="bg-base-100 border-base-200 relative flex w-full flex-col items-center gap-4 rounded-lg border p-6 shadow-inner">
+											<button
+												class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
+												(click)="openedItems.unselect(entityFile)"
+											>
+												✕
+											</button>
+
+											<lib-file-display [entityFile]="entityFile"></lib-file-display>
+										</div>
+									</td>
+								</tr>
+							}
+						}
+					} @empty {
+						<tr>
+							<td
+								colspan="100%"
+								class="py-10 text-center opacity-50"
+							>
+								<span [translate]>Nothing here</span>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
 		</div>
-	}
+
+		<!-- Footer -->
+		@if (paginatorState.totalNumberOfPages > 1) {
+			<div class="bg-base-100/95 supports-backdrop-filter:bg-base-100/85 border-base-200 bottom-0 mt-4 flex items-center justify-between rounded-lg border p-4 shadow-sm backdrop-blur">
+				<button
+					class="btn btn-sm btn-outline"
+					[disabled]="!paginatorState.hasPrev"
+					(click)="paginator.previousPage()"
+				>
+					<span [translate]>Previous</span>
+				</button>
+				<span class="text-sm font-medium"> <span [translate]>Page</span> {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} </span>
+				<button
+					class="btn btn-sm btn-outline"
+					[disabled]="!paginatorState.hasNext"
+					(click)="paginator.nextPage()"
+				>
+					<span [translate]>Next</span>
+				</button>
+			</div>
+		}
+	</div>
 }

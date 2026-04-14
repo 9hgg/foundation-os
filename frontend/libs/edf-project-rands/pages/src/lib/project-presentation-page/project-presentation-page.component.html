@@ -1,0 +1,43 @@
+@if (isLoading()) {
+	<div class="flex h-full w-full items-center justify-center">
+		<span class="loading loading-spinner loading-lg text-primary"></span>
+	</div>
+} @else if (hasError()) {
+	<div class="flex h-full w-full items-center justify-center">
+		<div class="alert alert-error max-w-md">
+			<span>Impossible de charger la présentation.</span>
+		</div>
+	</div>
+} @else if (project()) {
+	<div #scrollContainer class="bg-base-200/50 flex h-full w-full flex-col overflow-y-auto p-4">
+		<lib-project-presentation-tab
+			[detailedActivities]="detailedActivities()"
+			[contributions]="contributions()"
+			[purchases]="purchases()"
+			[facilityUsages]="facilityUsages()"
+			[contributorCategories]="contributorCategories()"
+			[projectYears]="projectYears()"
+			[activitySlideYears]="catalogSelectedYears()"
+			[project]="project()"
+			[mainCustomer]="mainCustomerDisplayName()"
+			[sponsorCustomer]="sponsorCustomerDisplayName()"
+			[projectManager]="projectManagerDisplayName()"
+			[strategicLead]="strategicLeadDisplayName()"
+			[customSlides]="catalogCustomSlides()"
+			[orderedSlideIds]="catalogOrderedSlideIds()"
+			[includedSlideIds]="catalogIncludedSlideIds()"
+			[alwaysFilterHidden]="true"
+			[hiddenSlideIds]="catalogHiddenSlideIds()"
+			[includedActivityIds]="catalogIncludedActivityIds()"
+			[preloadedCostTrackingData]="costTrackingData()"
+			[(selectedYear)]="selectedYear"
+			[(focusMode)]="focusMode"
+		></lib-project-presentation-tab>
+	</div>
+} @else {
+	<div class="flex h-full w-full items-center justify-center">
+		<div class="alert alert-warning max-w-md">
+			<span>Aucune présentation trouvée pour ce projet.</span>
+		</div>
+	</div>
+}

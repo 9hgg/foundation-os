@@ -40,28 +40,28 @@
 	</header>
 
 	<!-- Content -->
-	<main class="flex-1 p-8">
+	<main class="flex flex-col flex-1 rounded-3xl overflow-auto m-3">
 		<div class="h-16">
 			<lib-folder-path [(folderId)]="folderId" />
 		</div>
 
 		<!-- FOLDER TABLE always on top -->
 		<lib-folder-table
-			class="mb-6 shrink-0"
+			class="mb-6 shrink-0 grow w-full"
 			[(folderId)]="folderId"
 			click-behavior="customFn"
 		/>
 
 		<lib-upload-button
-			class="w-full"
+			class="w-full grow"
 			(uploadedFiles)="processUploadedFiles($event)"
 			[width]="'100%'"
-			[height]="'unset'"
+			[height]="'384px'"
 			[openOnClick]="false"
 			#uploadButton
 		>
 			<lib-file-table
-				class="h-96"
+				class="h-full"
 				#fileTable
 				[(folderId)]="folderId"
 				click-behavior="expand"

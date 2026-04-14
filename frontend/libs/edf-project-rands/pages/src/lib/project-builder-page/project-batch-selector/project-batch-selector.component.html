@@ -1,0 +1,64 @@
+<div class="project-batch-grid">
+	<div
+		role="button"
+		tabindex="0"
+		class="project-batch-card"
+		[class.is-selected]="selectedBatchId() === null"
+		(click)="selectedBatchId.set(null)"
+		(keydown.enter)="selectedBatchId.set(null)"
+		(keydown.space)="selectedBatchId.set(null); $event.preventDefault()"
+	>
+		<span class="project-batch-card__eyebrow" [translate]>Vue</span>
+		<div class="project-batch-card__title" [translate]>Toutes les activités</div>
+		<div class="project-batch-card__meta">Afficher toutes les activités du projet</div>
+	</div>
+	<div
+		role="button"
+		tabindex="0"
+		class="project-batch-card"
+		[class.is-selected]="selectedBatchId() === 'no-zero'"
+		(click)="selectedBatchId.set('no-zero')"
+		(keydown.enter)="selectedBatchId.set('no-zero')"
+		(keydown.space)="selectedBatchId.set('no-zero'); $event.preventDefault()"
+	>
+		<span class="project-batch-card__eyebrow" [translate]>Vue</span>
+		<div class="project-batch-card__title" [translate]>Toutes sauf L0</div>
+		<div class="project-batch-card__meta">Masquer les lots de préfixe 0 ou L0</div>
+	</div>
+	@for (batch of batches(); track batch.id) {
+		<div
+			role="button"
+			tabindex="0"
+			class="project-batch-card project-batch-card--batch"
+			[class.is-selected]="selectedBatchId() === batch.id"
+			(click)="selectedBatchId.set(batch.id)"
+			(keydown.enter)="selectedBatchId.set(batch.id)"
+			(keydown.space)="selectedBatchId.set(batch.id); $event.preventDefault()"
+		>
+			<button
+				type="button"
+				class="project-batch-card__nav-btn"
+				(click)="navigateToBatch($event, batch)"
+				title="Aller au lot"
+				aria-label="Aller au lot"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M7 17 17 7" />
+					<path d="M7 7h10v10" />
+				</svg>
+			</button>
+			<span class="project-batch-card__eyebrow">Lot</span>
+			<div class="project-batch-card__title">{{ batch.prefix || 'Lot sans préfixe' }}</div>
+			<div class="project-batch-card__meta">{{ batch.title || 'Sans intitulé de lot' }}</div>
+		</div>
+	}
+</div>

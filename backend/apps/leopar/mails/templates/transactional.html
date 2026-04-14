@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  style="width: 100%; height: 100%"
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>{{ title or "leopar" }}</title>
+    <style>
+      /* Email-safe CSS */
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        min-width: 100%;
+        background-color: #e2e8f0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          "Oxygen", "Ubuntu", "Cantarell", sans-serif;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+
+      table {
+        border-collapse: collapse;
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+
+      .email-container {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: #ffffff;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        padding: 50px 30px;
+        text-align: center;
+        border-radius: 24px 24px 0 0;
+      }
+
+      .header h1 {
+        color: #ffffff;
+        font-size: 36px;
+        margin: 12px 0 0 0;
+        font-weight: 700;
+        letter-spacing: -0.8px;
+        line-height: 1.3;
+      }
+
+      .content {
+        padding: 60px 40px;
+        background-color: #ffffff;
+      }
+
+      .content h2 {
+        color: #1e293b;
+        font-size: 32px;
+        margin: 0 0 20px 0;
+        font-weight: 700;
+        line-height: 1.3;
+        letter-spacing: -0.8px;
+      }
+
+      .content p {
+        color: #64748b;
+        font-size: 18px;
+        line-height: 1.8;
+        margin: 0 0 28px 0;
+      }
+
+      .button {
+        display: inline-block;
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: #ffffff;
+        text-decoration: none;
+        padding: 18px 40px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 18px;
+        text-align: center;
+        margin: 32px 0;
+        line-height: 1.5;
+      }
+
+      .divider {
+        height: 2px;
+        background: linear-gradient(90deg, transparent 0%, #e2e8f0 50%, transparent 100%);
+        margin: 48px 0;
+      }
+
+      .footer {
+        background-color: #f8fafc;
+        padding: 32px;
+        text-align: center;
+        border-top: 1px solid #e2e8f0;
+      }
+
+      .footer p {
+        color: #64748b;
+        font-size: 14px;
+        margin: 0 0 12px 0;
+        line-height: 1.6;
+      }
+
+      .footer a {
+        color: #4f46e5;
+        text-decoration: none;
+        font-weight: 500;
+      }
+
+      .logo {
+        width: auto;
+        background-color: #ffffff;
+        border-radius: 12px;
+        display: inline-block;
+        margin: 0 auto 24px auto;
+        font-weight: 700;
+        color: #4f46e5;
+        font-size: 24px;
+        padding: 14px 28px;
+        letter-spacing: 0.5px;
+        text-align: center;
+        line-height: 1.2;
+      }
+
+      .badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+        padding: 8px 16px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 16px;
+      }
+
+      /* Responsive design - mobile optimization */
+      @media only screen and (max-width: 600px) {
+        .email-container {
+          width: 100% !important;
+          margin: 0 !important;
+        }
+
+        .header,
+        .content,
+        .footer {
+          padding: 24px 20px !important;
+        }
+
+        .header h1 {
+          font-size: 28px !important;
+        }
+
+        .content h2 {
+          font-size: 24px !important;
+        }
+
+        .content p {
+          font-size: 16px !important;
+        }
+
+        .button {
+          padding: 14px 28px !important;
+          font-size: 16px !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+
+        .logo {
+          width: auto !important;
+          font-size: 16px !important;
+          padding: 10px 20px !important;
+          line-height: auto !important;
+          margin: 0 auto 20px auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #e2e8f0;">
+    <!-- Email wrapper table -->
+    <table
+      role="presentation"
+      cellspacing="0"
+      cellpadding="0"
+      border="0"
+      width="100%"
+      style="background-color: #e2e8f0"
+    >
+      <tr>
+        <td align="center" style="padding: 32px 16px">
+          <!-- Main email container -->
+          <table
+            class="email-container"
+            role="presentation"
+            cellspacing="0"
+            cellpadding="0"
+            border="0"
+            style="
+              max-width: 600px;
+              margin: 0 auto;
+              background-color: #ffffff;
+              border-radius: 24px;
+            "
+          >
+            <!-- Header -->
+            <tr>
+              <td
+                class="header"
+                style="
+                  background-color: #4f46e5;
+                  padding: 40px 30px;
+                  text-align: center;
+                "
+              >
+                {% if badge_text %}
+                <div
+                  class="badge"
+                  style="
+                    display: inline-block;
+                    background: rgba(255, 255, 255, 0.2);
+                    color: #ffffff;
+                    padding: 8px 16px;
+                    border-radius: 12px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    margin-bottom: 16px;
+                  "
+                >
+                  {{ badge_text | safe }}
+                </div>
+                {% endif %}
+
+                <div
+                  class="logo"
+                  style="
+                    width: auto;
+                    background-color: #ffffff;
+                    border-radius: 12px;
+                    display: inline-block;
+                    margin: 0 auto 24px auto;
+                    font-weight: 600;
+                    color: #4f46e5;
+                    font-size: 20px;
+                    padding: 12px 24px;
+                    letter-spacing: 1px;
+                    text-align: center;
+                  "
+                >
+                  leopar
+                </div>
+                {% if title %}
+                <h1
+                  style="
+                    color: #ffffff;
+                    font-size: 32px;
+                    margin: 0;
+                    font-weight: 700;
+                    letter-spacing: -0.5px;
+                  "
+                >
+                  {{ title }}
+                </h1>
+                {% endif %}
+              </td>
+            </tr>
+
+            <!-- Main content -->
+            <tr>
+              <td
+                class="content"
+                style="padding: 48px 32px; background-color: #ffffff"
+              >
+                {% if subtitle %}
+                <h2
+                  style="
+                    color: #1e293b;
+                    font-size: 28px;
+                    margin: 0 0 24px 0;
+                    font-weight: 700;
+                    line-height: 1.2;
+                    letter-spacing: -0.5px;
+                  "
+                >
+                  {{ subtitle | safe }}
+                </h2>
+                {% endif %} {% if main_paragraph %}
+                <p
+                  style="
+                    color: #64748b;
+                    font-size: 18px;
+                    line-height: 1.7;
+                    margin: 0 0 24px 0;
+                  "
+                >
+                  {{ main_paragraph | safe }}
+                </p>
+                {% endif %} {% if button_text and button_url %}
+                <div style="text-align: center; margin: 32px 0">
+                  <a
+                    href="{{ button_url }}"
+                    class="button"
+                    style="
+                      display: inline-block;
+                      background-color: #4f46e5;
+                      color: #ffffff;
+                      text-decoration: none;
+                      padding: 16px 32px;
+                      border-radius: 16px;
+                      font-weight: 600;
+                      font-size: 18px;
+                      text-align: center;
+                      margin: 32px 0;
+                    "
+                  >
+                    {{ button_text | safe }}
+                  </a>
+                </div>
+                {% endif %} {% if additional_content %}
+                <div
+                  class="divider"
+                  style="
+                    height: 1px;
+                    background-color: #e2e8f0;
+                    margin: 40px 0;
+                  "
+                ></div>
+                <div style="color: #64748b; font-size: 18px; line-height: 1.7">
+                  {{ additional_content | safe }}
+                </div>
+                {% endif %}
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td
+                class="footer"
+                style="
+                  background-color: #f8fafc;
+                  padding: 32px;
+                  text-align: center;
+                  border-top: 1px solid #e2e8f0;
+                "
+              >
+                {% if footer_message %}
+                <p
+                  style="
+                    color: #64748b;
+                    font-size: 14px;
+                    margin: 0 0 12px 0;
+                    line-height: 1.6;
+                  "
+                >
+                  {{ footer_message |safe}}
+                </p>
+                {% else %}
+                <p
+                  style="
+                    color: #64748b;
+                    font-size: 14px;
+                    margin: 0 0 12px 0;
+                    line-height: 1.6;
+                  "
+                >
+                  This is a transactional email, there is no need to
+                  unsubscribe.
+                </p>
+                {% endif %}
+
+                <p
+                  style="
+                    color: #64748b;
+                    font-size: 14px;
+                    margin: 0 0 12px 0;
+                    line-height: 1.6;
+                  "
+                >
+                  Sent with ❤️ and 🎙️ by
+                  <a
+                    href="https://leopar.retd.edf.fr"
+                    style="
+                      color: #4f46e5;
+                      text-decoration: none;
+                      font-weight: 500;
+                    "
+                    >leopar</a
+                  >
+                </p>
+
+                <p style="color: #94a3b8; font-size: 12px; margin: 12px 0 0 0">
+                  © {{ current_year or "2025" }} leopar. All rights reserved.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

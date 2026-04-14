@@ -1,10 +1,10 @@
+
 import pytest
-from unittest.mock import MagicMock
-import uuid
-from libs.files.api import create_crud_file_router
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from libs.acl.models import Who
+from libs.files.api import create_crud_file_router
 
 
 @pytest.fixture
@@ -28,8 +28,8 @@ def test_create_empty_file_with_user(
     client, mock_file_storage, mock_file_cls, mock_create_default_acls, mock_user, mock_session, mock_translator
 ):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value
@@ -59,8 +59,8 @@ def test_create_empty_file_no_user(
     client, mock_file_storage, mock_file_cls, mock_create_default_acls, mock_session, mock_translator
 ):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     # Mock user as None
     app.dependency_overrides[get_deps] = lambda: (None, mock_session, mock_translator)

@@ -171,6 +171,38 @@
 					</th>
 					<th class="py-4">
 						<div class="flex flex-col items-center gap-2">
+							<span class="text-nowrap">context</span>
+							<div class="join">
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									(click)="paginator.setOrderingBy('translation_context')"
+									title="Sort"
+								>
+									↑↓
+								</button>
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									[class.btn-active]="displaySearchByFields$_['translation_context']"
+									(click)="toggleSearchByField('translation_context')"
+									title="Search"
+								>
+									🔎
+								</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['translation_context']) {
+							<div class="mt-2">
+								<input
+									class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+									type="text"
+									placeholder="Search..."
+									[(ngModel)]="filterByFields$_['translation_context']"
+								/>
+							</div>
+						}
+					</th>
+					<th class="py-4">
+						<div class="flex flex-col items-center gap-2">
 							<span class="text-nowrap">traductor</span>
 							<div class="join">
 								<button
@@ -278,6 +310,11 @@
 									</button>
 								}
 							</td>
+							<td>
+								<pre class="max-w-sm text-sm whitespace-pre-wrap">{{
+									translation.translationContext || '-'
+								}}</pre>
+							</td>
 							<!-- translator (e.g: argos, manual, google...) -->
 							<td>{{ translation.translator || '-' }}</td>
 							<td>
@@ -307,7 +344,7 @@
 					} @else {
 						<tr>
 							<td
-								colspan="8"
+								colspan="9"
 								class="text-center"
 							>
 								<span class="loading loading-spinner loading-md text-primary"></span>
@@ -317,7 +354,7 @@
 				} @empty {
 					<tr>
 						<td
-							colspan="8"
+							colspan="9"
 							class="text-base-content/50 py-12 text-center italic"
 						>
 							{{ 'Nothing here' | translate | async }}

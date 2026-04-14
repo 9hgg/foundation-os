@@ -1,11 +1,13 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
 import numpy as np
+import pytest
 from PIL import Image
-from libs.files.processors.image import ImageProcessor
+
 from libs.files.models import File
-from libs.files.storage import GenericStorage
 from libs.files.processors._generic import NoStorageAvailableError
+from libs.files.processors.image import ImageProcessor
+from libs.files.storage import GenericStorage
 
 
 @pytest.fixture

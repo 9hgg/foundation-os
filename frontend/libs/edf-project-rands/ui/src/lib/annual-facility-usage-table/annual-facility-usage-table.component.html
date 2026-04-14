@@ -1,0 +1,161 @@
+@if (paginator.state$ | async; as paginatorState) {
+	<div name="table-container" class="bg-base-100 card border-base-200 border shadow-sm">
+		<table class="table w-full">
+			<thead class="bg-base-200/50 text-base-content/60 text-xs font-bold tracking-wider uppercase">
+				<tr>
+					<th class="selection-column w-12 text-center">
+						<div class="flex justify-center">{{ itemsSelector.numSelected ? itemsSelector.numSelected : '' }}</div>
+					</th>
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span class="text-nowrap" [translate]>Facility</span>
+							<div class="join">
+								<button class="btn btn-ghost btn-xs join-item" (click)="paginator.setOrderingBy('facilityId')" title="Sort">↑↓</button>
+								<button class="btn btn-ghost btn-xs join-item" [class.btn-active]="displaySearchByFields$_['facilityId']" (click)="toggleSearchByField('facilityId')" title="Search">🔎</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['facilityId']) {
+							<div class="mt-2">
+								<input class="input input-bordered input-xs focus:input-primary w-full max-w-xs" type="text" placeholder="Search..." [(ngModel)]="filterByFields$_['facilityId']" />
+							</div>
+						}
+					</th>
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span class="text-nowrap" [translate]>Year</span>
+							<div class="join">
+								<button class="btn btn-ghost btn-xs join-item" (click)="paginator.setOrderingBy('year')" title="Sort">↑↓</button>
+								<button class="btn btn-ghost btn-xs join-item" [class.btn-active]="displaySearchByFields$_['year']" (click)="toggleSearchByField('year')" title="Search">🔎</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['year']) {
+							<div class="mt-2">
+								<input class="input input-bordered input-xs focus:input-primary w-full max-w-xs" type="text" placeholder="Search..." [(ngModel)]="filterByFields$_['year']" />
+							</div>
+						}
+					</th>
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span class="text-nowrap" [translate]>Cost</span>
+							<div class="join">
+								<button class="btn btn-ghost btn-xs join-item" (click)="paginator.setOrderingBy('cost')" title="Sort">↑↓</button>
+								<button class="btn btn-ghost btn-xs join-item" [class.btn-active]="displaySearchByFields$_['cost']" (click)="toggleSearchByField('cost')" title="Search">🔎</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['cost']) {
+							<div class="mt-2">
+								<input class="input input-bordered input-xs focus:input-primary w-full max-w-xs" type="text" placeholder="Search..." [(ngModel)]="filterByFields$_['cost']" />
+							</div>
+						}
+					</th>
+					<th class="w-20 py-4 text-center"><span [translate]>Actions</span></th>
+				</tr>
+			</thead>
+			<tbody>
+				@for (usage of paginatorState.itemsOnCurrentPage; track usage?.id) {
+					@if (usage) {
+						<tr [tabIndex]="0" (click)="processClick(usage)" (keyup.enter)="processClick(usage)" class="hover:bg-base-200/50 cursor-pointer transition-colors duration-150" [ngClass]="{ 'bg-primary/10': itemsSelector.isSelected(usage) }">
+							<td class="text-center">
+								<div class="flex justify-center" (click)="$event.stopImmediatePropagation(); itemsSelector.toggle(usage)" (keydown)="(undefined)" tabindex="0">
+									<input class="checkbox checkbox-primary checkbox-sm" [name]="'selectedItems' + usage.id" type="checkbox" [checked]="itemsSelector.isSelected(usage)" tabindex="0" />
+								</div>
+							</td>
+							<td>
+								<lib-facility-pill [facilityId]="usage.facilityId"></lib-facility-pill>
+							</td>
+							<td>
+								@if (inlineEditable() && isEditing(usage)) {
+									<select class="select select-bordered select-sm w-24" [ngModel]="editYear()" (ngModelChange)="editYear.set(+$event || usage.year)" (click)="$event.stopImmediatePropagation()">
+										@for (year of editableYears(); track year) {
+											<option [value]="year">{{ year }}</option>
+										}
+									</select>
+								} @else {
+									<button class="btn btn-ghost btn-xs normal-case p-0 text-base-content" (click)="inlineEditable() ? startEdit(usage, $event) : null">{{ usage.year }}</button>
+								}
+							</td>
+							<td>
+								@if (inlineEditable() && isEditing(usage)) {
+									<input class="input input-bordered input-sm w-28" type="number" min="0" [ngModel]="editCost()" (ngModelChange)="editCost.set(+$event || 0)" (click)="$event.stopImmediatePropagation()" />
+								} @else {
+									<span class="badge badge-ghost badge-sm" [innerHTML]="formulaHtml(usage)"></span>
+								}
+							</td>
+							<td class="text-center">
+								@if (inlineEditable() && isEditing(usage)) {
+									<div class="flex items-center justify-center gap-1">
+										<button class="btn btn-ghost btn-xs" (click)="cancelEdit($event)"><span [translate]>Cancel</span></button>
+										<button class="btn btn-primary btn-xs" (click)="saveEdit(usage, $event)"><span [translate]>Save</span></button>
+									</div>
+								} @else if (inlineEditable()) {
+									<div class="flex items-center justify-center gap-1">
+										<button class="btn btn-ghost btn-xs" (click)="duplicateUsage(usage, $event)"><span [translate]>Duplicate</span></button>
+										<button class="btn btn-ghost btn-xs text-error" (click)="requestRemove(usage, $event)"><span [translate]>Remove</span></button>
+									</div>
+								} @else {
+									<button class="btn btn-ghost btn-xs text-error" (click)="$event.stopImmediatePropagation(); requestRemove(usage)">
+										<span [translate]>Remove</span>
+									</button>
+								}
+							</td>
+						</tr>
+					} @else {
+						<tr>
+							<td colspan="5" class="text-center"><span class="loading loading-spinner loading-md text-primary"></span></td>
+						</tr>
+					}
+				} @empty {
+					<tr>
+						<td colspan="5" class="text-base-content/50 py-12 text-center italic"><span [translate]>No facility usage yet.</span></td>
+					</tr>
+				}
+			</tbody>
+			<tfoot>
+				<tr class="bg-base-200/30">
+					<td colspan="3" class="text-right text-sm font-semibold">
+						<span [translate]>Total billed amount</span>
+					</td>
+					<td class="text-right text-sm font-semibold">
+						@if (totalBilledAmountKeur() !== null) {
+							{{ formatKeur(totalBilledAmountKeur()!) }}k€
+						} @else {
+							—
+						}
+					</td>
+					<td></td>
+				</tr>
+				@if (inlineEditable()) {
+					<tr>
+						<td colspan="5" class="py-3 text-center">
+							<button class="btn btn-sm btn-outline" (click)="addInlineUsage($event)">
+								<span class="text-lg leading-none">+</span>
+								<span [translate]>Add row</span>
+							</button>
+						</td>
+					</tr>
+				}
+			</tfoot>
+		</table>
+		@if (paginatorState.totalNumberOfItems > 10) {
+			<div name="table-footer" class="bg-base-200/30 border-base-200 flex items-center justify-between border-t p-4">
+				<div class="join">
+					<button (click)="paginatorState.hasPrev ? paginator.previousPage() : null" [disabled]="!paginatorState.hasPrev" class="btn btn-sm join-item">«</button>
+					<button class="btn btn-sm join-item no-animation cursor-default">
+						<span class="text-xs font-medium">Page {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }}</span>
+					</button>
+					<button (click)="paginatorState.hasNext ? paginator.nextPage() : null" [disabled]="!paginatorState.hasNext" class="btn btn-sm join-item">»</button>
+				</div>
+				<div class="flex items-center gap-3">
+					<label class="text-base-content/50 text-xs font-medium whitespace-nowrap">Page size</label>
+					<select class="select select-bordered select-xs" [ngModel]="paginatorState.numberOfItemsPerPage" (ngModelChange)="paginator.setPageSize(+$event)">
+						<option [value]="10">10</option>
+						<option [value]="20">20</option>
+						<option [value]="50">50</option>
+						<option [value]="100">100</option>
+					</select>
+					<div class="text-base-content/40 text-xs font-medium whitespace-nowrap">Total: {{ paginatorState.totalNumberOfItems }} items</div>
+				</div>
+			</div>
+		}
+	</div>
+}

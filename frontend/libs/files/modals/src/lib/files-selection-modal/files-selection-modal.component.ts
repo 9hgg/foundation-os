@@ -40,6 +40,7 @@ export interface FileSelectionModalResult {
 	imports: [FormsModule, TranslateDirective, FileTableComponent],
 	templateUrl: './files-selection-modal.component.html',
 	changeDetection: ChangeDetectionStrategy.OnPush,
+	styleUrl: './files-selection-modal.component.css',
 })
 export class FilesSelectionModalComponent {
 	fileTableChild = viewChild.required(FileTableComponent);

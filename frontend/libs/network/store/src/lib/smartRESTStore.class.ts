@@ -79,75 +79,11 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 		enableCache: boolean = false,
 		enableBroadcastChannel: boolean = true
 	) {
-		const storage = getBestStorage();
-
-		if (enableBroadcastChannel) {
-			this.bc = new BroadcastChannel('smartRestStore-' + this._restEndpoint);
-			this.bc.onmessage = (event) => {
-				const eventData = event.data;
-				if (DEBUG) console.log('[smartRestStore](bc.onmessage) received message', eventData);
-
-				if (eventData.type === 'upsert') {
-					if (DEBUG) console.log('[smartRestStore](bc.onmessage) upserting object', eventData.object);
-					this.upsertObjectLocally(eventData.object, false);
-					this.notifier$.next({
-						type: 'local-upsert',
-						object: eventData.object,
-					});
-				} else {
-					if (DEBUG) console.log('[smartRestStore](bc.onmessage) received message of type', eventData.type, 'but not handled');
-				}
-			};
-			this.bc.postMessage({
-				type: 'init',
-				tab: this._tabManagerService.tabId.substring(0, 8), // first 8 characters of the tab id
-				endpoint: this._restEndpoint,
-				name: this._name,
-				timestamp: Date.now(),
-			});
-		}
-
 		this.objects$$$ = new BehaviorSubjectReplayed<ObjectType[]>([]);
 
-		if (enableCache)
-			this.objects$$$
-				.pipe(
-					takeUntilDestroyed(),
-					// skipUntil(of(null).pipe(delay(1000))), // ignore for 1s
-					skipUntil(
-						anyToObservable(storage?.getItem(this._restEndpoint)).pipe(
-							take(1),
-							tap((storedObjects) => {
-								if (storedObjects) {
-									if (DEBUG) console.log('[smartRestStore](objects$$$) restoring objects from storage', storedObjects);
-									Object.entries(storedObjects['pageInfos']).forEach(([key, value]) => {
-										this.objectsPageInfos.set(key, value as LightPaginatedResponse<ObjectType>);
-									});
-									this.objects$$$.next(storedObjects['objects']);
-								}
-							})
-						)
-					),
-					tap((objects) => {
-						this._saveInStorage(objects);
-					})
-				)
-				.subscribe();
-
-		this._requestService.clearCache$
-			.pipe(
-				takeUntilDestroyed(),
-				tap(() => {
-					if (DEBUG) console.log('[smartRestStore](clearCache$) clearing cache');
-
-					this.objects$$$.next([]);
-					this.objectsPageInfos.clear();
-					this.objects$ByIds.clear();
-					// clear the storage
-					storage?.clear();
-				})
-			)
-			.subscribe();
+		this._initializeBroadcastChannel(enableBroadcastChannel);
+		this._initializeStorageCache(enableCache);
+		this._initializeClearCacheSubscription();
 	}
 
 	/**
@@ -158,7 +94,6 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 	 */
 	pullObjects$(page: number, pageSize: number, filters: Filter[], orderingBy: string | undefined, ignoreAnonymous: boolean = true, bypass_acls: boolean = false) {
 		if (DEBUG) console.log('[smartRestStore](pullObjects$) ', this._restEndpoint, 'page', page, 'pageSize', pageSize, 'filters', filters, 'orderingBy', orderingBy);
-
 		return this._requestService
 			.getObjectList$<ObjectType>(this._restEndpoint, {
 				page,
@@ -408,7 +343,6 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 
 		// return of(resultFromRequest$).pipe(switchMap((x) => x));
 	}
-
 	upsertObjectLocally(newObject: ObjectType, broadcast: boolean = false): ObjectType {
 		const objects = this.objects$$$.value;
 		// replace the object in the list if it already exists
@@ -496,6 +430,11 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 		return this.getOrCreateObjectSubject$(id);
 	}
 
+	/**
+	 * to be used instead of getObjectById$$$ to avoid requesting if already done
+	 * @param id
+	 * @returns
+	 */
 	getObjectByIdPullOnce$$$(id: string): BehaviorSubjectReplayed<ObjectType | null> {
 		const valueInStore = this.objects$$$.value.find((object) => object.id === id);
 		if (!valueInStore) {
@@ -570,6 +509,21 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 		return obs;
 	}
 
+	applyPatch(objectId: ObjectType['id'], patch: Partial<ObjectType>) {
+		const obs = this._requestService.patchObject$<ObjectType>(this._restEndpoint + '/' + objectId, patch).pipe(
+			tap((response) => {
+				if (response.error) {
+					alert(response.error.title + ': ' + response.error.description);
+					return;
+				}
+				this.upsertObjectLocally(response.result.data, true);
+			}),
+			shareReplay(1)
+		);
+		obs.subscribe();
+		return obs;
+	}
+
 	_saveInStorage(objects: ObjectType[]) {
 		const storedObjects: {
 			objects: ObjectType[];
@@ -581,5 +535,81 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 		});
 
 		storage?.setItem(this._restEndpoint, storedObjects);
+	}
+
+	private _initializeBroadcastChannel(enableBroadcastChannel: boolean) {
+		if (!enableBroadcastChannel) return;
+
+		this.bc = new BroadcastChannel('smartRestStore-' + this._restEndpoint);
+		this.bc.onmessage = (event) => {
+			const eventData = event.data;
+			if (DEBUG) console.log('[smartRestStore](bc.onmessage) received message', eventData);
+
+			if (eventData.type === 'upsert') {
+				if (DEBUG) console.log('[smartRestStore](bc.onmessage) upserting object', eventData.object);
+				this.upsertObjectLocally(eventData.object, false);
+				this.notifier$.next({
+					type: 'local-upsert',
+					object: eventData.object,
+				});
+			} else {
+				if (DEBUG) console.log('[smartRestStore](bc.onmessage) received message of type', eventData.type, 'but not handled');
+			}
+		};
+		this.bc.postMessage({
+			type: 'init',
+			tab: this._tabManagerService.tabId.substring(0, 8), // first 8 characters of the tab id
+			endpoint: this._restEndpoint,
+			name: this._name,
+			timestamp: Date.now(),
+		});
+	}
+
+	private _initializeStorageCache(enableCache: boolean) {
+		if (!enableCache) return;
+
+		this.objects$$$
+			.pipe(
+				takeUntilDestroyed(),
+				// skipUntil(of(null).pipe(delay(1000))), // ignore for 1s
+				skipUntil(
+					anyToObservable(storage?.getItem(this._restEndpoint)).pipe(
+						take(1),
+						tap((storedObjects) => {
+							if (storedObjects) {
+								if (DEBUG) console.log('[smartRestStore](objects$$$) restoring objects from storage', storedObjects);
+								Object.entries(storedObjects['pageInfos']).forEach(([key, value]) => {
+									this.objectsPageInfos.set(key, value as LightPaginatedResponse<ObjectType>);
+								});
+								this.objects$$$.next(storedObjects['objects']);
+							}
+						})
+					)
+				),
+				tap((objects) => {
+					this._saveInStorage(objects);
+				})
+			)
+			.subscribe();
+	}
+
+	private _initializeClearCacheSubscription() {
+		this._requestService.clearCache$
+			.pipe(
+				takeUntilDestroyed(),
+				tap(() => {
+					this._clearCache();
+				})
+			)
+			.subscribe();
+	}
+
+	private _clearCache() {
+		if (DEBUG) console.log('[smartRestStore](clearCache$) clearing cache');
+
+		this.objects$$$.next([]);
+		this.objectsPageInfos.clear();
+		this.objects$ByIds.clear();
+		storage?.clear();
 	}
 }

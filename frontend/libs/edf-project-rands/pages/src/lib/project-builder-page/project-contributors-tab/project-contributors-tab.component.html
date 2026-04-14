@@ -1,0 +1,155 @@
+<div class="space-y-6">
+	<div class="flex flex-wrap items-center gap-2">
+		<span class="text-base-content/70 text-sm font-medium" [translate]>Filtrer par groupe :</span>
+		<div class="join">
+			<button
+				class="btn btn-sm join-item"
+				[class.btn-primary]="selectedGroup() === null"
+				[class.btn-outline]="selectedGroup() !== null"
+				(click)="selectedGroup.set(null)"
+			>
+				Tous
+			</button>
+			@for (group of availableGroups(); track group) {
+				<button
+					class="btn btn-sm join-item"
+					[class.btn-primary]="selectedGroup() === group"
+					[class.btn-outline]="selectedGroup() !== group"
+					(click)="selectedGroup.set(group)"
+				>
+					{{ group }}
+				</button>
+			}
+		</div>
+	</div>
+
+	<div class="bg-base-200/60 rounded-xl p-4">
+		<h3
+			class="text-base-content mb-3 text-sm font-semibold"
+			[translate]
+		>
+			Charge par année
+		</h3>
+		<div class="flex flex-wrap gap-3">
+			@for (year of availableYears(); track year) {
+				<div
+					class="bg-base-100 border-base-300 flex min-w-28 cursor-pointer flex-col items-center rounded-lg border px-4 py-2 shadow-sm transition-colors"
+					[class.ring-primary]="selectedYear() === year"
+					[class.ring-2]="selectedYear() === year"
+					(click)="selectedYear.set(selectedYear() === year ? null : year)"
+					(keyup.enter)="selectedYear.set(selectedYear() === year ? null : year)"
+					tabindex="0"
+					role="button"
+				>
+					<span class="text-base-content/60 text-xs">{{ year }}</span>
+					<span class="text-base-content text-lg font-bold">{{ formatDays(totalsByYear()[year]) }} j</span>
+				</div>
+			}
+			<div class="bg-primary/10 border-primary flex min-w-28 flex-col items-center rounded-lg border px-4 py-2 shadow-sm">
+				<span
+					class="text-base-content/60 text-xs"
+					[translate]
+					>Total</span
+				>
+				<span class="text-primary text-lg font-bold">{{ formatDays(grandTotalDays()) }} j</span>
+			</div>
+		</div>
+	</div>
+
+	@if (rows().length > 0) {
+		<div class="overflow-x-auto rounded-xl">
+			<table class="table-sm table w-full">
+				<thead>
+					<tr class="bg-base-200">
+						<th [translate]>Contributeur</th>
+						@for (year of availableYears(); track year) {
+							<th class="text-right">{{ year }}</th>
+						}
+						<th
+							class="text-right"
+							[translate]
+						>
+							Total
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+					@for (row of rows(); track row.contributorId) {
+						<tr class="bg-base-200/35 hover:bg-base-200/60">
+							<td class="min-w-64">
+								<button
+									class="btn btn-sm btn-ghost h-auto min-h-0 justify-start px-0 text-left"
+									(click)="goToContributor(row.contributorId)"
+								>
+									<span class="flex items-center">
+										<span class="font-medium">{{ row.displayName }}</span>
+										<span class="text-base-content/50 ml-3 text-xs">
+											@if (row.category) {
+												{{ row.category }}
+											}
+											@if (row.category && row.email) {
+												<span> · </span>
+											}
+											@if (row.email) {
+												{{ row.email }}
+											}
+										</span>
+									</span>
+								</button>
+							</td>
+							@for (year of availableYears(); track year) {
+								<td class="text-right tabular-nums">
+									<span [style.opacity]="row.daysByYear[year] ? 1 : 0.35">{{ formatDays(row.daysByYear[year]) }}</span>
+								</td>
+							}
+							<td class="text-right font-semibold tabular-nums">{{ formatDays(row.totalDays) }}</td>
+						</tr>
+						@for (activity of row.activities; track activity.activityId) {
+							<tr class="hover:bg-base-200/30">
+								<td class="min-w-64 pl-8">
+									<button
+										class="btn btn-sm btn-ghost h-auto min-h-0 justify-start px-0 text-left"
+										(click)="goToActivity(activity.activityId)"
+									>
+										<span class="flex items-start gap-3">
+											<span class="text-base-content/35 pt-0.5">└</span>
+											<span class="flex items-center">
+												<span class="font-mono text-xs font-semibold">{{ activity.activityLabel }}</span>
+												<span class="text-base-content/70 ml-3 text-sm">{{ activity.activityTitle }}</span>
+											</span>
+										</span>
+									</button>
+								</td>
+								@for (year of availableYears(); track year) {
+									<td class="text-right tabular-nums">
+										<span [style.opacity]="activity.daysByYear[year] ? 1 : 0.28">{{ formatDays(activity.daysByYear[year]) }}</span>
+									</td>
+								}
+								<td class="text-right tabular-nums">{{ formatDays(activity.totalDays) }}</td>
+							</tr>
+						}
+					}
+				</tbody>
+				<tfoot>
+					<tr class="bg-base-200 font-semibold">
+						<td [translate]>Total projet</td>
+						@for (year of availableYears(); track year) {
+							<td class="text-right tabular-nums">{{ formatDays(totalsByYear()[year]) }}</td>
+						}
+						<td class="text-right tabular-nums">{{ formatDays(grandTotalDays()) }}</td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	} @else {
+		<div class="text-base-content/40 py-12 text-center">
+			<div class="mb-2 text-4xl">👥</div>
+			<p
+				class="text-sm"
+				[translate]
+			>
+				Aucun contributeur pour cette sélection
+			</p>
+		</div>
+	}
+</div>

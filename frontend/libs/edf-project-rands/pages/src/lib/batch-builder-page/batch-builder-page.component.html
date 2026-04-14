@@ -1,0 +1,141 @@
+@let batch = batch$$$.$ | async;
+@if (batch) {
+	<div class="bg-base-200/50 flex h-full min-h-96 w-full flex-col">
+		<nav class="bg-base-100 border-base-200 m-2 flex shrink-0 items-center justify-between overflow-x-auto rounded-xl border px-6 py-3 shadow-sm">
+			@let projectId = selectedProject()?.id;
+			<a
+				class="text-base-content hover:text-primary flex cursor-pointer items-center justify-center transition-colors sm:justify-start"
+				[routerLink]="'/host/dashboard/projects/' + (projectId ? projectId + '/builder' : '')"
+			>
+				<div class="flex cursor-pointer items-center gap-3">
+					<div class="from-primary to-secondary flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							class="h-5 w-5 fill-white"
+						>
+							<path d="M3 4h18v2H3zM3 8h18v13H3z" />
+						</svg>
+					</div>
+					<span
+						class="text-lg font-semibold"
+						[translate]
+						>Batch Editor</span
+					>
+				</div>
+			</a>
+		</nav>
+
+		<div class="relative m-2 flex h-full min-h-96 flex-1 gap-4 overflow-auto">
+			<aside class="bg-base-100 border-base-200 relative w-80 shrink-0 space-y-4 overflow-auto rounded-xl border p-4 shadow-sm">
+				<div class="w-full">
+					<label
+						for="batch-title"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Title</span
+						></label
+					>
+					<input
+						id="batch-title"
+						type="text"
+						class="input input-bordered input-sm w-full"
+						[value]="batch.title"
+						(change)="updateTitle($any($event.target).value)"
+						(keyup)="updateTitle($any($event.target).value)"
+						placeholder="Title..."
+					/>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="batch-prefix"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Prefix</span
+						></label
+					>
+					<input
+						id="batch-prefix"
+						type="text"
+						class="input input-bordered input-sm w-full"
+						[value]="batch.prefix"
+						(change)="updatePrefix($any($event.target).value)"
+						(keyup)="updatePrefix($any($event.target).value)"
+						placeholder="Prefix..."
+					/>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="batch-description"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Description</span
+						></label
+					>
+					<lib-quill-textarea
+						id="batch-description"
+						[html]="batch.description || ''"
+						(htmlChange)="updateDescription($event)"
+					></lib-quill-textarea>
+				</div>
+
+                <!-- Project link / selection -->
+                <div class="w-full mt-3">
+                    <div class="label"><span class="label-text font-medium">Project</span></div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 text-sm">{{ selectedProject()?.name || '—' }}</div>
+                        <button class="btn btn-xs btn-outline" (click)="openSelectProject()">Select</button>
+                        <button class="btn btn-xs btn-ghost" (click)="clearProject()">Clear</button>
+                        @if (selectedProject()) {
+                            <button class="btn btn-xs btn-link" (click)="goToProject()">Open project</button>
+                        }
+                    </div>
+                </div>
+            </aside>
+
+            <main class="flex-1 overflow-y-auto scroll-smooth">
+                <div class="mx-auto max-w-5xl space-y-6">
+                    <div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+                        <div class="p-6">
+                            <div class="mb-4 flex items-center justify-between">
+                                <h2
+                                    class="text-base-content text-lg font-semibold"
+                                    [translate]
+                                >
+                                    Details
+                                </h2>
+                            </div>
+							<pre class="bg-base-200/40 max-h-96 overflow-auto rounded-lg p-4 text-sm whitespace-pre-wrap wrap-break-word">{{ batch | json }}</pre>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+} @else {
+	<div class="bg-base-200/50 flex h-full items-center justify-center">
+		<div class="text-center">
+			<div class="mb-4 text-6xl">📦</div>
+			<h1
+				class="text-base-content text-2xl font-bold"
+				[translate]
+			>
+				Batch Not Found
+			</h1>
+			<p
+				class="text-base-content/60 py-6"
+				[translate]
+			>
+				The requested batch is not available
+			</p>
+		</div>
+	</div>
+}

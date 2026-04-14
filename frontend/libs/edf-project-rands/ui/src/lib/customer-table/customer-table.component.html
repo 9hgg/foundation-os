@@ -1,0 +1,231 @@
+@if (paginator.state$ | async; as paginatorState) {
+	<div
+		name="table-container"
+		class="bg-base-100 card border-base-200 border shadow-sm"
+	>
+		<table
+			name="table-body"
+			class="table w-full"
+		>
+			<thead class="bg-base-200/50 text-base-content/60 text-xs font-bold tracking-wider uppercase">
+				<tr>
+					<th class="selection-column w-12 text-center">
+						<div class="flex justify-center">{{ itemsSelector.numSelected ? itemsSelector.numSelected : '' }}</div>
+					</th>
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>Identifier</span
+							>
+							<div class="join">
+								<button class="btn btn-ghost btn-xs join-item" (click)="paginator.setOrderingBy('identifier')" title="Sort">↑↓</button>
+								<button class="btn btn-ghost btn-xs join-item" [class.btn-active]="displaySearchByFields$_['identifier']" (click)="toggleSearchByField('identifier')" title="Search">🔎</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['identifier']) {
+							<div class="mt-2">
+								<input class="input input-bordered input-xs focus:input-primary w-full max-w-xs" type="text" placeholder="Search..." [(ngModel)]="filterByFields$_['identifier']" />
+							</div>
+						}
+					</th>
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>First name</span
+							>
+							<div class="join">
+								<button class="btn btn-ghost btn-xs join-item" (click)="paginator.setOrderingBy('firstName')" title="Sort">↑↓</button>
+								<button class="btn btn-ghost btn-xs join-item" [class.btn-active]="displaySearchByFields$_['firstName']" (click)="toggleSearchByField('firstName')" title="Search">🔎</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['firstName']) {
+							<div class="mt-2">
+								<input class="input input-bordered input-xs focus:input-primary w-full max-w-xs" type="text" placeholder="Search..." [(ngModel)]="filterByFields$_['firstName']" />
+							</div>
+						}
+					</th>
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>Last name</span
+							>
+							<div class="join">
+								<button class="btn btn-ghost btn-xs join-item" (click)="paginator.setOrderingBy('lastName')" title="Sort">↑↓</button>
+								<button class="btn btn-ghost btn-xs join-item" [class.btn-active]="displaySearchByFields$_['lastName']" (click)="toggleSearchByField('lastName')" title="Search">🔎</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['lastName']) {
+							<div class="mt-2">
+								<input class="input input-bordered input-xs focus:input-primary w-full max-w-xs" type="text" placeholder="Search..." [(ngModel)]="filterByFields$_['lastName']" />
+							</div>
+						}
+					</th>
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>Unit</span
+							>
+							<div class="join">
+								<button class="btn btn-ghost btn-xs join-item" (click)="paginator.setOrderingBy('unit')" title="Sort">↑↓</button>
+								<button class="btn btn-ghost btn-xs join-item" [class.btn-active]="displaySearchByFields$_['unit']" (click)="toggleSearchByField('unit')" title="Search">🔎</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['unit']) {
+							<div class="mt-2">
+								<input class="input input-bordered input-xs focus:input-primary w-full max-w-xs" type="text" placeholder="Search..." [(ngModel)]="filterByFields$_['unit']" />
+							</div>
+						}
+					</th>
+
+					<th class="w-20 py-4 text-center"><span [translate]>actions</span></th>
+				</tr>
+			</thead>
+			<tbody>
+				@for (customer of paginatorState.itemsOnCurrentPage; track customer?.id) {
+					@if (customer) {
+						<tr
+							[tabIndex]="0"
+							(click)="processClick(customer)"
+							(keyup.enter)="processClick(customer)"
+							class="hover:bg-base-200/50 cursor-pointer transition-colors duration-150"
+							[ngClass]="{ 'bg-primary/10': itemsSelector.isSelected(customer) }"
+						>
+							<td class="text-center">
+								<div
+									class="flex justify-center"
+									(click)="$event.stopImmediatePropagation(); itemsSelector.toggle(customer)"
+									(keydown)="(undefined)"
+									tabindex="0"
+								>
+									<input
+										class="checkbox checkbox-primary checkbox-sm"
+										[name]="'selectedItems' + customer.id"
+										type="checkbox"
+										[checked]="itemsSelector.isSelected(customer)"
+										tabindex="0"
+									/>
+								</div>
+							</td>
+							<td>
+								<div class="text-base-content font-medium">{{ customer.identifier }}</div>
+							</td>
+							<td>
+								<div class="text-base-content">{{ customer.firstName }}</div>
+							</td>
+							<td>
+								<div class="text-base-content">{{ customer.lastName }}</div>
+							</td>
+							<td>
+								<div class="text-base-content">{{ customer.unit }}</div>
+							</td>
+							<td></td>
+							<td class="text-center">
+								<button
+									(click)="$event.stopImmediatePropagation()"
+									[cdkMenuTriggerFor]="menu"
+									class="btn btn-ghost btn-sm btn-square"
+									[attr.aria-label]="'menu' | translate | async"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										class="h-5 w-5 stroke-current"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"
+										/>
+									</svg>
+								</button>
+								<ng-template #menu
+									><ul
+										class="menu bg-base-100 rounded-box border-base-200 w-56 border p-2 shadow-xl"
+										cdkMenu
+									>
+										<li cdkMenuItem>
+											<button
+												(click)="deleteCustomer(customer)"
+												class="text-error flex items-center gap-2"
+											>
+												<span [translate]>Delete</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="openSharingDetails(customer)"
+												class="flex items-center gap-2"
+											>
+												<span [translate]>Manage Access</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="shareWithTeam(customer)"
+												class="flex items-center gap-2"
+											>
+												<span [translate]>Share with a team</span>
+											</button>
+										</li>
+										<div class="divider my-1"></div>
+										<li class="menu-title px-4 py-2 text-[10px] uppercase opacity-40">Item id: {{ customer.id.substring(0, 8) }}</li>
+									</ul></ng-template
+								>
+							</td>
+						</tr>
+					} @else {
+						<tr>
+							<td
+								colspan="8"
+								class="text-center"
+							>
+								<span class="loading loading-spinner loading-md text-primary"></span>
+							</td>
+						</tr>
+					}
+				} @empty {
+					<tr>
+						<td
+							colspan="8"
+							class="text-base-content/50 py-12 text-center italic"
+						>
+							{{ 'Nothing here' | translate | async }}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+
+		@if (paginatorState.totalNumberOfPages > 1) {
+			<section class="border-base-200 flex items-center justify-between border-t px-4 py-3">
+				<button
+					class="btn btn-sm btn-ghost"
+					(click)="paginatorState.hasPrev ? paginator.previousPage() : null"
+					[disabled]="!paginatorState.hasPrev"
+				>
+					<span [translate]>Previous</span>
+				</button>
+				<span class="text-base-content/60 text-sm">
+					<span [translate]>Page</span> {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} [ {{ paginatorState.totalNumberOfItems }} ]
+				</span>
+				<button
+					class="btn btn-sm btn-ghost"
+					(click)="paginatorState.hasNext ? paginator.nextPage() : null"
+					[disabled]="!paginatorState.hasNext"
+				>
+					<span [translate]>Next</span>
+				</button>
+			</section>
+		}
+	</div>
+}

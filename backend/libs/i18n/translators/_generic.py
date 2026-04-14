@@ -39,7 +39,6 @@ class Translator:
         hash_string: str,
         language_target: str,
     ) -> str | None:
-        print("get_existing_translation", hash_string, language_target)
 
         with context_db() as db:
             existing_translation_db: typing.Optional[Translation] = (
@@ -59,14 +58,11 @@ class Translator:
             existing_translation_db is not None
             and existing_translation_db.translated_content is not None
         ):
-            print("We found an existing translation", existing_translation_db)
             return existing_translation_db.translated_content
         else:
-            print("No existing translation found")
             return None
 
     def _compute_hash(self, source_content: str) -> str:
-        print("compute_hash", source_content)
         return self.string_hasher(source_content)
 
     def _save_translation(
@@ -105,9 +101,6 @@ class Translator:
         translation_context: str | None = None,
         input_language: str | None = "en",
     ) -> str:
-        print(
-            "getting translation", source_content, language_target, translation_context
-        )
         if isinstance(source_content, bytes):
             source_content = source_content.decode("utf-8")
 
@@ -123,10 +116,7 @@ class Translator:
             hash_string, language_target
         )
         if existing_translation is not None:
-            print("Using existing translation", existing_translation)
             return existing_translation
-        else:
-            print(f"Generating new translation from {input_language} to {language_target} for content: {source_content[:50]}...")
 
         # translate the content
         try:
@@ -148,21 +138,20 @@ class Translator:
             )
             return source_content
         if translated_content is None:
-            print_warning(
-                "Translation function returned None",
-                payload={
-                    "source_content": source_content,
-                    "language_target": language_target,
-                    "translator": self.name,
-                    "version": self.version,
-                    "translation_context": translation_context,
-                },
-            )
+            # print_warning(
+            #     "Translation function returned None",
+            #     payload={
+            #         "source_content": source_content,
+            #         "language_target": language_target,
+            #         "translator": self.name,
+            #         "version": self.version,
+            #         "translation_context": translation_context,
+            #     },
+            # )
             return source_content
         translated_content = html.unescape(translated_content)
 
         if translated_content:
-            print("Translation successful", translated_content)
             # save the translation
             self._save_translation(
                 hash_string,

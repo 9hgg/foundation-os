@@ -21,6 +21,8 @@ export interface UserConfig {
 	// Theme preferences
 	theme: ThemeConfig;
 	language?: string;
+	// History of previous email addresses
+	formerEmails?: { email: string; changedAt: string; wasVerified: boolean }[];
 }
 
 export interface ThemeConfig {

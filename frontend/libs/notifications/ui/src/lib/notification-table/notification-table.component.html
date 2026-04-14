@@ -109,15 +109,6 @@
 													</div>
 												</div>
 											}
-											@case ('interaction.interview') {
-												<div class="flex flex-col text-sm">
-													<div class="flex items-center gap-1">
-														<span [translate]>New interaction for</span>
-														<span class="font-bold"><lib-interview-pill [interviewId]="notification.targetId" /></span>
-													</div>
-													<div class="text-base-content/70 text-xs">{{ notification.config.interactionDetails.nbStepsSeen }}/{{ notification.config.interactionDetails.nbTotalSteps }} steps</div>
-												</div>
-											}
 											@default {
 												<span class="text-xs opacity-50">Unknown notification type</span>
 											}

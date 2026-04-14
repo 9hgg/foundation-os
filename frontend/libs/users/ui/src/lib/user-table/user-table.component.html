@@ -1,0 +1,390 @@
+@if (paginator.state$ | async; as paginatorState) {
+	<div
+		name="table-container"
+		class="bg-base-100 card border-base-200 flex h-full min-h-0 flex-col overflow-hidden border shadow-sm"
+	>
+		<div class="min-h-0 flex-1 overflow-auto">
+			<table
+				name="table-body"
+				class="table w-full min-w-[1100px]"
+			>
+				<thead class="bg-base-200/50 text-base-content/60 text-xs font-bold tracking-wider uppercase">
+					<tr>
+						<!-- selection header -->
+						<th class="selection-column w-12 text-center">
+							<div class="flex justify-center">
+								{{ itemsSelector.numSelected ? itemsSelector.numSelected : '' }}
+							</div>
+						</th>
+						<!-- email header -->
+						<th class="py-4">
+							<div class="flex items-center gap-2">
+								<span [translate]>email</span>
+								<div class="join">
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										(click)="paginator.setOrderingBy('email')"
+										title="Sort"
+									>
+										↑↓
+									</button>
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										[class.btn-active]="displaySearchByFields$_['email']"
+										(click)="toggleSearchByField('email')"
+										title="Search"
+									>
+										🔎
+									</button>
+								</div>
+							</div>
+							@if (displaySearchByFields$_['email']) {
+								<div class="mt-2">
+									<input
+										class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+										type="text"
+										placeholder="Search..."
+										[(ngModel)]="filterByFields$_['email']"
+									/>
+								</div>
+							}
+						</th>
+						<!-- first name header -->
+						<th class="py-4">
+							<div class="flex items-center gap-2">
+								<span [translate]>first name</span>
+								<div class="join">
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										(click)="paginator.setOrderingBy('first_name')"
+									>
+										↑↓
+									</button>
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										[class.btn-active]="displaySearchByFields$_['first_name']"
+										(click)="toggleSearchByField('first_name')"
+									>
+										🔎
+									</button>
+								</div>
+							</div>
+							@if (displaySearchByFields$_['first_name']) {
+								<div class="mt-2">
+									<input
+										class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+										type="text"
+										placeholder="Search..."
+										[(ngModel)]="filterByFields$_['first_name']"
+									/>
+								</div>
+							}
+						</th>
+						<!-- last name header -->
+						<th class="py-4">
+							<div class="flex items-center gap-2">
+								<span [translate]>last name</span>
+								<div class="join">
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										(click)="paginator.setOrderingBy('last_name')"
+									>
+										↑↓
+									</button>
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										[class.btn-active]="displaySearchByFields$_['last_name']"
+										(click)="toggleSearchByField('last_name')"
+									>
+										🔎
+									</button>
+								</div>
+							</div>
+							@if (displaySearchByFields$_['last_name']) {
+								<div class="mt-2">
+									<input
+										class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+										type="text"
+										placeholder="Search..."
+										[(ngModel)]="filterByFields$_['last_name']"
+									/>
+								</div>
+							}
+						</th>
+						<!-- pseudo header -->
+						<th class="py-4">
+							<div class="flex items-center gap-2">
+								<span [translate]>pseudo</span>
+								<div class="join">
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										(click)="paginator.setOrderingBy('pseudo')"
+									>
+										↑↓
+									</button>
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										[class.btn-active]="displaySearchByFields$_['pseudo']"
+										(click)="toggleSearchByField('pseudo')"
+									>
+										🔎
+									</button>
+								</div>
+							</div>
+							@if (displaySearchByFields$_['pseudo']) {
+								<div class="mt-2">
+									<input
+										class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+										type="text"
+										placeholder="Search..."
+										[(ngModel)]="filterByFields$_['pseudo']"
+									/>
+								</div>
+							}
+						</th>
+						<!-- verified header -->
+						<th class="py-4">
+							<div class="flex items-center gap-2">
+								<span [translate]>verified</span>
+								<button
+									class="btn btn-ghost btn-xs"
+									(click)="paginator.setOrderingBy('email_verified')"
+								>
+									↑↓
+								</button>
+							</div>
+						</th>
+						<!-- language header -->
+						<th class="py-4">
+							<span [translate]>language</span>
+						</th>
+						<!-- theme header -->
+						<th class="py-4">
+							<span [translate]>theme</span>
+						</th>
+						<!-- creation date header -->
+						<th class="py-4">
+							<div class="flex items-center gap-2">
+								<span [translate]>creation date</span>
+								<button
+									class="btn btn-ghost btn-xs"
+									(click)="paginator.setOrderingBy('time_created')"
+								>
+									↑↓
+								</button>
+							</div>
+						</th>
+						<!-- id header -->
+						<th class="py-4">
+							<span [translate]>id</span>
+						</th>
+						<!-- actions header -->
+						<th class="w-20 py-4 text-center">
+							<span [translate]>actions</span>
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+				@for (user of paginatorState.itemsOnCurrentPage; track user?.id) {
+					<!--  -->
+
+					@if (user) {
+						<tr
+							[tabIndex]="0"
+							(click)="processClick(user)"
+							(keyup.enter)="processClick(user)"
+							class="hover:bg-base-200/50 cursor-pointer transition-colors duration-150"
+							[ngClass]="{ 'bg-primary/10': itemsSelector.isSelected(user) }"
+						>
+							<!-- selection -->
+							<td class="text-center">
+								<div
+									class="flex justify-center"
+									(click)="$event.stopImmediatePropagation(); itemsSelector.toggle(user)"
+									(keydown)="(undefined)"
+									tabindex="0"
+								>
+									<input
+										class="checkbox checkbox-primary checkbox-sm"
+										[name]="'selectedItems' + user.id"
+										type="checkbox"
+										[checked]="itemsSelector.isSelected(user)"
+										tabindex="0"
+									/>
+								</div>
+							</td>
+							<!-- email -->
+							<td>
+								<div class="font-medium">{{ user.email || '—' }}</div>
+							</td>
+							<!-- first name -->
+							<td>
+								<div>{{ user.firstName || '—' }}</div>
+							</td>
+							<!-- last name -->
+							<td>
+								<div>{{ user.lastName || '—' }}</div>
+							</td>
+							<!-- pseudo -->
+							<td>
+								<div>{{ user.pseudo || '—' }}</div>
+							</td>
+							<!-- verified -->
+							<td>
+								@if (user.emailVerified) {
+									<span class="badge badge-success badge-sm">verified</span>
+								} @else {
+									<button
+										class="badge badge-warning badge-sm hover:badge-outline cursor-pointer"
+										(click)="$event.stopImmediatePropagation(); confirmAndVerifyEmail(user)"
+									>
+										unverified
+									</button>
+								}
+							</td>
+							<!-- language -->
+							<td>
+								<span class="text-sm">{{ user.config.language || '—' }}</span>
+							</td>
+							<!-- theme -->
+							<td>
+								<span class="text-sm">{{ user.config.theme.mode || 'system' }}</span>
+							</td>
+							<!-- creation date -->
+							<td>
+								<div class="text-base-content/60 text-xs">
+									{{ user.timeCreated | date: 'short' }}
+								</div>
+							</td>
+							<!-- id -->
+							<td>
+								<div class="font-mono text-xs opacity-70">{{ user.id.substring(0, 8) }}</div>
+							</td>
+							<!-- actions -->
+							<td class="text-center">
+								<button
+									(click)="$event.stopImmediatePropagation()"
+									[cdkMenuTriggerFor]="menu"
+									class="btn btn-ghost btn-sm btn-square"
+									[attr.aria-label]="'menu' | translate | async"
+								>
+									<!-- svg three dots more -->
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										class="h-5 w-5 stroke-current"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"
+										/>
+									</svg>
+								</button>
+
+								<ng-template #menu>
+									<ul
+										class="menu bg-base-100 rounded-box border-base-200 w-56 border p-2 shadow-xl"
+										cdkMenu
+									>
+										<li cdkMenuItem>
+											<button
+												class="flex items-center gap-2"
+												(click)="promptSetPassword(user)"
+											>
+												<span [translate]>Set password</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												class="flex items-center gap-2"
+												(click)="confirmAndVerifyEmail(user)"
+											>
+												<span [translate]>Verify email</span>
+											</button>
+										</li>
+										@if (isAdmin()) {
+											<li cdkMenuItem>
+												<button
+													class="flex items-center gap-2"
+													(click)="copyConnectAsLink(user)"
+												>
+													<span [translate]>Copy connect-as link</span>
+												</button>
+											</li>
+										}
+										<div class="divider my-1"></div>
+										<li class="menu-title px-4 py-2 text-[10px] uppercase opacity-40">User id: {{ user.id.substring(0, 8) }}</li>
+									</ul>
+								</ng-template>
+							</td>
+						</tr>
+
+						@if (openedItems.isSelected(user)) {
+							<tr
+								class="bg-base-200/20"
+								fullSpanRow
+							>
+								<td class="relative p-8">
+									<button
+										class="btn btn-ghost btn-xs absolute top-2 right-2"
+										(click)="openedItems.unselect(user)"
+									>
+										<span
+											class="text-xs italic"
+											[translate]
+											>close display</span
+										>
+									</button>
+									<span class="text-base-content/50 italic">nothing here</span>
+								</td>
+							</tr>
+						}
+					} @else {
+						<tr>
+							<td colspan="11" class="text-center">
+								<span class="loading loading-spinner loading-md text-primary"></span>
+							</td>
+						</tr>
+					}
+				} @empty {
+					<tr>
+						<td colspan="11" class="text-base-content/50 py-12 text-center italic">
+							{{ 'Nothing here' | translate | async }}
+						</td>
+					</tr>
+				}
+				</tbody>
+			</table>
+		</div>
+		@if (paginatorState.totalNumberOfPages > 1) {
+			<div
+				name="table-footer"
+				class="bg-base-200/30 border-base-200 flex items-center justify-between border-t p-4"
+			>
+				<div class="join">
+					<button
+						(click)="paginatorState.hasPrev ? paginator.previousPage() : null"
+						[disabled]="!paginatorState.hasPrev"
+						class="btn btn-sm join-item"
+					>
+						«
+					</button>
+					<button class="btn btn-sm join-item no-animation cursor-default">
+						<span class="text-xs font-medium">Page {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }}</span>
+					</button>
+					<button
+						(click)="paginatorState.hasNext ? paginator.nextPage() : null"
+						[disabled]="!paginatorState.hasNext"
+						class="btn btn-sm join-item"
+					>
+						»
+					</button>
+				</div>
+				<div class="text-base-content/40 text-xs font-medium tracking-tight uppercase">Total: {{ paginatorState.totalNumberOfItems }} items</div>
+			</div>
+		}
+	</div>
+}

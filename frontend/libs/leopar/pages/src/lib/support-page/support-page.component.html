@@ -1,0 +1,114 @@
+<!-- Hero Section -->
+<section class="bg-base-200 relative overflow-hidden px-6 py-20 text-center">
+	<div class="relative mx-auto max-w-4xl text-center">
+		<h1
+			[translate]
+			class="text-base-content mb-4 text-4xl font-bold tracking-tight md:text-5xl"
+		>
+			Support
+		</h1>
+		<p class="text-base-content/80 mx-auto max-w-2xl text-lg">We're here to help. Get in touch with our team or browse our help resources.</p>
+	</div>
+</section>
+
+<!-- Main Content -->
+<section class="bg-base-100 px-6 py-16">
+	<div class="mx-auto max-w-4xl">
+		<div class="grid grid-cols-1 gap-8 md:grid-cols-2">
+			<!-- Contact Support Card -->
+			<div class="card bg-base-200 shadow-xl transition-all duration-300 hover:-translate-y-1">
+				<div class="card-body">
+					<div class="bg-primary text-primary-content mb-6 flex h-14 w-14 items-center justify-center rounded-xl shadow-lg">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="2"
+							stroke="currentColor"
+							class="h-7 w-7"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+							/>
+						</svg>
+					</div>
+					<h2
+						class="card-title text-base-content mb-3 text-xl font-bold"
+						[translate]
+					>
+						Contact Support
+					</h2>
+					<p
+						class="text-base-content/70 mb-6"
+						[translate]
+					>
+						If you're experiencing any issues, please don't hesitate to reach out to us.
+					</p>
+					<div class="flex items-center gap-2">
+						<span class="text-base-content/60 text-sm font-medium">Email:</span>
+						<a
+							href="mailto:{{ (appConfigService.config$ | async)?.environment?.support?.email || 'contact@' + window.location.hostname }}"
+							class="link link-primary font-semibold transition-colors"
+							>{{ (appConfigService.config$ | async)?.environment?.support?.email || 'contact@' + window.location.hostname }}</a
+						>
+					</div>
+				</div>
+			</div>
+
+			<!-- Help Articles Card -->
+			<div class="card bg-base-200 shadow-xl transition-all duration-300 hover:-translate-y-1">
+				<div class="card-body">
+					<div class="bg-secondary text-secondary-content mb-6 flex h-14 w-14 items-center justify-center rounded-xl shadow-lg">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="2"
+							stroke="currentColor"
+							class="h-7 w-7"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+							/>
+						</svg>
+					</div>
+					<h2
+						class="card-title text-base-content mb-3 text-xl font-bold"
+						[translate]
+					>
+						Help Articles
+					</h2>
+					<p
+						class="text-base-content/70 mb-6"
+						[translate]
+					>
+						Before contacting support, please check our help articles. They might provide a quick solution to your problem.
+					</p>
+					<div class="card-actions flex flex-wrap gap-3">
+						<a
+							href="/support/articles"
+							class="btn btn-primary"
+							[translate]
+							>View Help Articles</a
+						>
+						<a
+							[routerLink]="'/faq'"
+							class="btn btn-ghost border-base-content/20 border"
+							[translate]
+							>Visit the FAQ</a
+						>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Router Outlet for nested content -->
+		<div class="mt-12">
+			<router-outlet />
+		</div>
+	</div>
+</section>

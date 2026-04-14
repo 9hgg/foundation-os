@@ -1,0 +1,30 @@
+<div class="modal-box bg-base-100 flex h-full max-h-[90vh] w-11/12 max-w-5xl flex-col p-0">
+	<div class="border-base-200 border-b px-6 py-4">
+		<h3 class="text-lg font-bold">
+			<span [translate]>Facility selection</span>
+		</h3>
+		<p class="py-4">
+			Go to your
+			<a
+				[routerLink]="['/', 'host', 'dashboard', 'facilities']"
+				class="link link-primary"
+				(click)="close()"
+				>facilities</a
+			>
+			page.
+		</p>
+	</div>
+
+	<div class="flex-1 overflow-auto p-0">
+		<lib-facility-table
+			click-behavior="select"
+			class="block h-full w-full"
+			#facilityTable
+		></lib-facility-table>
+	</div>
+
+	<div class="modal-action border-base-200 bg-base-100 m-0 border-t px-6 py-4">
+		<button class="btn" (click)="cancel()">cancel</button>
+		<button class="btn btn-primary" [disabled]="!facilityTable.itemsSelector.valid" (click)="save()">save</button>
+	</div>
+</div>

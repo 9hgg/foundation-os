@@ -1,9 +1,11 @@
-import pytest
-from unittest.mock import MagicMock, AsyncMock
 import uuid
-from libs.files.api import create_crud_file_router
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+from libs.files.api import create_crud_file_router
 
 
 @pytest.fixture
@@ -36,8 +38,8 @@ def test_get_presigned_url_cache_miss_success(
     client, mock_file_storage, mock_file_cls, mock_cacher, mock_user, mock_session, mock_translator
 ):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.cache import get_cacher
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_cacher] = lambda: mock_cacher
@@ -67,8 +69,8 @@ def test_get_presigned_url_cache_miss_success(
 
 def test_get_presigned_url_cache_hit(client, mock_cacher, mock_user, mock_session, mock_translator):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.cache import get_cacher
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_cacher] = lambda: mock_cacher
@@ -86,8 +88,8 @@ def test_get_presigned_url_cache_hit(client, mock_cacher, mock_user, mock_sessio
 
 def test_get_presigned_url_file_not_found(client, mock_file_cls, mock_cacher, mock_user, mock_session, mock_translator):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.cache import get_cacher
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_cacher] = lambda: mock_cacher
@@ -106,8 +108,8 @@ def test_get_presigned_url_not_in_storage(
     client, mock_file_storage, mock_file_cls, mock_cacher, mock_user, mock_session, mock_translator
 ):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.cache import get_cacher
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_cacher] = lambda: mock_cacher

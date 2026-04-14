@@ -1,0 +1,224 @@
+@let user = patchableUser.patchedItem();
+@if (user) {
+<div class="bg-base-200/50 flex h-full min-h-96 w-full flex-col overflow-hidden">
+	<nav class="bg-base-100 border-base-200 m-2 flex shrink-0 items-center justify-between rounded-xl border px-6 py-3 shadow-sm">
+		<a
+			class="text-base-content hover:text-primary flex items-center gap-3 transition-colors"
+			[routerLink]="'/admin/users'"
+		>
+			<div class="from-primary to-secondary flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 200 2048 2048"
+					class="h-5 w-5 fill-white"
+				>
+					<path d="M1024 165l941 942-90 90-83-82v805h-640v-640H896v640H256v-805l-83 82-90-90zm640 1627V987l-640-640-640 640v805h384v-640h512v640h384z" />
+				</svg>
+			</div>
+			<span class="text-lg font-semibold">User Editor</span>
+		</a>
+		<div class="badge badge-outline">ID: {{ user.id.substring(0, 8) }}</div>
+	</nav>
+
+	<div class="m-2 grid flex-1 grid-cols-1 gap-4 overflow-auto xl:grid-cols-[420px_1fr]">
+		<aside class="bg-base-100 border-base-200 rounded-xl border p-4 shadow-sm">
+			<h2 class="mb-3 text-lg font-semibold">Identity</h2>
+
+			<label
+				class="label px-0"
+				for="user-email"
+			><span class="label-text font-medium">Email</span></label>
+			<input
+				id="user-email"
+				type="email"
+				class="input input-bordered input-sm mb-3 w-full"
+				[value]="user.email"
+				(input)="patchableUser.updateField('email', $any($event.target).value)"
+			/>
+
+			<label
+				class="label px-0"
+				for="user-first-name"
+			><span class="label-text font-medium">First Name</span></label>
+			<input
+				id="user-first-name"
+				type="text"
+				class="input input-bordered input-sm mb-3 w-full"
+				[value]="user.firstName ?? ''"
+				(input)="patchableUser.updateField('firstName', $any($event.target).value, true)"
+			/>
+
+			<label
+				class="label px-0"
+				for="user-last-name"
+			><span class="label-text font-medium">Last Name</span></label>
+			<input
+				id="user-last-name"
+				type="text"
+				class="input input-bordered input-sm mb-3 w-full"
+				[value]="user.lastName ?? ''"
+				(input)="patchableUser.updateField('lastName', $any($event.target).value, true)"
+			/>
+
+			<label
+				class="label px-0"
+				for="user-pseudo"
+			><span class="label-text font-medium">Pseudo</span></label>
+			<input
+				id="user-pseudo"
+				type="text"
+				class="input input-bordered input-sm mb-4 w-full"
+				[value]="user.pseudo ?? ''"
+				(input)="patchableUser.updateField('pseudo', $any($event.target).value, true)"
+			/>
+
+			<div class="mb-1 text-sm opacity-70">Email verification</div>
+			@if (user.emailVerified) {
+				<div class="badge badge-success">verified</div>
+			} @else {
+				<button
+					class="badge badge-warning hover:badge-outline cursor-pointer"
+					(click)="confirmAndVerifyEmail(user)"
+				>
+					unverified
+				</button>
+			}
+		</aside>
+
+		<main class="space-y-4">
+			<section class="bg-base-100 border-base-200 rounded-xl border p-5 shadow-sm">
+				<h2 class="mb-4 text-lg font-semibold">Preferences</h2>
+
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+					<div>
+						<label
+							class="label px-0"
+							for="user-language"
+						><span class="label-text font-medium">Language</span></label>
+						<select
+							id="user-language"
+							class="select select-bordered select-sm w-full"
+							[value]="user.config.language"
+							(change)="patchableUser.updateField('config.language', $any($event.target).value, true)"
+						>
+							@for (lang of languages; track lang.code) {
+								<option [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+							}
+						</select>
+					</div>
+
+					<div>
+						<label
+							class="label px-0"
+							for="user-digest-frequency"
+						><span class="label-text font-medium">Digest Frequency</span></label>
+						<select
+							id="user-digest-frequency"
+							class="select select-bordered select-sm w-full"
+							[value]="user.config.notificationDigestFrequency"
+							(change)="patchableUser.updateField('config.notificationDigestFrequency', $any($event.target).value, true)"
+						>
+							@for (freq of digestFrequencies; track freq) {
+							<option [value]="freq">{{ freq }}</option>
+							}
+						</select>
+					</div>
+
+					<div>
+						<label
+							class="label px-0"
+							for="user-theme-mode"
+						><span class="label-text font-medium">Theme Mode</span></label>
+						<select
+							id="user-theme-mode"
+							class="select select-bordered select-sm w-full"
+							[value]="user.config.theme.mode ?? 'system'"
+							(change)="patchableUser.updateField('config.theme.mode', $any($event.target).value, true)"
+						>
+							@for (mode of themeModes; track mode) {
+							<option [value]="mode">{{ mode }}</option>
+							}
+						</select>
+					</div>
+
+					<div>
+						<label
+							class="label px-0"
+							for="user-theme-light"
+						><span class="label-text font-medium">Light Theme Name</span></label>
+						<select
+							id="user-theme-light"
+							class="select select-bordered select-sm w-full"
+							[value]="user.config.theme.light ?? 'light'"
+							(change)="patchableUser.updateField('config.theme.light', $any($event.target).value, true)"
+						>
+							@for (theme of availableThemes(); track theme) {
+								<option [value]="theme">{{ theme }}</option>
+							}
+						</select>
+					</div>
+
+					<div>
+						<label
+							class="label px-0"
+							for="user-theme-dark"
+						><span class="label-text font-medium">Dark Theme Name</span></label>
+						<select
+							id="user-theme-dark"
+							class="select select-bordered select-sm w-full"
+							[value]="user.config.theme.dark ?? 'dark'"
+							(change)="patchableUser.updateField('config.theme.dark', $any($event.target).value, true)"
+						>
+							@for (theme of availableThemes(); track theme) {
+								<option [value]="theme">{{ theme }}</option>
+							}
+						</select>
+					</div>
+				</div>
+			</section>
+
+			@if (user.config.formerEmails?.length) {
+			<section class="bg-base-100 border-base-200 rounded-xl border p-5 shadow-sm">
+				<h2 class="mb-4 text-lg font-semibold">Former Emails</h2>
+				<table class="table table-sm w-full">
+					<thead>
+						<tr>
+							<th>Email</th>
+							<th>Changed at</th>
+							<th>Was verified</th>
+						</tr>
+					</thead>
+					<tbody>
+						@for (entry of user.config.formerEmails; track entry.email) {
+						<tr>
+							<td class="font-mono">{{ entry.email }}</td>
+							<td class="opacity-70">{{ entry.changedAt | date: 'medium' }}</td>
+							<td>
+								@if (entry.wasVerified) {
+									<span class="badge badge-success badge-sm">yes</span>
+								} @else {
+									<span class="badge badge-warning badge-sm">no</span>
+								}
+							</td>
+						</tr>
+						}
+					</tbody>
+				</table>
+			</section>
+			}
+
+			<section class="bg-base-100 border-base-200 rounded-xl border p-5 shadow-sm">
+				<h2 class="mb-3 text-lg font-semibold">Full Details</h2>
+				<pre class="bg-base-200/60 max-h-[400px] overflow-auto rounded-lg p-3 text-xs">{{ user | json }}</pre>
+			</section>
+		</main>
+	</div>
+</div>
+} @else {
+<div class="bg-base-200/50 flex h-full items-center justify-center">
+	<div class="text-center">
+		<h1 class="text-base-content text-2xl font-bold">User Not Found</h1>
+		<p class="text-base-content/60 py-3">The requested user is not available</p>
+	</div>
+</div>
+}

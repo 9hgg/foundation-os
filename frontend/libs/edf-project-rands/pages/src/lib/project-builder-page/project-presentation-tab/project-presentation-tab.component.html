@@ -1,0 +1,1132 @@
+<div class="space-y-6">
+	<div class="flex flex-wrap items-center justify-between gap-3">
+		<div class="flex flex-wrap items-center gap-2">
+			<span
+				class="text-base-content/70 text-sm font-medium"
+				[translate]
+				>Filtrer par année :</span
+			>
+			<div class="join">
+				<button
+					class="btn btn-sm join-item"
+					[class.btn-primary]="selectedYear() === null"
+					[class.btn-outline]="selectedYear() !== null"
+					(click)="selectedYear.set(null)"
+				>
+					Toutes
+				</button>
+				@for (year of availableYears(); track year) {
+					<button
+						class="btn btn-sm join-item"
+						[class.btn-primary]="selectedYear() === year"
+						[class.btn-outline]="selectedYear() !== year"
+						(click)="selectedYear.set(year)"
+					>
+						{{ year }}
+					</button>
+				}
+			</div>
+		</div>
+		<div class="flex flex-wrap gap-2">
+			@if (showFocusModeButton()) {
+				<button
+					type="button"
+					class="btn btn-sm"
+					[class.btn-primary]="focusMode()"
+					[class.btn-outline]="!focusMode()"
+					(click)="focusMode.set(!focusMode())"
+				>
+					@if (focusMode()) {
+						Quitter le mode focus
+					} @else {
+						Mode focus
+					}
+				</button>
+			}
+			<button
+				type="button"
+				class="btn btn-sm btn-outline"
+				(click)="exportPresentationToPdf()"
+			>
+				Exporter en PDF
+			</button>
+			<button
+				type="button"
+				class="btn btn-sm btn-outline"
+				(click)="exportPresentationToPdf(true)"
+			>
+				Exporter en PDF avec descriptions
+			</button>
+		</div>
+	</div>
+
+	@if (focusMode()) {
+		<div class="alert alert-info py-2 text-sm">
+			Appuyer sur <span class="font-mono font-semibold">Échap</span> pour quitter le mode focus.
+		</div>
+	}
+
+	@if (cards().length > 0 || project()) {
+		<div
+			#presentationSlidesHost
+			id="presentation-print-slides"
+			class="space-y-6"
+		>
+			@for (slide of presentationSlides(); track slide.id) {
+				@switch (slide.kind) {
+					@case ('title') {
+						<ng-container
+							[ngTemplateOutlet]="titleSlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('safety') {
+						<ng-container
+							[ngTemplateOutlet]="safetySlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('identity') {
+						<ng-container
+							[ngTemplateOutlet]="identitySlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('activities-overview') {
+						<ng-container
+							[ngTemplateOutlet]="activitiesOverviewSlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('year-budget-overview') {
+						<ng-container
+							[ngTemplateOutlet]="yearBudgetOverviewSlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('batch-budget-overview') {
+						<ng-container
+							[ngTemplateOutlet]="batchBudgetOverviewSlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('batch-budget-share') {
+						<ng-container
+							[ngTemplateOutlet]="batchBudgetShareSlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('effort-tracking') {
+						<ng-container
+							[ngTemplateOutlet]="effortTrackingSlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('activity-card') {
+						<ng-container
+							[ngTemplateOutlet]="activityCardSlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('thank-you') {
+						<ng-container
+							[ngTemplateOutlet]="thankYouSlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+					@case ('custom') {
+						<ng-container
+							[ngTemplateOutlet]="customSlideTemplate"
+							[ngTemplateOutletContext]="{ slide: slide }"
+						></ng-container>
+					}
+				}
+			}
+		</div>
+	} @else {
+		<div class="text-base-content/40 py-12 text-center">
+			<div class="mb-2 text-4xl">🗂️</div>
+			<p
+				class="text-sm"
+				[translate]
+			>
+				Aucune activite pour cette sélection
+			</p>
+		</div>
+	}
+</div>
+
+<ng-template
+	#titleSlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="from-base-200/90 via-base-100 to-base-200/70 bg-linear-to-br px-8 py-10">
+			<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+			<h1 class="text-base-content mt-4 text-4xl font-bold leading-tight lg:text-5xl">{{ slide.title }}</h1>
+			<div class="text-base-content/65 mt-4 text-xl"><span class="font-semibold">Code :</span> {{ slide.code }} · <span class="font-semibold">Période :</span> {{ slide.period }}</div>
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#safetySlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+		data-presentation-safety-slide
+	>
+		<div class="space-y-6 px-8 py-8">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+				<h2 class="text-base-content mt-3 text-3xl font-bold">{{ slide.title }}</h2>
+				<p class="text-base-content/65 mt-2 max-w-4xl text-base">
+					Un système d'IA peut sembler robuste dans la majorité des situations, tout en produisant des erreurs ciblées dans des cas rares mais sensibles.
+				</p>
+			</div>
+
+			<div class="grid gap-6 xl:grid-cols-[0.95fr_1.1fr_0.95fr]">
+				<div class="space-y-4">
+					<div class="bg-base-200/35 border-base-200 rounded-2xl border px-5 py-4">
+						<div class="text-base-content/55 text-xs font-semibold uppercase tracking-[0.22em]">Données</div>
+						<div class="text-base-content mt-3 text-sm leading-6">
+							{{ slide.bulletGroups?.[0]?.items?.[0] }}
+						</div>
+					</div>
+
+					<div class="bg-base-200/35 border-base-200 rounded-2xl border px-5 py-4">
+						<div class="text-base-content/55 text-xs font-semibold uppercase tracking-[0.22em]">{{ slide.bulletGroups?.[1]?.title }}</div>
+						<ul class="mt-3 space-y-2 text-sm leading-6">
+							@for (item of slide.bulletGroups?.[1]?.items ?? []; track $index) {
+								<li class="text-base-content/80">{{ item }}</li>
+							}
+						</ul>
+					</div>
+				</div>
+
+				<div class="bg-base-200/25 border-base-200 rounded-[2rem] border px-6 py-6">
+					<div class="space-y-3">
+						@for (step of slide.diagramSteps ?? []; track $index) {
+							<div class="flex flex-col items-center gap-3">
+								<div
+									class="w-full rounded-2xl border px-5 py-4 text-center shadow-sm"
+									[ngClass]="step === 'Erreurs ciblées / biais cachés' ? 'border-warning bg-warning/10' : 'border-base-200 bg-base-100'"
+								>
+									<div
+										class="text-sm font-semibold leading-6"
+										[class.text-warning-content]="step === 'Erreurs ciblées / biais cachés'"
+										[class.text-base-content]="step !== 'Erreurs ciblées / biais cachés'"
+									>
+										@if (step === 'Erreurs ciblées / biais cachés') {
+											<span class="mr-2">⚠️</span>
+										}
+										{{ step }}
+									</div>
+								</div>
+								@if ($index < (slide.diagramSteps?.length ?? 0) - 1) {
+									<div class="text-base-content/35 text-xl">↓</div>
+								}
+							</div>
+						}
+					</div>
+				</div>
+
+				<div class="space-y-4">
+					<div class="bg-base-200/35 border-base-200 rounded-2xl border px-5 py-4">
+						<div class="text-base-content/55 text-xs font-semibold uppercase tracking-[0.22em]">{{ slide.bulletGroups?.[2]?.title }}</div>
+						<ul class="mt-3 space-y-2 text-sm leading-6">
+							@for (item of slide.bulletGroups?.[2]?.items ?? []; track $index) {
+								<li class="text-base-content/80">{{ item }}</li>
+							}
+						</ul>
+					</div>
+
+					<div class="bg-base-200/35 border-base-200 rounded-2xl border px-5 py-4">
+						<div class="text-base-content/55 text-xs font-semibold uppercase tracking-[0.22em]">Exemple industriel</div>
+						<p class="text-base-content mt-3 text-sm leading-6">{{ slide.example }}</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="bg-warning/10 border-warning/35 rounded-2xl border px-6 py-5">
+				<div class="text-base-content text-xl font-semibold">{{ slide.warning }}</div>
+				<div class="text-base-content/70 mt-2 text-sm font-medium">{{ slide.secondaryWarning }}</div>
+			</div>
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#identitySlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="space-y-6 px-8 py-8">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+				<h2 class="text-base-content mt-3 text-3xl font-bold">{{ slide.title }}</h2>
+			</div>
+
+			<div class="bg-base-200/35 border-base-200 rounded-2xl border px-6 py-5">
+				<div class="text-base-content/50 text-xs font-semibold uppercase tracking-[0.24em]">Projet</div>
+				<div class="text-base-content mt-2 text-3xl font-bold">{{ slide.projectName }} <span class="text-base-content/55 text-2xl font-semibold">({{ slide.projectCode }})</span></div>
+				<div class="text-base-content/70 mt-2 text-lg"><span class="font-semibold">Période :</span> {{ slide.period }}</div>
+			</div>
+
+			<div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+				<div class="bg-base-200/35 rounded-2xl border border-base-200 px-6 py-5">
+					<div class="text-base-content/50 text-xs font-semibold uppercase tracking-[0.24em]">Pilotage</div>
+					<div class="text-base-content mt-4 space-y-2 text-lg">
+						<div><span class="font-semibold">Chef de projet :</span> {{ slide.projectManager }}</div>
+						<div><span class="font-semibold">Pilote stratégique :</span> {{ slide.strategicLead }}</div>
+						<div><span class="font-semibold">Commanditaire :</span> {{ slide.sponsorCustomer }}</div>
+						<div><span class="font-semibold">Client principal :</span> {{ slide.mainCustomer }}</div>
+					</div>
+				</div>
+
+				<div class="bg-base-200/35 rounded-2xl border border-base-200 px-6 py-5">
+					<div class="text-base-content/50 text-xs font-semibold uppercase tracking-[0.24em]">Budget</div>
+					<div class="text-base-content mt-4 text-4xl font-bold">{{ formatKeur(slide.totalProjectCostKeur ?? 0) }}</div>
+					<div class="text-base-content/60 mt-2 text-sm">Budget total estimé</div>
+				</div>
+			</div>
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#activitiesOverviewSlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="space-y-6 px-8 py-8">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+				<h2 class="text-base-content mt-3 text-3xl font-bold">{{ slide.title }}</h2>
+				<p class="text-base-content/60 mt-2 text-base">Vue d'ensemble des activités présentées et de leurs budgets par année.</p>
+			</div>
+
+			@if (activityTableRows().length > 0) {
+				<div class="overflow-x-auto rounded-2xl border border-base-200">
+					<table class="table table-sm w-full">
+						<thead>
+							<tr class="bg-base-200/60 text-base-content/70">
+								<th class="px-4 py-3">Activité</th>
+								@for (year of overviewDisplayYears(); track year) {
+									<th class="px-3 py-3 text-right">{{ year }}</th>
+								}
+								@if (slide.showEvolution && selectedYear() !== null && overviewComparisonYear()) {
+									<th class="px-3 py-3 text-center">Évol.</th>
+								}
+								@if (selectedYear() === null) {
+									<th class="px-3 py-3 text-right">Total</th>
+								}
+							</tr>
+						</thead>
+						<tbody>
+							@for (row of activityTableRows(); track row.activityId) {
+								<tr class="hover:bg-base-200/25">
+									<td class="min-w-72 px-4 py-1">
+										<button
+											class="btn btn-sm btn-ghost h-auto min-h-0 justify-start px-0 text-left"
+											(click)="scrollToSlide(row.activityId)"
+										>
+											<span class="flex items-center gap-3">
+												<span class="font-mono text-xs font-semibold text-primary">{{ row.label }}</span>
+												<span class="flex items-center gap-2">
+													<span class="text-base-content text-sm font-medium">{{ row.title }}</span>
+													@if (row.hasPrincipalDeliverable) {
+														<span
+															class="badge badge-primary badge-xs border-none font-mono text-primary-content"
+															title="Livrable principal"
+															aria-label="Livrable principal"
+														>
+															LP
+														</span>
+													}
+												</span>
+											</span>
+										</button>
+									</td>
+									@for (year of overviewDisplayYears(); track year) {
+										<td class="px-3 py-1 text-right tabular-nums whitespace-nowrap">{{ formatKeur(row.yearlyCostsKeur[year]) }}</td>
+									}
+									@if (slide.showEvolution && selectedYear() !== null && overviewComparisonYear()) {
+										<td class="px-3 py-1 text-center text-sm font-semibold">
+											@if (row.overviewTrend === 'up') {
+												<span class="text-success">↑</span>
+											} @else if (row.overviewTrend === 'down') {
+												<span class="text-error">↓</span>
+											} @else {
+												<span class="text-base-content/45">→</span>
+											}
+										</td>
+									}
+									@if (selectedYear() === null) {
+										<td class="px-3 py-1 text-right font-semibold tabular-nums whitespace-nowrap">{{ formatKeur(row.totalCostKeur) }}</td>
+									}
+								</tr>
+							}
+						</tbody>
+						<tfoot>
+							<tr class="bg-base-200/60 text-base-content font-semibold">
+								<td class="px-4 py-2">Total</td>
+								@for (year of overviewDisplayYears(); track year) {
+									<td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">{{ formatKeur(activityTableTotals().yearlyCostsKeur[year]) }}</td>
+								}
+								@if (slide.showEvolution && selectedYear() !== null && overviewComparisonYear()) {
+									<td class="px-3 py-2 text-center text-sm font-semibold">
+										@if (activityTableTotals().overviewTrend === 'up') {
+											<span class="text-success">↑</span>
+										} @else if (activityTableTotals().overviewTrend === 'down') {
+											<span class="text-error">↓</span>
+										} @else {
+											<span class="text-base-content/45">→</span>
+										}
+									</td>
+								}
+								@if (selectedYear() === null) {
+									<td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">{{ formatKeur(activityTableTotals().totalCostKeur) }}</td>
+								}
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+			} @else {
+				<div class="text-base-content/40 py-8 text-center">Aucune activité visible dans cette présentation.</div>
+			}
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#yearBudgetOverviewSlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="space-y-6 px-8 py-8">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+				<h2 class="text-base-content mt-3 text-3xl font-bold">{{ slide.title }}</h2>
+				<p class="text-base-content/60 mt-2 text-base">{{ slide.subtitle }}</p>
+			</div>
+
+			@if ((slide.yearBudgetRows ?? []).length > 0) {
+				<div class="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,1fr)]">
+					<div class="bg-base-200/20 rounded-2xl border border-base-200 p-4">
+						<div
+							#yearBudgetChartHost
+							class="presentation-year-budget-chart h-[24rem] w-full"
+						></div>
+					</div>
+					<div class="space-y-3">
+						@for (row of slide.yearBudgetRows ?? []; track row.year) {
+							<div class="bg-base-200/25 rounded-2xl border border-base-200 px-4 py-3">
+								<div class="text-base-content/45 text-[11px] font-semibold uppercase tracking-[0.18em]">Année</div>
+								<div class="mt-1 flex items-end justify-between gap-3">
+									<div class="text-base-content text-2xl font-bold">{{ row.year }}</div>
+									<div class="text-base-content text-lg font-semibold tabular-nums">{{ formatKeur(row.totalCostKeur) }}</div>
+								</div>
+							</div>
+						}
+					</div>
+				</div>
+			} @else {
+				<div class="text-base-content/40 py-8 text-center">Aucun budget annuel visible pour cette présentation.</div>
+			}
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#batchBudgetOverviewSlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="space-y-6 px-8 py-8">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+				<h2 class="text-base-content mt-3 text-3xl font-bold">{{ slide.title }}</h2>
+				<p class="text-base-content/60 mt-2 text-base">{{ slide.subtitle }}</p>
+			</div>
+
+			@if ((slide.batchBudgetRows ?? []).length > 0) {
+				<div class="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(20rem,1fr)]">
+					<div class="bg-base-200/20 rounded-2xl border border-base-200 p-4">
+						<div
+							#batchBudgetChartHost
+							class="presentation-batch-budget-chart h-[26rem] w-full"
+						></div>
+					</div>
+
+					<div class="space-y-3">
+						@for (row of slide.batchBudgetRows ?? []; track row.id) {
+							<div class="bg-base-200/25 rounded-2xl border border-base-200 px-4 py-3">
+								<div class="flex items-start justify-between gap-3">
+									<div class="min-w-0">
+										<div class="flex items-center gap-2">
+											<span class="font-mono text-xs font-semibold text-primary">{{ row.label }}</span>
+											<span class="text-base-content text-sm font-medium">{{ row.title }}</span>
+										</div>
+										<div class="text-base-content/55 mt-1 text-xs">
+											@for (year of slide.batchBudgetYears ?? []; track year) {
+												<span class="mr-3 inline-block">{{ year }}: {{ formatKeur(row.yearlyCostsKeur?.[year] ?? 0) }}</span>
+											}
+										</div>
+									</div>
+									<div class="text-right">
+										<div class="text-base-content/45 text-[11px] font-semibold uppercase tracking-[0.18em]">Total</div>
+										<div class="text-base-content mt-1 text-lg font-semibold tabular-nums">{{ formatKeur(row.totalCostKeur ?? 0) }}</div>
+									</div>
+								</div>
+							</div>
+						}
+					</div>
+				</div>
+			} @else {
+				<div class="text-base-content/40 py-8 text-center">Aucun budget visible par lot pour cette présentation.</div>
+			}
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#batchBudgetShareSlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="space-y-6 px-8 py-8">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+				<h2 class="text-base-content mt-3 text-3xl font-bold">{{ slide.title }}</h2>
+				<p class="text-base-content/60 mt-2 text-base">{{ slide.subtitle }}</p>
+			</div>
+
+			@if ((slide.batchBudgetRows ?? []).length > 0) {
+				<div class="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(20rem,1fr)]">
+					<div class="bg-base-200/20 rounded-2xl border border-base-200 p-4">
+						<div
+							#batchBudgetShareChartHost
+							class="presentation-batch-budget-share-chart h-[24rem] w-full"
+						></div>
+					</div>
+					<div class="space-y-3">
+						@for (row of slide.batchBudgetRows ?? []; track row.id) {
+							<div class="bg-base-200/25 rounded-2xl border border-base-200 px-4 py-3">
+								<div class="flex items-center justify-between gap-3">
+									<div class="min-w-0">
+										<div class="flex items-center gap-2">
+											<span class="font-mono text-xs font-semibold text-primary">{{ row.label }}</span>
+											<span class="truncate text-base-content text-sm font-medium">{{ row.title }}</span>
+										</div>
+									</div>
+									<div class="text-base-content text-lg font-semibold tabular-nums">{{ formatKeur(row.totalCostKeur) }}</div>
+								</div>
+							</div>
+						}
+					</div>
+				</div>
+			} @else {
+				<div class="text-base-content/40 py-8 text-center">Aucun budget total par lot visible pour cette présentation.</div>
+			}
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#effortTrackingSlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="space-y-6 px-8 py-8">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+				<h2 class="text-base-content mt-3 text-3xl font-bold">{{ slide.title }}</h2>
+				<p class="text-base-content/65 mt-2 max-w-4xl text-base">{{ slide.subtitle }}</p>
+			</div>
+
+			<div class="grid gap-4 lg:grid-cols-3">
+				<div class="bg-base-200/35 border-base-200 rounded-2xl border px-5 py-4">
+					<div class="text-base-content/50 text-xs font-semibold uppercase tracking-[0.22em]">Réalisé à date</div>
+					<div class="mt-2 text-3xl font-bold text-sky-700">{{ (slide.actualDaysToDate ?? 0).toFixed(1) }} j</div>
+					<div class="text-base-content/55 mt-2 text-sm">Effort cumulé observé sur {{ slide.observedMonthCount ?? 0 }} mois.</div>
+				</div>
+				<div class="bg-base-200/35 border-base-200 rounded-2xl border px-5 py-4">
+					<div class="text-base-content/50 text-xs font-semibold uppercase tracking-[0.22em]">Projection fin d'année</div>
+					<div class="text-base-content mt-2 text-3xl font-bold text-info">{{ (slide.projectedEndOfYearDays ?? 0).toFixed(1) }} j</div>
+					<div class="text-base-content/55 mt-2 text-sm">Prolongement linéaire du rythme observé à ce stade.</div>
+				</div>
+				<div class="bg-base-200/35 border-base-200 rounded-2xl border px-5 py-4">
+					<div class="text-base-content/50 text-xs font-semibold uppercase tracking-[0.22em]">Trajectoire théorique</div>
+					<div class="mt-2 text-3xl font-bold text-[#fbbf24]">{{ (slide.theoreticalEndOfYearDays ?? 0).toFixed(1) }} j</div>
+					<div class="text-base-content/55 mt-2 text-sm">Charge annuelle planifiée, lissée de façon uniforme sur 12 mois.</div>
+				</div>
+			</div>
+
+			<div class="bg-base-100 border-base-200 rounded-2xl border px-5 py-5">
+				<div class="mb-4 flex flex-wrap items-center gap-4 text-sm">
+					<div class="flex items-center gap-2">
+						<span class="inline-block h-0.5 w-8 rounded-full bg-sky-700"></span>
+						<span class="text-base-content/70">Réalisé cumulé</span>
+					</div>
+					<div class="flex items-center gap-2">
+						<span class="inline-block h-0.5 w-8 rounded-full bg-sky-300"></span>
+						<span class="text-base-content/70">Projection linéaire</span>
+					</div>
+					<div class="flex items-center gap-2">
+						<span
+							class="inline-block h-1 w-8 rounded-full"
+							style="background-image: repeating-linear-gradient(to right, #fbbf24 0 8px, transparent 8px 12px);"
+						></span>
+						<span class="text-base-content/70">Théorique</span>
+					</div>
+				</div>
+
+				@if (slide.year !== null) {
+					<div
+						#effortTrackingChartHost
+						class="presentation-effort-chart"
+						role="img"
+						[attr.aria-label]="slide.title"
+					></div>
+				}
+
+				@if (!slide.hasActualData) {
+					<div class="text-base-content/55 mt-4 text-sm">
+						Aucune donnée réalisée n'est disponible pour l'année sélectionnée. Seule la trajectoire théorique peut être estimée pour l'instant.
+					</div>
+				}
+			</div>
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#activityCardSlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="from-base-200/80 to-base-100 flex flex-wrap items-start justify-between gap-6 bg-linear-to-r px-6 py-5 lg:flex-nowrap">
+			<div class="min-w-0 grow space-y-2">
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="badge badge-primary badge-outline font-mono">{{ slide.label }}</span>
+					@if (slide.batchTitle) {
+						<span class="badge badge-ghost">{{ slide.batchTitle }}</span>
+					}
+				</div>
+				<div class="flex flex-wrap items-center gap-3">
+					<h3 class="text-base-content text-2xl font-semibold">{{ slide.title }}</h3>
+					<button
+						class="btn btn-xs btn-outline"
+						(click)="goToActivity(slide.activityId ?? '')"
+						data-presentation-export-hide
+					>
+						Ouvrir l'activité
+					</button>
+				</div>
+			</div>
+
+			<div class="bg-base-100 min-w-[18rem] rounded-2xl border border-white/60 px-4 py-3 shadow-sm">
+				<div class="text-base-content/50 mb-3 text-xs uppercase tracking-[0.2em]">Budgets par année</div>
+				<div class="overflow-hidden rounded-xl border border-base-200/80">
+					<table class="table table-xs w-full">
+						<thead>
+							<tr class="bg-base-200/60 text-base-content/60">
+								@for (year of activitySlideDisplayYears(); track year) {
+									<th class="text-center">{{ year }}</th>
+								}
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								@for (year of activitySlideDisplayYears(); track year) {
+									<td class="text-center font-semibold tabular-nums">{{ formatKeur(slide.yearlyCostsKeur?.[year] ?? 0) }}</td>
+								}
+							</tr>
+							<tr class="bg-base-200/20">
+								@for (year of activitySlideDisplayYears(); track year) {
+									<td class="text-center text-xs font-semibold">
+										@if (slide.yearlyCostTrends?.[year] === 'up') {
+											<span class="text-success">↑</span>
+										} @else if (slide.yearlyCostTrends?.[year] === 'down') {
+											<span class="text-error">↓</span>
+										} @else if (slide.yearlyCostTrends?.[year] === 'stable') {
+											<span class="text-base-content/45">→</span>
+										} @else {
+											<span class="text-transparent">·</span>
+										}
+									</td>
+								}
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+
+		<div class="space-y-6 px-6 py-6">
+			<div class="grid gap-3 sm:grid-cols-2">
+				<div class="bg-base-100 rounded-xl border border-base-200 px-4 py-3 shadow-sm">
+					<div class="text-base-content/50 text-xs uppercase tracking-[0.2em]">
+						{{ getActivitySummaryCostLabel() }}
+					</div>
+					<div class="text-base-content mt-2 text-2xl font-bold">{{ formatKeur(getActivitySummaryCostKeur(slide)) }}</div>
+				</div>
+			</div>
+
+			@if (slide.description) {
+				<div
+					class="space-y-2"
+					data-presentation-description-section
+				>
+					<h4 class="text-base-content/60 text-xs font-semibold uppercase tracking-[0.24em]">
+						Description
+					</h4>
+					<div class="max-w-4xl">
+						<div
+							class="relative overflow-hidden transition-all duration-[1800ms] ease-out"
+							data-presentation-description-content
+							[class.max-h-32]="!descriptionExpandedSelector.isSelected(slide.activityId ?? '')"
+							[class.max-h-[120rem]]="descriptionExpandedSelector.isSelected(slide.activityId ?? '')"
+						>
+							<div
+								class="text-base-content/80 ql-snow ql-editor whitespace-pre-wrap text-base leading-7"
+								[innerHTML]="slide.description"
+							></div>
+							@if (!descriptionExpandedSelector.isSelected(slide.activityId ?? '')) {
+								<div class="from-base-100 absolute inset-x-0 bottom-0 h-16 bg-linear-to-t to-transparent"></div>
+							}
+						</div>
+						<div class="pt-2">
+							<button
+								type="button"
+								class="text-primary inline-flex cursor-pointer text-sm font-medium"
+								(click)="descriptionExpandedSelector.toggle(slide.activityId ?? '')"
+								data-presentation-export-hide
+							>
+								{{ descriptionExpandedSelector.isSelected(slide.activityId ?? '') ? 'Réduire' : 'Voir plus' }}
+							</button>
+						</div>
+					</div>
+				</div>
+			}
+
+			<div class="grid gap-6 lg:grid-cols-2">
+				<div class="space-y-3">
+					<h4 class="text-base-content/60 text-xs font-semibold uppercase tracking-[0.24em]">
+						Contributeurs
+					</h4>
+					@if ((slide.contributorNames ?? []).length > 0) {
+						<div class="flex flex-wrap gap-2">
+							@for (contributor of slide.contributorNames ?? []; track contributor.id) {
+								<button
+									class="btn btn-sm btn-ghost rounded-full"
+									(click)="goToContributor(contributor.id)"
+								>
+									{{ contributor.label }}
+								</button>
+							}
+						</div>
+					} @else {
+						<div
+							class="text-base-content/45 text-sm"
+							[translate]
+						>
+							Aucun contributeur pour cette sélection
+						</div>
+					}
+				</div>
+
+				<div class="space-y-3">
+					<h4 class="text-base-content/60 text-xs font-semibold uppercase tracking-[0.24em]">
+						Clients
+					</h4>
+					@if ((slide.customerNames ?? []).length > 0) {
+						<div class="flex flex-wrap gap-2">
+							@for (customer of slide.customerNames ?? []; track customer.id) {
+								<button
+									class="btn btn-sm btn-outline rounded-full"
+									(click)="goToCustomer(customer.id)"
+								>
+									{{ customer.label }}
+								</button>
+							}
+						</div>
+					} @else {
+						<div
+							class="text-base-content/45 text-sm"
+							[translate]
+						>
+							Aucun client rattaché
+						</div>
+					}
+				</div>
+			</div>
+
+			@if ((slide.principalDeliverables ?? []).length > 0) {
+				<div class="space-y-3">
+					<h4 class="text-base-content/60 text-xs font-semibold uppercase tracking-[0.24em]">
+						Livrables
+					</h4>
+					<div class="grid gap-3 lg:grid-cols-2">
+						@for (deliverable of slide.principalDeliverables ?? []; track deliverable.id) {
+							<button
+								type="button"
+								class="bg-base-200/35 border-base-200 hover:border-primary/40 hover:bg-base-200/55 relative rounded-2xl border px-4 py-3 text-left transition-colors"
+								(click)="goToDeliverable(deliverable.id)"
+							>
+								<div class="absolute top-3 right-3">
+									<span class="badge badge-primary badge-xs border-none font-mono text-primary-content">LP</span>
+								</div>
+								<div class="text-base-content pr-10 font-medium">{{ deliverable.title }}</div>
+								<div class="text-base-content/55 mt-1 text-sm">{{ deliverable.dueDateLabel }}</div>
+							</button>
+						}
+					</div>
+				</div>
+			}
+
+			<div class="space-y-3">
+				<h4 class="text-base-content/60 text-xs font-semibold uppercase tracking-[0.24em]">
+					Actualités
+				</h4>
+				@if ((slide.updates ?? []).length > 0) {
+					<div class="space-y-3">
+						@for (update of slide.updates ?? []; track update.id) {
+							<article
+								class="group bg-base-100 border-base-300 relative overflow-hidden rounded-2xl border shadow-sm transition-colors duration-200"
+								[attr.id]="'presentation-update-' + update.id"
+								[class.presentation-update--highlighted]="highlightedUpdateId() === update.id"
+							>
+								<div class="bg-primary absolute inset-y-0 left-0 w-1.5 opacity-80"></div>
+								<button
+									type="button"
+									class="presentation-update-action btn btn-xs btn-ghost absolute top-3 right-3 opacity-0 transition-opacity group-hover:opacity-100"
+									(click)="goToActivityUpdate(slide.activityId ?? '', update.id)"
+									title="Aller à l'actualité"
+									aria-label="Aller à l'actualité"
+									data-presentation-export-hide
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+										class="h-4 w-4"
+									>
+										<path d="M7 17 17 7" />
+										<path d="M7 7h10v10" />
+									</svg>
+								</button>
+								<div class="space-y-3 px-5 py-4">
+									<div class="flex flex-wrap items-center gap-2 pr-8">
+										<span class="badge badge-primary badge-outline">{{ update.sourceKindLabel }}</span>
+										@if (update.date) {
+											<span class="badge badge-neutral badge-outline">{{ update.date | date: 'dd/MM/yyyy HH:mm' }}</span>
+										}
+										@if (update.sourceName) {
+											<span class="badge badge-ghost">{{ update.sourceName }}</span>
+										}
+									</div>
+									@if (update.title) {
+										<h5 class="text-base-content text-xl font-semibold leading-tight">{{ update.title }}</h5>
+									}
+									<div
+										class="text-base-content/85 ql-snow ql-editor leading-7"
+										[innerHTML]="update.content"
+									></div>
+								</div>
+								@if (update.files.length > 0) {
+									<div class="border-base-200 mt-1 flex flex-wrap gap-3 border-t px-5 py-4">
+										@for (file of update.files; track file.id) {
+											<button
+												type="button"
+												class="bg-base-200/45 border-base-300 hover:border-primary hover:bg-base-200 flex w-28 flex-col gap-2 rounded-xl border p-2 text-left transition-colors"
+												(click)="openUpdateFile(file)"
+											>
+												<lib-file-thumbnail
+													[entityFile]="file"
+													class="w-full h-full"
+												></lib-file-thumbnail>
+												<span
+													class="truncate text-xs font-medium"
+													[title]="file.publicFilename || file.originalFilename || file.id"
+												>
+													{{ file.publicFilename || file.originalFilename || file.id }}
+												</span>
+											</button>
+										}
+									</div>
+								}
+								@if ((update.links || []).length > 0) {
+									<div class="mt-4 space-y-2 px-5 pb-4">
+										<div class="text-base-content/55 text-xs font-semibold uppercase tracking-[0.18em]">Liens</div>
+										<div class="flex flex-wrap gap-x-4 gap-y-1">
+											@for (link of update.links || []; track $index) {
+												@if (link.url) {
+													<a
+														class="border-primary/45 text-primary hover:border-primary hover:bg-primary/8 hover:text-primary-focus inline-flex rounded-full border px-3 py-1 text-sm font-medium transition-colors"
+														[href]="link.url"
+														target="_blank"
+														rel="noreferrer"
+														[title]="link.url"
+													>
+														{{ link.title || link.url }}
+													</a>
+												}
+											}
+										</div>
+									</div>
+								}
+							</article>
+						}
+					</div>
+				} @else {
+					<div
+						class="text-base-content/45 text-sm"
+						[translate]
+					>
+						Aucune actualité pour cette sélection
+					</div>
+				}
+			</div>
+
+			<div class="space-y-3">
+				<div class="flex items-center justify-between gap-3">
+					<h4 class="text-base-content/60 text-xs font-semibold uppercase tracking-[0.24em]">
+						Propositions
+					</h4>
+					@if (slide.activityId) {
+						<button
+							type="button"
+							class="btn btn-xs btn-outline"
+							(click)="addActivityProposal(slide.activityId)"
+							data-presentation-export-hide
+						>
+							+
+						</button>
+					}
+				</div>
+				@if ((slide.proposals ?? []).length > 0) {
+					<div class="space-y-3">
+						@for (proposal of slide.proposals ?? []; track proposal.id) {
+							<article class="group bg-base-100 border-base-300 relative overflow-hidden rounded-2xl border shadow-sm">
+								<div class="bg-secondary absolute inset-y-0 left-0 w-1.5 opacity-80"></div>
+								<button
+									type="button"
+									class="presentation-update-action btn btn-xs btn-ghost absolute top-3 right-3 opacity-0 transition-opacity group-hover:opacity-100"
+									(click)="slide.activityId && goToActivityProposal(slide.activityId, proposal.id)"
+									title="Aller à la proposition"
+									aria-label="Aller à la proposition"
+									data-presentation-export-hide
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+										class="h-4 w-4"
+									>
+										<path d="M7 17 17 7" />
+										<path d="M7 7h10v10" />
+									</svg>
+								</button>
+								<div class="space-y-3 px-5 py-4">
+									<div class="flex flex-wrap items-center gap-2 pr-8">
+										<span class="badge badge-secondary badge-outline">{{ proposal.kindLabel }}</span>
+										@if (proposal.date) {
+											<span class="badge badge-neutral badge-outline">{{ proposal.date | date: 'dd/MM/yyyy HH:mm' }}</span>
+										}
+									</div>
+									@if (proposal.title) {
+										<h5 class="text-base-content text-xl font-semibold leading-tight">{{ proposal.title }}</h5>
+									}
+									<div
+										class="text-base-content/85 ql-snow ql-editor leading-7"
+										[innerHTML]="proposal.content"
+									></div>
+								</div>
+								@if (proposal.files.length > 0) {
+									<div class="border-base-200 mt-1 flex flex-wrap gap-3 border-t px-5 py-4">
+										@for (file of proposal.files; track file.id) {
+											<button
+												type="button"
+												class="bg-base-200/45 border-base-300 hover:border-primary hover:bg-base-200 flex w-28 flex-col gap-2 rounded-xl border p-2 text-left transition-colors"
+												(click)="openProposalFile(file)"
+											>
+												<lib-file-thumbnail
+													[entityFile]="file"
+													class="w-full h-full"
+												></lib-file-thumbnail>
+												<span
+													class="truncate text-xs font-medium"
+													[title]="file.publicFilename || file.originalFilename || file.id"
+												>
+													{{ file.publicFilename || file.originalFilename || file.id }}
+												</span>
+											</button>
+										}
+									</div>
+								}
+								@if ((proposal.links || []).length > 0) {
+									<div class="mt-4 space-y-2 px-5 pb-4">
+										<div class="text-base-content/55 text-xs font-semibold uppercase tracking-[0.18em]">Liens</div>
+										<div class="flex flex-wrap gap-x-4 gap-y-1">
+											@for (link of proposal.links || []; track $index) {
+												@if (link.url) {
+													<a
+														class="border-primary/45 text-primary hover:border-primary hover:bg-primary/8 hover:text-primary-focus inline-flex rounded-full border px-3 py-1 text-sm font-medium transition-colors"
+														[href]="link.url"
+														target="_blank"
+														rel="noreferrer"
+														[title]="link.url"
+													>
+														{{ link.title || link.url }}
+													</a>
+												}
+											}
+										</div>
+									</div>
+								}
+								<div class="border-base-200 space-y-4 border-t px-5 py-4">
+									<div>
+										<div class="label px-0 pt-0">
+											<span class="label-text text-xs font-medium">Réponse</span>
+										</div>
+										@if (proposal.answerContent) {
+											<div
+												class="text-base-content/85 ql-snow ql-editor mb-3 leading-7"
+												[innerHTML]="proposal.answerContent"
+											></div>
+										}
+										<lib-quill-textarea
+											data-presentation-export-hide
+											[html]="proposal.answerContent || ''"
+											(htmlChange)="slide.activityId && updateActivityProposalField(slide.activityId, proposal.id, 'answerContent', $event)"
+										></lib-quill-textarea>
+									</div>
+								</div>
+							</article>
+						}
+					</div>
+				}
+			</div>
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-6 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#thankYouSlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="from-base-200/80 to-base-100 bg-linear-to-br px-8 py-14 text-center">
+			<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+			<h2 class="text-base-content mt-4 text-4xl font-bold lg:text-5xl">{{ slide.title }}</h2>
+			<p class="text-base-content/65 mx-auto mt-4 max-w-3xl text-xl">{{ slide.subtitle }}</p>
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>
+
+<ng-template
+	#customSlideTemplate
+	let-slide="slide"
+>
+	<section
+		class="bg-base-100 border-base-200 overflow-hidden rounded-2xl border shadow-sm"
+		[attr.id]="getSlideDomId(slide.id)"
+	>
+		<div class="space-y-6 px-8 py-8">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">{{ slide.label }}</div>
+				<h2 class="text-base-content mt-3 text-3xl font-bold">{{ slide.title }}</h2>
+				@if (slide.subtitle) {
+					<p class="text-base-content/65 mt-2 max-w-4xl text-base">{{ slide.subtitle }}</p>
+				}
+			</div>
+
+			@if (slide.bodyHtml) {
+				<div
+					class="text-base-content/80 ql-snow ql-editor max-w-4xl leading-7"
+					[innerHTML]="slide.bodyHtml"
+				></div>
+			} @else if ((slide.bodyLines ?? []).length > 0) {
+				<div class="space-y-3">
+					@for (line of slide.bodyLines ?? []; track $index) {
+						<p class="text-base-content/80 max-w-4xl text-base leading-7">{{ line }}</p>
+					}
+				</div>
+			}
+		</div>
+		@if (slide.showNumber) {
+			<div class="text-base-content/35 px-8 pb-5 text-right text-sm font-medium">{{ getSlideNumber(slide.id) }}/{{ totalSlides() }}</div>
+		}
+	</section>
+</ng-template>

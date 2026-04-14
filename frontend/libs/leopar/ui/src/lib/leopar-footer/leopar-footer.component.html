@@ -1,0 +1,241 @@
+<footer class="bg-neutral text-neutral-content">
+	<!-- Main footer content -->
+	<div class="mx-auto max-w-7xl px-6 py-12 lg:px-8 lg:py-16">
+		<div class="grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5">
+			<!-- Brand column - takes full width on mobile, 2 cols on md, 1 on lg -->
+			<div class="col-span-2 md:col-span-4 lg:col-span-1">
+				<div class="mb-4 flex items-center gap-2">
+					<svg
+						class="text-primary h-8 w-8"
+						fill="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path d="M13 10V3L4 14h7v7l9-11h-7z" />
+					</svg>
+					<span class="text-primary text-2xl font-bold">Leopar</span>
+				</div>
+				<p class="text-neutral-content/80 mb-6 max-w-xs text-sm leading-relaxed">
+					R&D Project Management Platform.<br />
+					Align with the 2020 Framework, manage Opportunity Studies and Project Contracts efficiently.
+				</p>
+			</div>
+
+			<!-- Platform -->
+			<nav>
+				<h6 class="text-neutral-content/40 mb-4 text-xs font-semibold tracking-wider uppercase">Platform</h6>
+				<ul class="space-y-3">
+					<li>
+						<a
+							[routerLink]="['/features']"
+							class="text-neutral-content/70 hover:text-primary text-sm transition-colors"
+							>Features</a
+						>
+					</li>
+					<li>
+						<a
+							[routerLink]="['/methods']"
+							class="text-neutral-content/70 hover:text-primary text-sm transition-colors"
+							>Methods & Best Practices</a
+						>
+					</li>
+					<li>
+						<a
+							[routerLink]="['/studies']"
+							class="text-neutral-content/70 hover:text-primary text-sm transition-colors"
+							>Studies & Projects</a
+						>
+					</li>
+				</ul>
+			</nav>
+
+			<!-- Resources -->
+			<nav>
+				<h6 class="text-neutral-content/40 mb-4 text-xs font-semibold tracking-wider uppercase">Resources</h6>
+				<ul class="space-y-3">
+					<li>
+						<a
+							[routerLink]="['/documentation']"
+							class="text-neutral-content/70 hover:text-primary text-sm transition-colors"
+							>Documentation</a
+						>
+					</li>
+					<li>
+						<a
+							[routerLink]="['/support']"
+							class="text-neutral-content/70 hover:text-primary text-sm transition-colors"
+							>Technical Support</a
+						>
+					</li>
+					<li>
+						<a
+							[routerLink]="['/auth/register']"
+							class="text-neutral-content/70 hover:text-primary text-sm transition-colors"
+							>Request Access</a
+						>
+					</li>
+				</ul>
+			</nav>
+
+			<!-- EDF -->
+			<nav>
+				<h6 class="text-neutral-content/40 mb-4 text-xs font-semibold tracking-wider uppercase">EDF</h6>
+				<ul class="space-y-3">
+					<li><span class="text-neutral-content/70 text-sm">R&amp;D Division</span></li>
+					<li><span class="text-neutral-content/70 text-sm">Digital &amp; IT</span></li>
+					<li><span class="text-neutral-content/70 text-sm">Engineering &amp; Computation</span></li>
+				</ul>
+			</nav>
+
+			<!-- Empty column to match spacing or add something else -->
+			<div class="hidden lg:block"></div>
+		</div>
+	</div>
+
+	<!-- Bottom bar -->
+	<div class="border-neutral-content/10 border-t">
+		<div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 sm:flex-row lg:px-8">
+			<div class="flex items-center gap-4">
+				<div class="bg-primary text-primary-content flex h-6 w-6 items-center justify-center rounded">
+					<span class="text-[8px] font-bold">EDF</span>
+				</div>
+				<p class="text-neutral-content/50 text-sm">&copy; {{ currentYear }} EDF - R&amp;D Division. Internal Platform.</p>
+			</div>
+
+			<div class="border-neutral-content/20 flex flex-wrap items-center justify-center gap-3 rounded-full border px-3 py-1 text-xs">
+				<lib-language-selector></lib-language-selector>
+				<div class="bg-neutral-content/20 h-4 w-px"></div>
+
+				<!-- Light Theme Comp -->
+				<div
+					class="flex items-center gap-1 border-b-2 px-1 pb-0.5 transition-colors duration-300"
+					[class.border-primary]="layoutService.mode() === 'system' && layoutService.effectiveMode() === 'light'"
+					[class.border-transparent]="!(layoutService.mode() === 'system' && layoutService.effectiveMode() === 'light')"
+				>
+					<button
+						class="btn btn-circle btn-ghost btn-xs"
+						[class.bg-base-content]="layoutService.mode() === 'light'"
+						[class.text-base-100]="layoutService.mode() === 'light'"
+						(click)="setMode('light')"
+						aria-label="Light Mode"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="h-4 w-4"
+						>
+							<path
+								fill-rule="evenodd"
+								d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+								clip-rule="evenodd"
+							/>
+						</svg>
+					</button>
+					<select class="select select-xs bg-neutral text-neutral-content rounded-box border-neutral-content/10 z-50 max-h-60 w-24 flex-nowrap overflow-y-auto border p-1 shadow-2xl">
+						<option disabled>Pick a color</option>
+						@for (theme of themes; track theme) {
+							<option
+								type="button"
+								(click)="updateLightTheme(theme)"
+								popovertargetaction="hide"
+								[attr.data-theme]="theme"
+								class="bg-base-100 text-base-content hover:bg-base-200 mb-1 flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 shadow-sm transition-all"
+								[class.ring-2]="theme === layoutService.lightThemePref()"
+								[class.ring-primary]="theme === layoutService.lightThemePref()"
+								[class.ring-offset-1]="theme === layoutService.lightThemePref()"
+								[selected]="theme === layoutService.lightThemePref()"
+							>
+								<span class="text-xs font-semibold">{{ theme | titlecase }}</span>
+								<div class="flex shrink-0 gap-1">
+									<div
+										class="bg-primary h-2 w-2 rounded-full"
+										title="Primary"
+									></div>
+									<div
+										class="bg-secondary h-2 w-2 rounded-full"
+										title="Secondary"
+									></div>
+									<div
+										class="bg-neutral h-2 w-2 rounded-full"
+										title="Neutral"
+									></div>
+								</div>
+							</option>
+						}
+					</select>
+				</div>
+
+				<div class="bg-neutral-content/20 h-4 w-px"></div>
+
+				<!-- Dark Theme Comp -->
+				<div
+					class="flex items-center gap-1 border-b-2 px-1 pb-0.5 transition-colors duration-300"
+					[class.border-primary]="layoutService.mode() === 'system' && layoutService.effectiveMode() === 'dark'"
+					[class.border-transparent]="!(layoutService.mode() === 'system' && layoutService.effectiveMode() === 'dark')"
+				>
+					<button
+						class="btn btn-circle btn-ghost btn-xs"
+						[class.bg-base-content]="layoutService.mode() === 'dark'"
+						[class.text-base-100]="layoutService.mode() === 'dark'"
+						(click)="setMode('dark')"
+						aria-label="Dark Mode"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="h-4 w-4"
+						>
+							<path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+						</svg>
+					</button>
+
+					<select class="select select-xs bg-neutral text-neutral-content rounded-box border-neutral-content/10 z-50 max-h-60 w-24 flex-nowrap overflow-y-auto border p-1 shadow-2xl">
+						<option disabled>Pick a color</option>
+						@for (theme of themes; track theme) {
+							<option
+								type="button"
+								(click)="updateDarkTheme(theme)"
+								popovertargetaction="hide"
+								[attr.data-theme]="theme"
+								class="bg-base-100 text-base-content hover:bg-base-200 mb-1 flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 shadow-sm transition-all"
+								[class.ring-2]="theme === layoutService.darkThemePref()"
+								[class.ring-primary]="theme === layoutService.darkThemePref()"
+								[class.ring-offset-1]="theme === layoutService.darkThemePref()"
+								[selected]="theme === layoutService.darkThemePref()"
+							>
+								<span class="text-xs font-semibold">{{ theme | titlecase }}</span>
+								<div class="flex shrink-0 gap-1">
+									<div
+										class="bg-primary h-2 w-2 rounded-full"
+										title="Primary"
+									></div>
+									<div
+										class="bg-secondary h-2 w-2 rounded-full"
+										title="Secondary"
+									></div>
+									<div
+										class="bg-neutral h-2 w-2 rounded-full"
+										title="Neutral"
+									></div>
+								</div>
+							</option>
+						}
+					</select>
+				</div>
+
+				<div class="bg-neutral-content/20 h-4 w-px"></div>
+
+				<!-- Auto Comp -->
+				<button
+					class="btn btn-ghost btn-xs text-xs font-normal normal-case opacity-90 hover:opacity-100"
+					[class.bg-base-content]="layoutService.mode() === 'system'"
+					[class.text-base-100]="layoutService.mode() === 'system'"
+					(click)="setMode('system')"
+				>
+					Auto
+				</button>
+			</div>
+		</div>
+	</div>
+</footer>

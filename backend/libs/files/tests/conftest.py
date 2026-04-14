@@ -1,6 +1,17 @@
-import pytest
-from unittest.mock import MagicMock, patch
+# Set env vars before test modules import application code with BaseSettings instances.
+import os
 import uuid
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+os.environ.setdefault("APP_SECRET", "test_app_secret")
+os.environ.setdefault("SENDER_EMAIL", "sender@example.com")
+os.environ.setdefault("EMAIL_TEMPLATES_DIR", "/tmp/templates")
+os.environ.setdefault("DEFAULT_STORAGE_ID", "00000000-0000-0000-0000-000000000000")
+os.environ.setdefault("PADDLE_API_KEY", "test_paddle_key")
+os.environ.setdefault("PADDLE_SANDBOX", "True")
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +30,7 @@ def mock_env(monkeypatch):
 @pytest.fixture
 def mock_file_storage():
     from libs.files.models import StorageSettings
-    
+
     with patch("libs.files.api.get_file_storage") as mock:
         storage_mock = MagicMock()
         storage_mock.storage_settings = MagicMock(spec=StorageSettings)
@@ -39,7 +50,7 @@ def mock_file_storage():
 @pytest.fixture
 def mock_file_cls():
     from libs.files.models import File
-    
+
     # Patch methods on the File class, not the class itself
     with (
         patch("libs.files.models.File.by_id") as mock_by_id,
@@ -73,7 +84,7 @@ def mock_file_cls():
 @pytest.fixture
 def mock_folder_cls():
     from libs.folders.models import Folder
-    
+
     with (
         patch("libs.folders.models.Folder.get_first_by") as mock_get_first_by,
         patch("libs.folders.models.Folder.create") as mock_create,
@@ -118,7 +129,7 @@ def mock_add_to_folder():
 @pytest.fixture
 def mock_user():
     from libs.users.models import User
-    
+
     user = MagicMock(spec=User)
     user.id = uuid.uuid4()
     user.email = "joris@example.com"
@@ -128,7 +139,7 @@ def mock_user():
 @pytest.fixture
 def mock_session():
     from libs.sessions.models import AppSession
-    
+
     session = MagicMock(spec=AppSession)
     session.id = uuid.uuid4()
     return session

@@ -3,12 +3,9 @@ import { FilesRepository } from '@foundation/files/state';
 import { FileTableComponent, UploadButtonComponent } from '@foundation/files/ui';
 import { FoldersRepository } from '@foundation/folders/state';
 import { FolderPathComponent, FolderTableComponent } from '@foundation/folders/ui';
-import { TranslationsRepository } from '@foundation/translations/state';
-import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
 import { TwUploadIcon } from '@foundation/icons';
 import { RequestService } from '@foundation/network/services';
+import { TranslateDirective } from '@foundation/translations/services';
 
 import { ChangeDetectionStrategy, Component, effect, inject, model, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
@@ -92,7 +89,7 @@ export class FileListPageComponent {
 							if (files.length === 0) {
 								return of([]);
 							}
-							return combineLatest(files.map((fileDetails) => this._filesRepository.store.getObjectById$$$(fileDetails.id, true).$));
+							return combineLatest(files.map((fileDetails) => this._filesRepository.store.getObjectByIdPullOnce$$$(fileDetails.id).$));
 						}),
 						tap((files) => {
 							if (DEBUG) console.log('(Effect from folderId) files', { files });

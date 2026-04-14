@@ -1,9 +1,9 @@
 @if (message()) {
 	<sup
-		class="aspect-square cursor-help rounded-full px-1"
-		[style.backgroundColor]="backgroundColor()"
+		class="badge badge-primary badge-xs cursor-help border-none px-1 font-bold leading-none align-middle opacity-70"
+		[style.backgroundColor]="backgroundColor() || null"
 		>?</sup
 	>
 } @else {
-	<sup class="aspect-square cursor-help rounded-full px-1">!</sup>
+	<sup class="badge badge-warning badge-xs cursor-help border-none px-1 font-bold leading-none align-middle opacity-70">!</sup>
 }

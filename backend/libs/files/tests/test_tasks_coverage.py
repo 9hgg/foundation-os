@@ -1,16 +1,14 @@
-import pytest
-from unittest.mock import MagicMock, patch, ANY
 import uuid
-import os
+from unittest.mock import ANY, MagicMock, patch
 
-
+import pytest
 
 
 @pytest.fixture
 def files_modules():
-    from libs.files.tasks import fill_file_details, generate_file_alternatives, merge_chunks
-    from libs.files.models import File, ExtraDetailsFile, FileAlternative
+    from libs.files.models import ExtraDetailsFile, File, FileAlternative
     from libs.files.storage._generic import GenericStorage
+    from libs.files.tasks import fill_file_details, generate_file_alternatives, merge_chunks
     return {
         "fill_file_details": fill_file_details,
         "generate_file_alternatives": generate_file_alternatives,
@@ -26,7 +24,7 @@ def files_modules():
 def mock_file_db(files_modules):
     File = files_modules["File"]
     ExtraDetailsFile = files_modules["ExtraDetailsFile"]
-    
+
     file_db = MagicMock(spec=File)
     file_db.id = uuid.uuid4()
     file_db.storage_id = "local"
@@ -55,7 +53,7 @@ def mock_storage(files_modules):
 @patch("libs.files.tasks.TasksManager")
 def test_fill_file_details_success(mock_tm, mock_magika, mock_get_storage, mock_file, mock_file_db, mock_storage, files_modules):
     fill_file_details = files_modules["fill_file_details"]
-    
+
     mock_file.by_id.return_value = mock_file_db
     mock_get_storage.return_value = mock_storage
 
@@ -89,7 +87,7 @@ def test_fill_file_details_success(mock_tm, mock_magika, mock_get_storage, mock_
 @patch("libs.files.tasks.get_file_storage")
 def test_fill_file_details_no_file(mock_get_storage, mock_file, files_modules):
     fill_file_details = files_modules["fill_file_details"]
-    
+
     mock_file.by_id.return_value = None
     fill_file_details(uuid.uuid4())
     mock_get_storage.assert_not_called()
@@ -148,7 +146,7 @@ def test_merge_chunks_success(
     files_modules
 ):
     merge_chunks = files_modules["merge_chunks"]
-    
+
     mock_file.by_id.return_value = mock_file_db
     mock_get_storage.return_value = mock_storage
 
@@ -181,7 +179,7 @@ def test_merge_chunks_success(
 @patch("libs.files.tasks.get_file_storage")
 def test_merge_chunks_already_exists(mock_get_storage, mock_file, mock_file_db, mock_storage, files_modules):
     merge_chunks = files_modules["merge_chunks"]
-    
+
     mock_file.by_id.return_value = mock_file_db
     mock_get_storage.return_value = mock_storage
     mock_storage.exists_in_storage.return_value = True

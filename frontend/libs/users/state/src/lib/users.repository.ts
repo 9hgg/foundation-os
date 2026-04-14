@@ -103,6 +103,29 @@ export class UsersRepository extends GenericRepository<User> {
 		return this._requestService.getBasic$<{ id: string; email: string; pseudo?: string }>(`/api/users/find-by-email/${email}`);
 	}
 
+	public setUserPassword$(userId: string, password: string) {
+		return this._requestService.post$<{ message: string }, { userId: string; password: string }>('/api/users/admin/set-password', { userId, password });
+	}
+
+	public verifyUserEmail$(userId: string) {
+		return this._requestService.post$<{ message: string }, { userId: string }>('/api/users/admin/verify-email', { userId });
+	}
+
+	public getConnectAsLink$(userId: string) {
+		return this._requestService
+			.getBasic$<{ url: string }>(`/api/users/admin/connect-as-link/${userId}`)
+			.pipe(map((response) => response.result?.url ?? null));
+	}
+
+	public getUserByIdAsAdmin$(userId: string | null): Observable<User | null> {
+		if (!userId) return of(null);
+		return this._requestService.getBasic$<User>(`/api/users/admin/by-id/${userId}`).pipe(map((response) => response.result ?? null));
+	}
+
+	public updateUserAsAdmin$(userId: string, newData: Partial<User>) {
+		return this._requestService.post$<User, { userId: string; newData: Partial<User> }>('/api/users/admin/update', { userId, newData });
+	}
+
 	getUsersByTokens$(tokens: string[]): Observable<{ user: User; authToken: string }[]> {
 		if (DEBUG) console.log('%c[UsersRepository](getUsersByTokens$) tokens', 'color: #00a7e1; font-weight: bold', tokens);
 		if (tokens.length === 0) return of([] as { user: User; authToken: string }[]);
@@ -172,5 +195,9 @@ export class UsersRepository extends GenericRepository<User> {
 			...current,
 			[userId]: details,
 		}));
+	}
+
+	goToUser(userId: string) {
+		this._notificationService.snackError('This feature is not implemented yet. Please use the API or the admin dashboard to manage users.', 'Not implemented');
 	}
 }

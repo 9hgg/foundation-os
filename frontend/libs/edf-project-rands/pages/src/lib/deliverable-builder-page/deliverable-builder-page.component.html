@@ -1,0 +1,211 @@
+@let d = deliverable$$$.$ | async;
+@if (d) {
+	<div class="bg-base-200/50 flex h-full min-h-96 w-full flex-col">
+		<nav class="bg-base-100 border-base-200 m-2 flex shrink-0 items-center justify-between overflow-x-auto rounded-xl border px-6 py-3 shadow-sm">
+			@let projectId = project()?.id;
+			<a
+				class="text-base-content hover:text-primary flex cursor-pointer items-center justify-center transition-colors sm:justify-start"
+				[routerLink]="'/host/dashboard/projects/' + (projectId ? projectId + '/builder' : '')"
+			>
+				<div class="flex cursor-pointer items-center gap-3">
+					<div class="from-primary to-secondary flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							class="h-5 w-5 fill-white"
+						>
+							<path d="M3 3h18v2H3zM3 7h18v14H3z" />
+						</svg>
+					</div>
+					<span
+						class="text-lg font-semibold"
+						[translate]
+						>Deliverable Editor</span
+					>
+				</div>
+			</a>
+		</nav>
+
+		<div class="relative m-2 flex h-full min-h-96 flex-1 gap-4 overflow-auto">
+			<aside class="bg-base-100 border-base-200 relative w-80 shrink-0 space-y-4 overflow-auto rounded-xl border p-4 shadow-sm">
+				<div class="w-full">
+					<label
+						for="deliverable-title"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Title</span
+						></label
+					>
+					<input
+						id="deliverable-title"
+						type="text"
+						class="input input-bordered input-sm w-full"
+						[value]="d.title"
+						(change)="updateTitle($any($event.target).value)"
+						(keyup)="updateTitle($any($event.target).value)"
+						placeholder="Title..."
+					/>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="deliverable-startDate"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Start date</span
+						></label
+					>
+					<input
+						id="deliverable-startDate"
+						type="date"
+						class="input input-bordered input-sm w-full"
+						[value]="d.startDate | date: 'yyyy-MM-dd'"
+						(change)="updateDates($any($event.target).value, d.endDate || '')"
+					/>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="deliverable-endDate"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>End date</span
+						></label
+					>
+					<input
+						id="deliverable-endDate"
+						type="date"
+						class="input input-bordered input-sm w-full"
+						[value]="d.endDate | date: 'yyyy-MM-dd'"
+						(change)="updateDates(d.startDate || '', $any($event.target).value)"
+					/>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="deliverable-description"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Description</span
+						></label
+					>
+					<lib-quill-textarea
+						id="deliverable-description"
+						[html]="d.description || ''"
+						(htmlChange)="updateDescription($event)"
+					></lib-quill-textarea>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="deliverable-customer"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Customer</span
+						></label
+					>
+					<div class="flex items-center gap-2">
+						<button
+							id="deliverable-customer"
+							type="button"
+							class="btn btn-outline btn-sm"
+							(click)="selectCustomer()"
+						>
+							@if (selectedCustomer(); as customer) {
+								<lib-customer-pill [customer]="customer"></lib-customer-pill>
+							} @else {
+								<span
+									class="opacity-60"
+									[translate]
+									>Select customer</span
+								>
+							}
+						</button>
+						@if (selectedCustomer()) {
+							<button
+								type="button"
+								class="btn btn-ghost btn-sm"
+								(click)="clearCustomer()"
+								[translate]
+							>
+								Clear
+							</button>
+						}
+					</div>
+				</div>
+
+				<div class="w-full">
+					<label for="deliverable-isPrincipal" class="label px-0 pt-0">
+						<span class="label-text font-medium" [translate]>Is principal</span>
+					</label>
+					<input
+						id="deliverable-isPrincipal"
+						type="checkbox"
+						class="checkbox"
+						[checked]="!!d.isPrincipal"
+						(change)="updateIsPrincipal($any($event.target).checked)"
+					/>
+				</div>
+
+				<div class="w-full">
+					<label for="deliverable-hidden" class="label px-0 pt-0">
+						<span class="label-text font-medium" [translate]>Hidden</span>
+					</label>
+					<input
+						id="deliverable-hidden"
+						type="checkbox"
+						class="checkbox"
+						[checked]="!!d.hidden"
+						(change)="updateHidden($any($event.target).checked)"
+					/>
+				</div>
+			</aside>
+
+			<main class="flex-1 overflow-y-auto scroll-smooth">
+				<div class="mx-auto max-w-5xl space-y-6">
+					<div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+						<div class="p-6">
+							<div class="mb-4 flex items-center justify-between">
+								<h2
+									class="text-base-content text-lg font-semibold"
+									[translate]
+								>
+									Details
+								</h2>
+							</div>
+							<pre class="bg-base-200/40 max-h-96 overflow-auto rounded-lg p-4 text-sm wrap-break-word whitespace-pre-wrap">{{ d | json }}</pre>
+						</div>
+					</div>
+				</div>
+			</main>
+		</div>
+	</div>
+} @else {
+	<div class="bg-base-200/50 flex h-full items-center justify-center">
+		<div class="text-center">
+			<div class="mb-4 text-6xl">📅</div>
+			<h1
+				class="text-base-content text-2xl font-bold"
+				[translate]
+			>
+				Deliverable Not Found
+			</h1>
+			<p
+				class="text-base-content/60 py-6"
+				[translate]
+			>
+				The requested deliverable is not available
+			</p>
+		</div>
+	</div>
+}

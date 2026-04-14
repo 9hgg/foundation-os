@@ -1,0 +1,8 @@
+@let facility = facility$$$.$ | async; @if (facility) {
+<div class="p-6">
+  <h1 class="text-lg font-semibold mb-3">Facility JSON</h1>
+  <pre class="bg-base-100 border p-4 rounded">{{ facility | json }}</pre>
+</div>
+} @else {
+<div class="p-6 text-center">Facility not found</div>
+}

@@ -155,7 +155,7 @@ async def retry_failed_tasks():
 
 
 async def launch_tasks_processing():
-    print_color("red", "TASKS ARE NOT BEING PROCESSED")
+    # print_color("red", "TASKS ARE NOT BEING PROCESSED")
     sync_launch_tasks_processing()
 
 

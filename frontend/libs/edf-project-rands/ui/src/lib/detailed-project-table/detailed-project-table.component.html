@@ -1,0 +1,338 @@
+@if (paginator.state$ | async; as paginatorState) {
+	<div
+		name="table-container"
+		class="bg-base-100 card border-base-200 w-full border shadow-sm"
+	>
+		<table class="table w-full">
+			<thead class="bg-base-200/50 text-base-content/60 text-xs font-bold tracking-wider uppercase">
+				<tr>
+					<th class="selection-column w-12 text-center">
+						<div class="flex justify-center">{{ itemsSelector.numSelected ? itemsSelector.numSelected : '' }}</div>
+					</th>
+					<!-- @if (displayBatchColumn()) {
+						<th class="py-4">
+							<div class="flex items-center gap-2">
+								<span
+									class="text-nowrap"
+									[translate]
+									>Batch</span
+								>
+								<div class="join">
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										(click)="paginator.setOrderingBy('batchPrefixSort')"
+										title="Sort"
+									>
+										↑↓
+									</button>
+									<button
+										class="btn btn-ghost btn-xs join-item"
+										[class.btn-active]="displaySearchByFields$_['batchPrefix']"
+										(click)="toggleSearchByField('batchPrefix')"
+										title="Search"
+									>
+										🔎
+									</button>
+								</div>
+							</div>
+							@if (displaySearchByFields$_['batchPrefix']) {
+								<div class="mt-2">
+									<input
+										class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+										type="text"
+										placeholder="Search..."
+										[(ngModel)]="filterByFields$_['batchPrefix']"
+									/>
+								</div>
+							}
+						</th>
+					} -->
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span class="text-nowrap" [translate]>Prefix</span>
+							<div class="join">
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									(click)="paginator.setOrderingBy('mergedPrefixSort')"
+									title="Sort"
+								>
+									↑↓
+								</button>
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									[class.btn-active]="displaySearchByFields$_['mergedPrefix']"
+									(click)="toggleSearchByField('mergedPrefix')"
+									title="Search"
+								>
+									🔎
+								</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['mergedPrefix']) {
+							<div class="mt-2">
+								<input
+									class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+									type="text"
+									placeholder="Search..."
+									[(ngModel)]="filterByFields$_['mergedPrefix']"
+								/>
+							</div>
+						}
+					</th>
+					<!-- <th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>n°</span
+							>
+							<div class="join">
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									(click)="paginator.setOrderingBy('activityPrefixSort')"
+									title="Sort"
+								>
+									↑↓
+								</button>
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									[class.btn-active]="displaySearchByFields$_['activityPrefix']"
+									(click)="toggleSearchByField('activityPrefix')"
+									title="Search"
+								>
+									🔎
+								</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['activityPrefix']) {
+							<div class="mt-2">
+								<input
+									class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+									type="text"
+									placeholder="Search..."
+									[(ngModel)]="filterByFields$_['activityPrefix']"
+								/>
+							</div>
+						}
+					</th> -->
+					<th class="py-4">
+						<div class="flex items-center gap-2">
+							<span
+								class="text-nowrap"
+								[translate]
+								>Activity</span
+							>
+							<div class="join">
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									(click)="paginator.setOrderingBy('activityTitle')"
+									title="Sort"
+								>
+									↑↓
+								</button>
+								<button
+									class="btn btn-ghost btn-xs join-item"
+									[class.btn-active]="displaySearchByFields$_['activityTitle']"
+									(click)="toggleSearchByField('activityTitle')"
+									title="Search"
+								>
+									🔎
+								</button>
+							</div>
+						</div>
+						@if (displaySearchByFields$_['activityTitle']) {
+							<div class="mt-2">
+								<input
+									class="input input-bordered input-xs focus:input-primary w-full max-w-xs"
+									type="text"
+									placeholder="Search..."
+									[(ngModel)]="filterByFields$_['activityTitle']"
+								/>
+							</div>
+						}
+					</th>
+					<th class="py-4"><span [translate]>Deliverables</span></th>
+					<th class="w-20 py-4 text-center"><span [translate]>actions</span></th>
+				</tr>
+			</thead>
+			<tbody>
+				@for (detailedActivity of paginatorState.itemsOnCurrentPage; track detailedActivity?.id) {
+					@if (detailedActivity) {
+						<tr
+							[tabIndex]="0"
+							(click)="processClick(detailedActivity)"
+							(keyup.enter)="processClick(detailedActivity)"
+							class="hover:bg-base-200/50 cursor-pointer transition-colors duration-150"
+							[ngClass]="{ 'bg-primary/10': itemsSelector.isSelected(detailedActivity) }"
+						>
+							<td class="text-center">
+								<div
+									class="flex justify-center"
+									(click)="$event.stopImmediatePropagation(); itemsSelector.toggle(detailedActivity)"
+									(keydown)="(undefined)"
+									tabindex="0"
+								>
+									<input
+										class="checkbox checkbox-primary checkbox-sm"
+										[name]="'selectedItems' + detailedActivity.id"
+										type="checkbox"
+										[checked]="itemsSelector.isSelected(detailedActivity)"
+										tabindex="0"
+									/>
+								</div>
+							</td>
+							<!-- batch -->
+							<!-- @if (displayBatchColumn()) {
+								<td (click)="$event.stopImmediatePropagation(); openBatch(detailedActivity.batch)">
+									<div class="text-base-content flex flex-col">
+										<span>{{ detailedActivity.batch.prefix || '—' }}</span>
+										<span class="text-xs">{{ detailedActivity.batch.title }}</span>
+									</div>
+								</td>
+							} -->
+							<!-- activity -->
+							<td (click)="$event.stopImmediatePropagation(); openActivity(detailedActivity.activity)">
+								<div class="text-base-content font-medium">{{ detailedActivity.mergedPrefix || '—' }}</div>
+							</td>
+							<!-- <td (click)="$event.stopImmediatePropagation(); openActivity(detailedActivity.activity)">
+								<div class="text-base-content font-medium">{{ detailedActivity.activity.prefix || '—' }}</div>
+							</td> -->
+							<td (click)="$event.stopImmediatePropagation(); openActivity(detailedActivity.activity)">
+								<div class="text-base-content font-medium">{{ detailedActivity.activity.title || '—' }}</div>
+							</td>
+							<!-- Deliverables -->
+							<td (click)="$event.stopImmediatePropagation()">
+								<div class="flex flex-wrap gap-2">
+									@for (deliverable of detailedActivity.deliverables; track deliverable.id) {
+										<button
+											class="badge badge-outline cursor-pointer hover:bg-base-200"
+											(click)="openDeliverable(deliverable)"
+										>
+											{{ deliverable.title }}
+										</button>
+									}
+									<button
+										class="badge badge-primary badge-outline cursor-pointer hover:bg-primary hover:text-primary-content"
+										(click)="requestCreateDeliverable(detailedActivity.activity)"
+									>
+										+
+									</button>
+								</div>
+							</td>
+							<td class="text-center">
+								<button
+									(click)="$event.stopImmediatePropagation()"
+									[cdkMenuTriggerFor]="menu"
+									class="btn btn-ghost btn-sm btn-square"
+									[attr.aria-label]="'menu' | translate | async"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										class="h-5 w-5 stroke-current"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"
+										/>
+									</svg>
+								</button>
+								<ng-template #menu
+									><ul
+										class="menu bg-base-100 rounded-box border-base-200 w-56 border p-2 shadow-xl"
+										cdkMenu
+									>
+										<li cdkMenuItem>
+											<button
+												(click)="openBatch(detailedActivity.batch)"
+												class="flex items-center gap-2"
+											>
+												<span [translate]>Open batch</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="deleteBatch(detailedActivity.batch)"
+												class="text-error flex items-center gap-2"
+											>
+												<span [translate]>Delete batch</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="openBatchSharingDetails(detailedActivity.batch)"
+												class="flex items-center gap-2"
+											>
+												<span [translate]>Manage batch access</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="shareBatchWithTeam(detailedActivity.batch)"
+												class="flex items-center gap-2"
+											>
+												<span [translate]>Share batch with a team</span>
+											</button>
+										</li>
+										<div class="divider my-1"></div>
+										<li cdkMenuItem>
+											<button
+												(click)="deleteActivity(detailedActivity.activity)"
+												class="text-error flex items-center gap-2"
+											>
+												<span [translate]>Delete activity</span>
+											</button>
+										</li>
+										<div class="divider my-1"></div>
+										<li class="menu-title px-4 py-2 text-[10px] uppercase opacity-40">Item id: {{ detailedActivity.id.substring(0, 8) }}</li>
+									</ul></ng-template
+								>
+							</td>
+						</tr>
+						<!-- Expanded Preview -->
+						@if (openedItems.isSelected(detailedActivity)) {
+							<tr>
+								<td
+									colspan="100%"
+									class="bg-base-200/50 p-6"
+								>
+									<div class="bg-base-100 border-base-200 relative flex w-full flex-col items-center gap-4 rounded-lg border p-6 shadow-inner">
+										<button
+											class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
+											(click)="openedItems.unselect(detailedActivity)"
+										>
+											✕
+										</button>
+
+										<div class="w-full">nothing here</div>
+									</div>
+								</td>
+							</tr>
+						}
+					} @else {
+						<tr>
+							<td
+								colspan="100"
+								class="text-center"
+							>
+								<span class="loading loading-spinner loading-md text-primary"></span>
+							</td>
+						</tr>
+					}
+				} @empty {
+					<tr>
+						<td
+							colspan="100"
+							class="text-base-content/50 py-12 text-center italic"
+						>
+							{{ 'Nothing here' | translate | async }}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}

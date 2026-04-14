@@ -1,0 +1,15 @@
+@reference "tailwindcss";
+:host {
+	display: block;
+	height: 100%;
+	position: relative;
+}
+
+main {
+	display: block;
+	position: absolute;
+	top: 60px;
+	overflow: auto;
+	height: calc(100% - 60px);
+	width: 100%;
+}

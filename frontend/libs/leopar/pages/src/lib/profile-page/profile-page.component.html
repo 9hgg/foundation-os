@@ -1,0 +1,377 @@
+<div class="bg-base-200 flex h-full w-full flex-col overflow-auto">
+	<!-- Header -->
+	<div class="navbar bg-base-100 border-base-300 sticky top-0 z-10 border-b px-6 shadow-sm">
+		<h1 class="text-primary flex items-center gap-2 text-2xl font-bold">
+			<svg
+				class="h-8 w-8"
+				fill="currentColor"
+				viewBox="0 0 24 24"
+			>
+				<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+			</svg>
+			<span [translate]>Profile</span>
+		</h1>
+	</div>
+
+	@let currentProfile = this.usersRepository.currentProfile();
+
+	@if (currentProfile) {
+		<div class="flex flex-col gap-6 p-6 lg:flex-row">
+			<!-- Left Column: Profile Information -->
+			<div class="flex-1 space-y-6">
+				<!-- Personal Information -->
+				<div class="card bg-base-100 shadow-lg">
+					<div class="card-body">
+						<h2 class="card-title text-base-content mb-4">Personal Information</h2>
+
+						<!-- Privacy Information -->
+						<div class="alert alert-info mb-4 shadow-sm">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								class="h-6 w-6 shrink-0 stroke-current"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								></path>
+							</svg>
+							<div>
+								<h3
+									class="font-bold"
+									[translate]
+								>
+									Privacy & Security
+								</h3>
+								<div
+									class="text-xs"
+									[translate]
+								>
+									Your email address and real name (first name, last name) are kept private and will never be shared with other users. Only your chosen pseudo is publicly visible.
+								</div>
+							</div>
+						</div>
+
+						<!-- Fields -->
+						<div class="space-y-4">
+							<div class="bg-base-200 flex items-center justify-between rounded-lg p-4">
+								<div>
+									<div
+										class="text-xs font-bold tracking-wide uppercase opacity-70"
+										[translate]
+									>
+										First Name
+									</div>
+									<div class="text-lg font-semibold">{{ currentProfile.firstName }}</div>
+								</div>
+								<button
+									class="btn btn-sm btn-ghost"
+									(click)="editProfileField('firstName', currentProfile.firstName)"
+								>
+									<span [translate]>Edit</span>
+								</button>
+							</div>
+
+							<div class="bg-base-200 flex items-center justify-between rounded-lg p-4">
+								<div>
+									<div
+										class="text-xs font-bold tracking-wide uppercase opacity-70"
+										[translate]
+									>
+										Last Name
+									</div>
+									<div class="text-lg font-semibold">{{ currentProfile.lastName }}</div>
+								</div>
+								<button
+									class="btn btn-sm btn-ghost"
+									(click)="editProfileField('lastName', currentProfile.lastName)"
+								>
+									<span [translate]>Edit</span>
+								</button>
+							</div>
+
+							<div class="bg-base-200 flex items-center justify-between rounded-lg p-4">
+								<div>
+									<div
+										class="text-xs font-bold tracking-wide uppercase opacity-70"
+										[translate]
+									>
+										Email
+									</div>
+									<div class="text-lg font-semibold">{{ currentProfile.email }}</div>
+								</div>
+								<button
+									class="btn btn-sm btn-ghost"
+									(click)="editProfileField('email', currentProfile.email)"
+								>
+									<span [translate]>Edit</span>
+								</button>
+							</div>
+
+							<!-- Email Verification -->
+							<div class="bg-base-200 rounded-lg p-4">
+								<div class="flex items-center justify-between">
+									<div>
+										<div
+											class="text-xs font-bold tracking-wide uppercase opacity-70"
+											[translate]
+										>
+											Email Verification
+										</div>
+										@if (currentProfile.emailVerified) {
+											<div class="badge badge-success mt-1 gap-2">
+												<svg
+													class="h-4 w-4"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M5 13l4 4L19 7"
+													></path>
+												</svg>
+												Verified
+											</div>
+										} @else {
+											<div class="badge badge-warning mt-1 gap-2">
+												<svg
+													class="h-4 w-4"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+													></path>
+												</svg>
+												Not Verified
+											</div>
+										}
+									</div>
+									@if (!currentProfile.emailVerified) {
+										<button
+											class="btn btn-sm btn-primary"
+											[disabled]="isEmailVerificationLoading"
+											(click)="sendEmailVerification()"
+										>
+											@if (isEmailVerificationLoading) {
+												<span class="loading loading-spinner loading-xs"></span>
+											}
+											<span [translate]>Send Verification</span>
+										</button>
+									}
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Email Preferences -->
+				<div class="card bg-base-100 shadow-lg">
+					<div class="card-body">
+						<h2 class="card-title text-base-content mb-4">Email Preferences</h2>
+
+						<div class="alert alert-success mb-4 shadow-sm">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								class="h-6 w-6 shrink-0 stroke-current"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+								></path>
+							</svg>
+							<div>
+								<h3
+									class="font-bold"
+									[translate]
+								>
+									Notifications
+								</h3>
+								<div
+									class="text-xs"
+									[translate]
+								>
+									Configure how often you receive email notifications.
+								</div>
+							</div>
+						</div>
+
+						<div class="bg-base-200 flex items-center justify-between rounded-lg p-4">
+							<div>
+								<div
+									class="text-xs font-bold tracking-wide uppercase opacity-70"
+									[translate]
+								>
+									Digest Frequency
+								</div>
+								@let currentFrequency = currentProfile.config.notificationDigestFrequency || 'never';
+								<div class="text-lg font-semibold">{{ getDigestFrequencyDisplay(currentFrequency) }}</div>
+							</div>
+							<button
+								class="btn btn-sm btn-ghost"
+								(click)="editDigestFrequency(currentProfile.config.notificationDigestFrequency || 'never')"
+							>
+								<span [translate]>Change</span>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<!-- Display Preferences -->
+				<div class="card bg-base-100 shadow-lg">
+					<div class="card-body">
+						<h2
+							class="card-title text-base-content mb-4"
+							[translate]
+						>
+							Display Preferences
+						</h2>
+						<div class="bg-base-200 flex items-center justify-between rounded-lg p-4">
+							<div>
+								<div
+									class="text-xs font-bold tracking-wide uppercase opacity-70"
+									[translate]
+								>
+									Language
+								</div>
+								<div class="text-lg font-semibold">{{ translationService.currentLangCode$$$ | async | uppercase }}</div>
+							</div>
+							<lib-language-selector></lib-language-selector>
+						</div>
+
+						<div class="mt-6 border-t pt-6">
+							<lib-theme-selector
+								[currentTheme]="currentProfile.config.theme"
+								(themeChange)="onThemeChange($event)"
+							></lib-theme-selector>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Right Column: Public Info -->
+			<div class="flex-1 space-y-6">
+				<div class="card bg-base-100 shadow-lg">
+					<div class="card-body">
+						<h2 class="card-title text-base-content mb-2">Public Profile</h2>
+						<p class="text-warning mb-4 text-sm">Your pseudo and avatar are visible to other users.</p>
+
+						<div class="space-y-6">
+							<!-- Pseudo -->
+							<div class="bg-base-200 flex items-center justify-between rounded-lg p-4">
+								<div>
+									<div
+										class="text-xs font-bold tracking-wide uppercase opacity-70"
+										[translate]
+									>
+										Pseudo
+									</div>
+									<div class="text-lg font-semibold">{{ currentProfile.pseudo }}</div>
+								</div>
+								<button
+									class="btn btn-sm btn-ghost"
+									(click)="editProfileField('pseudo', currentProfile.pseudo)"
+								>
+									<span [translate]>Edit</span>
+								</button>
+							</div>
+
+							<!-- Avatar -->
+							<div class="bg-base-200 flex flex-col items-center gap-4 rounded-lg p-4">
+								<div
+									class="w-full text-left text-xs font-bold tracking-wide uppercase opacity-70"
+									[translate]
+								>
+									Profile Picture
+								</div>
+
+								<div class="avatar">
+									<div class="ring-primary ring-offset-base-100 w-32 rounded-full ring ring-offset-2">
+										@let pictureId = currentProfile.config.profilePictureId;
+										@if (pictureId) {
+											<img
+												[src]="convertToUrl(pictureId)"
+												alt="avatar"
+											/>
+										} @else {
+											<div class="bg-neutral text-neutral-content flex h-full w-full items-center justify-center text-4xl font-bold">
+												{{ currentProfile.firstName?.charAt(0) || 'U' }}
+											</div>
+										}
+									</div>
+								</div>
+
+								<div class="flex w-full justify-center gap-2">
+									<lib-upload-button
+										class="inline-block"
+										[height]="'auto'"
+										[width]="'auto'"
+										(uploadedFiles)="processUploadedFiles($event)"
+									>
+										<button class="btn btn-sm btn-primary">
+											<span [translate]>Upload New</span>
+										</button>
+									</lib-upload-button>
+									<button
+										class="btn btn-sm btn-outline"
+										(click)="useAnExistingPicture()"
+									>
+										<span [translate]>Choose Existing</span>
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	} @else {
+		<div class="flex h-full items-center justify-center p-8 text-center opacity-50">
+			<div>
+				<svg
+					class="mx-auto mb-4 h-16 w-16"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+					></path>
+				</svg>
+				<h3
+					class="text-xl font-bold"
+					[translate]
+				>
+					Profile not available
+				</h3>
+				<p [translate]>Unable to load your profile information.</p>
+			</div>
+		</div>
+	}
+</div>
+
+<input
+	hidden
+	#browseFileBtn
+	multiple
+	type="file"
+	[accept]="'*'"
+	name="publicname"
+/>

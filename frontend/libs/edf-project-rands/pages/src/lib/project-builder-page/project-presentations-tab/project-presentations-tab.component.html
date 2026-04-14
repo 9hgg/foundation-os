@@ -1,0 +1,453 @@
+@if (focusMode()) {
+	<div class="space-y-4">
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">Présentations</div>
+				<h2 class="text-base-content mt-2 text-xl font-semibold">{{ selectedPresentationTitle() || 'Présentation' }}</h2>
+			</div>
+			<button
+				type="button"
+				class="btn btn-outline"
+				(click)="focusMode.set(false)"
+			>
+				Quitter
+			</button>
+		</div>
+
+		<lib-project-presentation-tab
+			[detailedActivities]="detailedActivities()"
+			[contributions]="contributions()"
+			[purchases]="purchases()"
+			[facilityUsages]="facilityUsages()"
+			[contributorCategories]="contributorCategories()"
+			[projectYears]="resolvedPresentationYears()"
+			[activitySlideYears]="projectYears()"
+			[project]="project()"
+			[mainCustomer]="mainCustomer()"
+			[sponsorCustomer]="sponsorCustomer()"
+			[projectManager]="projectManager()"
+			[strategicLead]="strategicLead()"
+			[customSlides]="selectedPresentationCustomSlides()"
+			[orderedSlideIds]="selectedPresentationOrderedSlideIds()"
+			[includedSlideIds]="selectedPresentationIncludedSlideIds()"
+			[hiddenSlideIds]="selectedPresentationHiddenSlideIds()"
+			[includedActivityIds]="resolvedPresentationActivityIds()"
+			[selectedYear]="resolvedPresentationSelectedYear()"
+			[(focusMode)]="focusMode"
+		></lib-project-presentation-tab>
+	</div>
+} @else {
+	<div class="space-y-5">
+		<div class="flex flex-wrap items-end justify-between gap-4">
+			<div>
+				<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">Présentations</div>
+				<h2 class="text-base-content mt-2 text-xl font-semibold">Composer les présentations du projet</h2>
+				<p class="text-base-content/65 mt-1 text-sm">Choisir les années, les lots, les activités et insérer des slides du catalogue.</p>
+			</div>
+
+			<div class="flex flex-wrap items-center gap-2">
+				<label class="form-control min-w-72">
+					<div class="label px-0 pt-0">
+						<span class="label-text font-medium">Présentation éditée</span>
+					</div>
+					<select
+						class="select select-bordered w-full"
+						[ngModel]="selectedPresentationCatalog()?.id"
+						(ngModelChange)="selectPresentationCatalog($event)"
+					>
+						<option [ngValue]="null">Choisir une présentation</option>
+						@for (presentationCatalog of presentationCatalogs(); track presentationCatalog.id) {
+							<option [value]="presentationCatalog.id">{{ presentationCatalog.title }}</option>
+						}
+					</select>
+				</label>
+
+				<div class="flex flex-wrap gap-2">
+					<button
+						type="button"
+						class="btn btn-primary"
+						(click)="addPresentationCatalog()"
+					>
+						Nouvelle
+					</button>
+					<button
+						type="button"
+						class="btn btn-outline"
+						(click)="duplicateSelectedPresentationCatalog()"
+						[disabled]="!selectedPresentationCatalog()"
+					>
+						Dupliquer
+					</button>
+					<button
+						type="button"
+						class="btn btn-outline"
+						[disabled]="!selectedPresentationCatalog()"
+						(click)="copyPresentationLink()"
+						title="Copier le lien de la présentation"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+						</svg>
+						Lien
+					</button>
+					<button
+						type="button"
+						class="btn btn-error btn-outline"
+						(click)="deleteSelectedPresentationCatalog()"
+						[disabled]="!selectedPresentationCatalog()"
+					>
+						Supprimer
+					</button>
+				</div>
+			</div>
+		</div>
+
+		@if (!selectedPresentationCatalog()) {
+			<div class="bg-base-100 border-base-200 rounded-2xl border border-dashed p-8 text-sm text-base-content/60 shadow-sm">
+				Créer une présentation pour commencer la composition.
+			</div>
+		} @else {
+			<div class="grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)]">
+				<section class="bg-base-100 border-base-200 space-y-5 rounded-2xl border p-5 shadow-sm">
+					<div class="space-y-3">
+						<div class="text-base-content text-sm font-semibold">Paramètres</div>
+
+						<label class="form-control">
+							<div class="label px-0 pt-0">
+								<span class="label-text font-medium">Titre</span>
+							</div>
+							<input
+								type="text"
+								class="input input-bordered w-full"
+								[ngModel]="selectedPresentationTitle()"
+								(ngModelChange)="updateSelectedPresentationTitle($event)"
+							/>
+						</label>
+
+						<label class="form-control">
+							<div class="label px-0 pt-0">
+								<span class="label-text font-medium">Description</span>
+							</div>
+							<textarea
+								class="textarea textarea-bordered w-full"
+								rows="3"
+								[ngModel]="selectedPresentationDescription()"
+								(ngModelChange)="updateSelectedPresentationDescription($event)"
+							></textarea>
+						</label>
+
+						<label class="form-control">
+							<div class="label px-0 pt-0">
+								<span class="label-text font-medium">Année(s)</span>
+							</div>
+							<select
+								class="select select-bordered h-36 w-full"
+								multiple
+								(change)="updateSelectedPresentationYearsFromEvent($event)"
+							>
+								@for (year of presentationYearOptions(); track year) {
+									<option
+										[value]="year"
+										[selected]="selectedPresentationSelectedYears().includes(year)"
+									>
+										{{ year }}
+									</option>
+								}
+							</select>
+							<div class="label px-0 pb-0 pt-1">
+								<span class="label-text-alt">Laisser vide pour afficher toutes les années du projet.</span>
+							</div>
+						</label>
+
+						<label class="form-control">
+							<div class="label px-0 pt-0">
+								<span class="label-text font-medium">Lots</span>
+							</div>
+							<select
+								class="select select-bordered h-36 w-full"
+								multiple
+								(change)="updateSelectedPresentationBatchIdsFromEvent($event)"
+							>
+								@for (batch of availableBatchOptions(); track batch.id) {
+									<option
+										[value]="batch.id"
+										[selected]="selectedPresentationIncludedBatchIds().includes(batch.id)"
+									>
+										{{ batch.label }}
+									</option>
+								}
+							</select>
+							<div class="label px-0 pb-0 pt-1">
+								<span class="label-text-alt">Laisser vide pour garder tous les lots.</span>
+							</div>
+						</label>
+
+						<label class="form-control">
+							<div class="label px-0 pt-0">
+								<span class="label-text font-medium">Activités</span>
+							</div>
+							<select
+								class="select select-bordered h-56 w-full"
+								multiple
+								(change)="updateSelectedPresentationActivityIdsFromEvent($event)"
+							>
+								@for (activity of availableActivityOptions(); track activity.id) {
+									<option
+										[value]="activity.id"
+										[selected]="selectedPresentationIncludedActivityIds().includes(activity.id)"
+									>
+										{{ activity.label }} · {{ activity.title }}
+									</option>
+								}
+							</select>
+							<div class="label px-0 pb-0 pt-1">
+								<span class="label-text-alt">Laisser vide pour garder toutes les activités visibles avec les lots choisis.</span>
+							</div>
+						</label>
+					</div>
+
+					<div class="space-y-3">
+						<div class="text-base-content text-sm font-semibold">Actions</div>
+						<div class="flex flex-wrap gap-2">
+							<button
+								type="button"
+								class="btn btn-primary"
+								(click)="startPresentation()"
+							>
+								Présenter
+							</button>
+							<button
+								type="button"
+								class="btn btn-outline"
+								(click)="exportPdf()"
+							>
+								Exporter PDF
+							</button>
+							<button
+								type="button"
+								class="btn btn-outline"
+								(click)="exportPdfWithDescriptions()"
+							>
+								Exporter PDF détaillé
+							</button>
+							<button
+								type="button"
+								class="btn btn-outline"
+								(click)="syncAllSlidesFromCatalog()"
+								[disabled]="syncablePresentationSlideCount() === 0"
+							>
+								<tw-restart class="h-4 w-4"></tw-restart>
+								Sync toutes les slides
+							</button>
+						</div>
+					</div>
+
+					@if (removedAutomaticSlides().length > 0) {
+						<div class="space-y-3">
+							<div class="text-base-content text-sm font-semibold">Slides automatiques retirés</div>
+							<div class="flex flex-wrap gap-2">
+								@for (slide of removedAutomaticSlides(); track slide.id) {
+									<button
+										type="button"
+										class="btn btn-sm btn-outline"
+										(click)="restoreAutomaticSlide(slide.id)"
+									>
+										Ajouter {{ slide.label }}
+									</button>
+								}
+							</div>
+						</div>
+					}
+				</section>
+
+				<section class="bg-base-100 border-base-200 space-y-4 rounded-2xl border p-5 shadow-sm">
+					<div class="flex flex-wrap items-center justify-between gap-3">
+						<div>
+							<div class="text-base-content text-sm font-semibold">Liste des slides</div>
+							<div class="text-base-content/55 text-xs">
+								{{ visiblePresentationSlideCount() }} visible(s)
+								@if (hiddenPresentationSlideCount() > 0) {
+									<span> + {{ hiddenPresentationSlideCount() }} masquée(s)</span>
+								}
+							</div>
+						</div>
+						@if (slideCatalog().length === 0) {
+							<div class="text-base-content/50 text-sm">Le catalogue de slides est vide.</div>
+						}
+					</div>
+
+					@if (pendingInsertion(); as insertion) {
+						<div class="bg-base-200/35 rounded-2xl border border-base-200 p-4">
+							<div class="text-sm font-medium">Insérer un slide du catalogue {{ insertion.position === 'above' ? 'au-dessus' : 'au-dessous' }}</div>
+							<div class="mt-3 flex flex-wrap items-end gap-3">
+								<label class="form-control min-w-72 flex-1">
+									<div class="label px-0 pt-0">
+										<span class="label-text font-medium">Slide du catalogue</span>
+									</div>
+									<select
+										class="select select-bordered w-full"
+										[ngModel]="selectedCatalogSlideIdToInsert()"
+										(ngModelChange)="updateSelectedCatalogSlideToInsert($event)"
+									>
+										<option value="">Choisir un slide</option>
+										@for (catalogSlide of slideCatalogOptions(); track catalogSlide.id) {
+											<option [value]="catalogSlide.id">{{ catalogSlide.label }} · {{ catalogSlide.title }}</option>
+										}
+									</select>
+								</label>
+								<div class="flex gap-2">
+									<button
+										type="button"
+										class="btn btn-primary"
+										(click)="confirmInsertion()"
+										[disabled]="!canInsertCatalogSlide()"
+									>
+										Insérer
+									</button>
+									<button
+										type="button"
+										class="btn btn-outline"
+										(click)="cancelInsertion()"
+									>
+										Annuler
+									</button>
+								</div>
+							</div>
+						</div>
+					}
+
+					@if (presentationSlideRows().length === 0) {
+						<div class="bg-base-200/25 rounded-2xl border border-dashed border-base-300 px-4 py-6">
+							<div class="text-sm font-medium">Cette présentation ne contient plus aucun slide.</div>
+							<div class="text-base-content/60 mt-1 text-sm">Réinsérer un slide automatique ou ajouter un slide depuis le catalogue.</div>
+							<div class="mt-4 flex flex-wrap gap-2">
+								@if (slideCatalog().length > 0) {
+									<button
+										type="button"
+										class="btn btn-primary btn-sm"
+										(click)="startInsertionIntoEmptyPresentation()"
+									>
+										Ajouter depuis le catalogue
+									</button>
+								}
+								@for (slide of removedAutomaticSlides(); track slide.id) {
+									<button
+										type="button"
+										class="btn btn-sm btn-outline"
+										(click)="restoreAutomaticSlide(slide.id)"
+									>
+										Ajouter {{ slide.label }}
+									</button>
+								}
+							</div>
+						</div>
+					} @else {
+						<div class="space-y-2">
+							@for (slide of presentationSlideRows(); track slide.id) {
+								<div class="rounded-xl border border-base-200 px-3 py-2.5">
+									<div class="flex items-center gap-3">
+										<label class="label cursor-pointer gap-2 px-0 py-0">
+											<input
+												type="checkbox"
+												class="checkbox checkbox-sm"
+												[ngModel]="!slide.hiddenInFocusMode"
+												(ngModelChange)="updateSlideHiddenInFocusMode(slide.id, !$event)"
+											/>
+										</label>
+										<div class="min-w-0 flex-1">
+											<div class="flex flex-wrap items-center gap-2">
+												<div class="truncate text-sm font-semibold">{{ slide.title }}</div>
+												<div class="badge badge-outline badge-sm">{{ slide.kind === 'automatic' ? 'Auto' : 'Catalogue' }}</div>
+												@if (slide.hiddenInFocusMode) {
+													<div class="badge badge-ghost badge-sm">Masquée en focus</div>
+												}
+											</div>
+											<div class="text-base-content/55 truncate text-xs">{{ slide.label }} · {{ slide.id }}</div>
+										</div>
+
+										<div class="flex shrink-0 items-center gap-1">
+											<button
+												type="button"
+												class="btn btn-square btn-sm btn-ghost"
+												(click)="startPresentationAtSlide(slide.id)"
+												[disabled]="slide.hiddenInFocusMode"
+												title="Présenter depuis cette slide"
+												aria-label="Présenter depuis cette slide"
+											>
+												<tw-play class="h-4 w-4"></tw-play>
+											</button>
+											<button
+												type="button"
+												class="btn btn-square btn-sm btn-ghost"
+												(click)="syncSlideFromCatalog(slide.id)"
+												[disabled]="!slide.catalogSlideId"
+												title="Resynchroniser depuis le catalogue"
+												aria-label="Resynchroniser depuis le catalogue"
+											>
+												<tw-restart class="h-4 w-4"></tw-restart>
+											</button>
+											<button
+												type="button"
+												class="btn btn-square btn-sm btn-ghost"
+												(click)="startInsertion(slide.id, 'above')"
+												[disabled]="slideCatalog().length === 0"
+												title="Insérer un slide du catalogue au-dessus"
+												aria-label="Insérer un slide du catalogue au-dessus"
+											>
+												<tw-chevron-up class="h-4 w-4"></tw-chevron-up>
+											</button>
+											<button
+												type="button"
+												class="btn btn-square btn-sm btn-ghost"
+												(click)="startInsertion(slide.id, 'below')"
+												[disabled]="slideCatalog().length === 0"
+												title="Insérer un slide du catalogue au-dessous"
+												aria-label="Insérer un slide du catalogue au-dessous"
+											>
+												<tw-chevron-down class="h-4 w-4"></tw-chevron-down>
+											</button>
+											<button
+												type="button"
+												class="btn btn-square btn-sm btn-ghost text-error"
+												(click)="removeSlide(slide.id)"
+												title="Retirer ce slide"
+												aria-label="Retirer ce slide"
+											>
+												<tw-delete class="h-4 w-4"></tw-delete>
+											</button>
+										</div>
+									</div>
+								</div>
+							}
+						</div>
+					}
+				</section>
+			</div>
+		}
+	</div>
+}
+
+@if (renderPresentationHost() && !focusMode()) {
+	<div class="pointer-events-none fixed -left-[200vw] top-0 w-[1280px] opacity-0">
+		<lib-project-presentation-tab
+			[detailedActivities]="detailedActivities()"
+			[contributions]="contributions()"
+			[purchases]="purchases()"
+			[facilityUsages]="facilityUsages()"
+			[contributorCategories]="contributorCategories()"
+			[projectYears]="resolvedPresentationYears()"
+			[activitySlideYears]="projectYears()"
+			[project]="project()"
+			[mainCustomer]="mainCustomer()"
+			[sponsorCustomer]="sponsorCustomer()"
+			[projectManager]="projectManager()"
+			[strategicLead]="strategicLead()"
+			[customSlides]="selectedPresentationCustomSlides()"
+			[orderedSlideIds]="selectedPresentationOrderedSlideIds()"
+			[includedSlideIds]="selectedPresentationIncludedSlideIds()"
+			[includedActivityIds]="resolvedPresentationActivityIds()"
+			[selectedYear]="resolvedPresentationSelectedYear()"
+			[focusMode]="false"
+		></lib-project-presentation-tab>
+	</div>
+}

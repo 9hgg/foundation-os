@@ -1,0 +1,13 @@
+<div class="bg-base-200/30 flex h-full w-full flex-col overflow-auto">
+  <header class="bg-base-100 border-base-200 flex items-center justify-between border-b px-8 py-6">
+    <div>
+      <h1 class="text-base-content text-3xl font-bold"><span [translate]>Batches</span></h1>
+      <p class="text-base-content/50 mt-1 text-sm font-medium">Manage batches</p>
+    </div>
+    <button class="btn btn-primary shadow-primary/20 shadow-lg" (click)="createNew()"><span [translate]>New batch</span></button>
+  </header>
+
+  <main class="flex-1 p-8">
+    <lib-batch-table click-behavior="emit" (rowClicked)="batchesRepository.goToBatch($event.id)"></lib-batch-table>
+  </main>
+</div>

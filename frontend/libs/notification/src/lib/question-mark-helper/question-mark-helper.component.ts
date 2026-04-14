@@ -15,7 +15,7 @@ export class QuestionMarkHelpComponent {
 	message = input.required<string>();
 	title = input<string>();
 
-	backgroundColor = input<string>('#00000020');
+	backgroundColor = input<string>('');
 
 	@HostListener('click')
 	onClick() {

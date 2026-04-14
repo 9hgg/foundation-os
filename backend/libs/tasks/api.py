@@ -13,14 +13,20 @@ from .models import Task
 
 
 def create_crud_task_router(prefix: str = "/api/tasks"):
-    crud_task_router = create_crud_endpoints(Task, prefix=prefix, tags=["tasks"])
+    crud_task_router = create_crud_endpoints(
+        Task, prefix=prefix, tags=["tasks"], include_bypass=True
+    )
 
     @crud_task_router.get("/processing/{taskId}/progress")
     async def get_task_progress(taskId: str):
         task_db = Task.by_id(obj_id=taskId)
         print_color("blue", f"Get task progress for {taskId}", task_db)
         if not task_db:
-            return EndpointOutput(error=EndpointError(title="Not found", description=f"Task {taskId} not found"))
+            return EndpointOutput(
+                error=EndpointError(
+                    title="Not found", description=f"Task {taskId} not found"
+                )
+            )
 
         # Extract progress and status fields using property access
         result = {
@@ -104,7 +110,9 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
     @crud_task_router.get("/processing/retry-failed")
     async def retry_failed_tasks_(translator: Translator__dep):
         await retry_failed_tasks()
-        return EndpointOutput(message=translator.translate("Failed tasks retry launched"))
+        return EndpointOutput(
+            message=translator.translate("Failed tasks retry launched")
+        )
 
     @crud_task_router.get("/processing/create-dummy-tasks")
     async def create_dummy_tasks_():

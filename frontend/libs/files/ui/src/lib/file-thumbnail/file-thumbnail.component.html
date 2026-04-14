@@ -1,0 +1,22 @@
+<div class="bg-neutral-focus text-neutral-content h-full w-full flex items-center justify-center">
+	
+	@if (file(); as file) {
+			@if (file.kind === 'image') {
+				<img [src]="thumbnailUrl()" (error)="onImageError($event, defaultUrl() ?? '')" alt="preview" />
+			} @else if (file.kind === 'video') {
+				<img [src]="thumbnailUrl()" alt="preview" />
+			} @else if (file.kind === 'audio') {
+				<tw-microphone class="h-6 w-6"></tw-microphone>
+			} @else if (file.kind === 'document') {
+				@if (canShowDocumentThumbnail()) {
+					<img [src]="thumbnailUrl()" (error)="onDocumentThumbnailError(file.id)" alt="preview" />
+				} @else {
+					<tw-document class="h-6 w-6"></tw-document>
+				}
+			} @else {
+				<tw-file class="h-6 w-6"></tw-file>
+			}
+		} @else {
+			<tw-file class="h-6 w-6 opacity-60"></tw-file>
+		}
+</div>

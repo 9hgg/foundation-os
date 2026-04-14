@@ -1,0 +1,8 @@
+@let p = purchase$$$.$ | async; @if (p) {
+<div class="p-6">
+  <h1 class="text-lg font-semibold mb-3">Purchase JSON</h1>
+  <pre class="bg-base-100 border p-4 rounded">{{ p | json }}</pre>
+</div>
+} @else {
+<div class="p-6 text-center">Purchase not found</div>
+}

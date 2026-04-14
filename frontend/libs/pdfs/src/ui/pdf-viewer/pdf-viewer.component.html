@@ -1,0 +1,14 @@
+<div class="pdf-viewer" [class]="containerClass() ?? ''">
+	@if (safeUrl(); as url) {
+		<iframe
+			class="pdf-frame"
+			[src]="url"
+			[attr.title]="title()"
+			loading="lazy"
+		></iframe>
+	} @else {
+		<div class="pdf-placeholder" role="status" aria-live="polite">
+			<span>No PDF selected.</span>
+		</div>
+	}
+</div>

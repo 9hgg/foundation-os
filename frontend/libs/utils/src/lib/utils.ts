@@ -1,5 +1,9 @@
-import { cloneDeep } from 'lodash-es';
-import { BehaviorSubject, EMPTY, NEVER, Observable, Subject, Subscription, filter, finalize, from, isObservable, of, shareReplay, startWith, switchMap, take, tap } from 'rxjs';
+import { Signal, computed, effect } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { cloneDeep, merge, set } from 'lodash-es';
+import { Observable, debounceTime, filter, of, tap } from 'rxjs';
+
+import { BehaviorSubject, EMPTY, NEVER, Subject, Subscription, finalize, from, isObservable, shareReplay, startWith, switchMap, take } from 'rxjs';
 import { isEqual } from './equal.utils';
 
 export type AttrElement = string[] | string | number | boolean | undefined | null;
@@ -288,4 +292,57 @@ export function BehaviorSubjectReplayedFromObs<T>(initialValue: T, obs: Observab
 	// 	a.next(value);
 	// });
 	return a;
+}
+
+export class PatchableItem<T extends { id: string }> {
+	public itemId: Signal<string | null>;
+	public item$$$: BehaviorSubjectReplayedProxied<string | null, T | null>;
+	private _item: Signal<T | null>;
+
+	public itemPatch$$$ = new BehaviorSubjectReplayed<Partial<T>>({});
+	private _itemPatch = toSignal<Partial<T>>(this.itemPatch$$$.$);
+
+	public patchedItem = computed<T | null>(() => {
+		const item = this._item();
+		if (!item) return null;
+		return merge(cloneDeep(item), this._itemPatch());
+	});
+
+	constructor(
+		//
+		itemId: Signal<string | null>,
+		buildItemObservable: (itemId: string | null) => Observable<T | null>,
+		saveItem: (itemId: string, patch: Partial<T>) => void,
+		initialItem: T | null = null,
+		debounceTimeMs = 500
+	) {
+		this.itemId = itemId;
+		this.item$$$ = new BehaviorSubjectReplayedProxied(buildItemObservable, initialItem);
+		this._item = toSignal<T | null>(this.item$$$.$, { initialValue: null });
+		effect(() => {
+			const itemId = this.itemId();
+			console.log('PatchableItem: setting itemId to', itemId);
+			this.item$$$.next(itemId);
+		});
+
+		this.itemPatch$$$
+			.pipe(
+				filter((patch) => Object.keys(patch).length > 0),
+				debounceTime(debounceTimeMs),
+				tap((patch) => {
+					const itemId = this.item$$$.value?.id;
+					if (!itemId) return;
+					saveItem(itemId, patch);
+				}),
+				takeUntilDestroyed()
+			)
+			.subscribe();
+	}
+
+	updateField(path: string, value: unknown, emptyAsUndefined = false) {
+		const normalizedValue = emptyAsUndefined && value === '' ? undefined : value;
+		const nextPatch = cloneDeep(this.itemPatch$$$.value);
+		set(nextPatch, path, normalizedValue);
+		this.itemPatch$$$.next(nextPatch);
+	}
 }

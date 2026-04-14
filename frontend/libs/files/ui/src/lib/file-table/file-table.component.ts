@@ -1,27 +1,24 @@
 /* eslint-disable @angular-eslint/prefer-inject */
 import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { Attribute, ChangeDetectionStrategy, Component, inject, model, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { DomSanitizer } from '@angular/platform-browser';
 import { EntityFile } from '@foundation/files/models';
-import { convertToUrl, FilesRepository } from '@foundation/files/state';
+import { FilesRepository } from '@foundation/files/state';
 import { FoldersModals } from '@foundation/folders/modals';
-import { PlayButtonComponent, SubtitleLoaderComponent } from '@foundation/media/play/ui';
 import { AccessService } from '@foundation/shared/access';
 import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { OctetHumanReadablePipe } from '@foundation/utils';
-import { map, switchMap, take, tap } from 'rxjs';
+import { switchMap } from 'rxjs';
 import { DownloadButtonComponent } from '../download-button/download-button.component';
-
-const DEBUG = false;
+import { FileDisplayComponent } from '../file-display/file-display.component';
+import { FileThumbnailComponent } from '../file-thumbnail/file-thumbnail.component';
 
 @Component({
 	selector: 'lib-file-table',
 	standalone: true,
-	imports: [CommonModule, TranslateDirective, TranslatePipe, ReactiveFormsModule, FormsModule, CdkMenuModule, CdkMenu, CdkMenuItem, OctetHumanReadablePipe, PlayButtonComponent, SubtitleLoaderComponent, DownloadButtonComponent],
+	imports: [CommonModule, TranslateDirective, TranslatePipe, ReactiveFormsModule, FormsModule, CdkMenuModule, CdkMenu, CdkMenuItem, OctetHumanReadablePipe, DownloadButtonComponent, FileThumbnailComponent, FileDisplayComponent],
 	templateUrl: './file-table.component.html',
 	styleUrl: './file-table.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,8 +29,6 @@ const DEBUG = false;
 })
 export class FileTableComponent extends RepositoryTableComponent<EntityFile, FilesRepository> {
 	private _accessService = inject(AccessService);
-	private sanitizer = inject(DomSanitizer);
-	private _http = inject(HttpClient);
 	private _foldersModal = inject(FoldersModals);
 
 	folderId = model<string | null>(null);
@@ -79,45 +74,6 @@ export class FileTableComponent extends RepositoryTableComponent<EntityFile, Fil
 			.deleteFile(file)
 			.pipe(switchMap(() => this.paginator.refresh()))
 			.subscribe();
-	}
-
-	public getFileUrl(file: EntityFile, alternative: string = 'default', download: boolean = false) {
-		return convertToUrl(file, alternative, download);
-	}
-
-	alreadyTried = new Set<string>();
-
-	public onSrcError(event: Event, fallbackSrc: string) {
-		if (this.alreadyTried.has(fallbackSrc)) {
-			console.warn('Already tried to load this fallback source:', fallbackSrc);
-			return;
-		}
-
-		this.alreadyTried.add(fallbackSrc);
-
-		const imgElement = event.target as HTMLImageElement;
-		// imgElement.src = fallbackSrc + '?' + Date.now();
-		imgElement.src = fallbackSrc;
-	}
-
-	public fetchTextContent$(fileUrl: string) {
-		return this._http.get(fileUrl, { responseType: 'text' }).pipe(
-			take(1),
-			tap((content) => {
-				console.log({
-					content,
-					escaped: this._escapeHtml(content),
-					sanitized: this.sanitizer.bypassSecurityTrustHtml(this._escapeHtml(content)),
-				});
-			}),
-			map(() => 'coucou')
-		);
-	}
-
-	private _escapeHtml(text: string): string {
-		const div = document.createElement('div');
-		div.appendChild(document.createTextNode(text));
-		return div.innerHTML;
 	}
 
 	public addToFolder(file: EntityFile) {

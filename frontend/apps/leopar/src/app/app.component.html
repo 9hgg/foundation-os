@@ -1,0 +1,30 @@
+@if (layoutService.rootHeaderVisible()) {
+	<section
+		name="root-header"
+		[style.backgroundColor]="'blue'"
+		[style.height]="layoutService.rootHeaderHeightPx() + 'px'"
+	></section>
+}
+<section
+	name="root-content"
+	class="block w-full overflow-hidden"
+	[style.height]="layoutService.rootHeightLeft()"
+>
+	<router-outlet />
+</section>
+
+@if (layoutService.displayFloatingChat()) {
+	<lib-floating-chat />
+}
+
+@if (layoutService.rootPlayerVisible()) {
+	<lib-playlist-bar />
+}
+
+@if (layoutService.rootFooterVisible()) {
+	<section
+		name="root-footer"
+		[style.backgroundColor]="'red'"
+		[style.height]="layoutService.rootFooterHeightPx() + 'px'"
+	></section>
+}

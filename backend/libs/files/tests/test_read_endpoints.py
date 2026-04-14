@@ -1,9 +1,11 @@
-import pytest
-from unittest.mock import MagicMock, patch
 import uuid
-from libs.files.api import create_crud_file_router
+from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+from libs.files.api import create_crud_file_router
 
 
 @pytest.fixture
@@ -60,8 +62,8 @@ def test_storage_read_file_details_by_id_not_found(client, mock_file_cls, mock_u
 
 def test_read_from_local_success(client, mock_file_storage, mock_file_cls, mock_user, mock_session, mock_translator):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value
@@ -96,8 +98,8 @@ def test_read_from_local_success(client, mock_file_storage, mock_file_cls, mock_
 
 def test_read_from_local_not_local(client, mock_file_storage, mock_file_cls, mock_user, mock_session, mock_translator):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value

@@ -3,7 +3,7 @@ import { FoldersRepository } from '@foundation/folders/state';
 import { BehaviorSubjectReplayedProxied } from '@foundation/utils';
 import { CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, effect, model } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, model } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { of, switchMap } from 'rxjs';
 
@@ -24,20 +24,22 @@ import { of, switchMap } from 'rxjs';
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FolderPathComponent {
+	private _foldersRepository = inject(FoldersRepository);
+
 	folderId = model<string | null>(null);
 
 	rootFolder$$$ = new BehaviorSubjectReplayedProxied<string | null, Folder | null>((id: string | null) => {
-		return id ? this._repository.store.getObjectById$$$(id, true).$ : of(null);
+		return id ? this._foldersRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	parentFolder$ = this.rootFolder$$$.pipe(
 		switchMap((rootFolder) => {
-			if (rootFolder && rootFolder.parentId) return this._repository.store.getObjectById$$$(rootFolder.parentId, true).$;
+			if (rootFolder && rootFolder.parentId) return this._foldersRepository.store.getObjectByIdPullOnce$$$(rootFolder.parentId).$;
 			return of(null);
 		})
 	);
 
-	constructor(private _repository: FoldersRepository) {
+	constructor() {
 		effect(() => {
 			const folderId = this.folderId();
 			this.rootFolder$$$.next(folderId);

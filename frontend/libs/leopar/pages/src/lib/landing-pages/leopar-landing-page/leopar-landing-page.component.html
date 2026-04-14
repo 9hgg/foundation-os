@@ -1,0 +1,323 @@
+<!-- Hero Section -->
+<section class="bg-base-100 dark:bg-base-300 relative flex min-h-[90vh] items-center overflow-hidden">
+	<!-- Background Effects -->
+	<div class="pointer-events-none absolute inset-0 overflow-hidden">
+		<div class="from-primary/20 to-secondary/20 absolute -top-40 -right-40 h-[800px] w-[800px] rounded-full bg-linear-to-br blur-3xl dark:opacity-30"></div>
+		<div class="from-secondary/20 to-primary/20 absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-linear-to-tr blur-3xl dark:opacity-30"></div>
+	</div>
+
+	<div class="relative z-10 container mx-auto px-6 py-20">
+		<div class="mx-auto max-w-4xl text-center">
+			<!-- Badge -->
+			<div class="border-primary/20 bg-primary/10 text-primary dark:border-primary/50 dark:bg-primary/30 dark:text-primary mb-8 inline-flex items-center rounded-full border px-6 py-2 text-sm font-medium shadow-sm backdrop-blur-sm">
+				<svg class="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+					<path d="M13 10V3L4 14h7v7l9-11h-7z" />
+				</svg>
+				<span>R&D Framework 2020 Compliant</span>
+			</div>
+
+			<!-- Main Heading -->
+			<h1 class="text-base-content mb-8 text-5xl leading-tight font-extrabold tracking-tight md:text-7xl">
+				<span class="from-primary to-secondary bg-gradient-to-r bg-clip-text text-transparent drop-shadow-sm">Leopar</span>
+				<br />
+				<span class="mt-2 block text-4xl font-bold md:text-6xl">Project Steering & Value Creation</span>
+			</h1>
+
+			<!-- Subtitle -->
+			<p class="text-base-content/70 mx-auto mb-10 max-w-3xl text-xl leading-relaxed md:text-2xl">
+				The indispensable tool for Project Managers and Strategic Pilots. From Opportunity Study to Project Contract, secure your commitments and maximize value for the Group.
+			</p>
+
+			<!-- CTA Buttons -->
+			<div class="mb-16 flex flex-col items-center justify-center gap-4 sm:flex-row">
+				<a
+					[routerLink]="['/app/start']"
+					class="btn btn-primary btn-lg from-primary to-secondary shadow-primary/30 hover:shadow-primary/50 rounded-full border-none bg-gradient-to-r px-8 text-white shadow-lg transition-transform hover:scale-105"
+				>
+					<span>Start an Opportunity</span>
+					<svg class="ml-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+					</svg>
+				</a>
+
+				<a
+					[routerLink]="['/how-it-works']"
+					class="btn btn-ghost btn-lg rounded-full px-8 opacity-80 hover:opacity-100"
+				>
+					Explore the Process
+				</a>
+			</div>
+
+			<!-- Trust / Privacy note -->
+			<p class="text-base-content/50 mx-auto mb-10 max-w-2xl text-sm">
+				Aligned with corporate governance. Managing Risks, Resources, and Intellectual Property.
+			</p>
+
+			<!-- Stats -->
+			<div class="border-base-200 dark:border-base-content/10 grid grid-cols-2 gap-8 border-t py-8 md:grid-cols-4">
+				<div class="flex flex-col items-center">
+					<span class="text-primary mb-1 text-3xl font-bold">100%</span>
+					<span class="text-base-content/60 text-sm font-medium tracking-wide uppercase">Value Centric</span>
+				</div>
+				<div class="flex flex-col items-center">
+					<span class="text-primary mb-1 text-3xl font-bold">Steering</span>
+					<span class="text-base-content/60 text-sm font-medium tracking-wide uppercase">Support Ready</span>
+				</div>
+				<div class="flex flex-col items-center">
+					<span class="text-primary mb-1 text-3xl font-bold">Deliverables</span>
+					<span class="text-base-content/60 text-sm font-medium tracking-wide uppercase">Tracking</span>
+				</div>
+				<div class="flex flex-col items-center">
+					<span class="text-primary mb-1 text-3xl font-bold">REX</span>
+					<span class="text-base-content/60 text-sm font-medium tracking-wide uppercase">Integration</span>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<!-- Features Section -->
+<section id="features" class="bg-base-200 dark:bg-base-content/5 relative overflow-hidden py-24">
+	<div class="relative z-10 container mx-auto px-6">
+		<div class="mx-auto mb-20 max-w-3xl text-center">
+			<h2 class="text-base-content mb-6 text-4xl font-bold md:text-5xl">Align with the Reference Framework</h2>
+			<p class="text-base-content/70 text-xl">
+				Strict adherence to the R&D Project Management Standard (2020). From Opportunity to Value Creation.
+			</p>
+		</div>
+
+		<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+			<!-- Feature 1 -->
+			<div class="card bg-base-100 border-primary border-t-4 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+				<div class="card-body">
+					<div class="bg-primary/10 text-primary dark:bg-primary/30 dark:text-primary mb-4 flex h-14 w-14 items-center justify-center rounded-xl">
+						<svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+						</svg>
+					</div>
+					<h3 class="card-title mb-2 text-xl">Opportunity Studies</h3>
+					<p class="text-base-content/70">
+						Formalize the Opportunity Study. Estimate global value (Economic, Usage, Positioning) before any commitment. Secure the "Go/No-Go" decision.
+					</p>
+				</div>
+			</div>
+
+			<!-- Feature 2 -->
+			<div class="card bg-base-100 border-secondary border-t-4 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+				<div class="card-body">
+					<div class="bg-secondary/10 text-secondary dark:bg-secondary/30 dark:text-secondary mb-4 flex h-14 w-14 items-center justify-center rounded-xl">
+						<svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+					</div>
+					<h3 class="card-title mb-2 text-xl">Project Contracts</h3>
+					<p class="text-base-content/70">
+						Draft the foundational Project Contract. Define Major Deliverables, contractual milestones, budget, and responsibilities between Project Manager and Strategic Pilot.
+					</p>
+				</div>
+			</div>
+
+			<!-- Feature 3 -->
+			<div class="card bg-base-100 border-t-4 border-emerald-500 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+				<div class="card-body">
+					<div class="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+						<svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+						</svg>
+					</div>
+					<h3 class="card-title mb-2 text-xl">Engagement Committees</h3>
+					<p class="text-base-content/70">
+						Prepare your Engagement Committee with ease. Ensure all stakeholders share an understanding of stakes, risks, and contingencies before realization.
+					</p>
+				</div>
+			</div>
+
+			<!-- Feature 4 -->
+			<div class="card bg-base-100 border-t-4 border-purple-500 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+				<div class="card-body">
+					<div class="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+						<svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+						</svg>
+					</div>
+					<h3 class="card-title mb-2 text-xl">Strategic Steering</h3>
+					<p class="text-base-content/70">
+						Facilitate the Steering Committee. Track value creation, manage new client requests, and re-orient strategy dynamically with the Strategic Pilot.
+					</p>
+				</div>
+			</div>
+
+			<!-- Feature 5 -->
+			<div class="card bg-base-100 border-t-4 border-amber-500 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+				<div class="card-body">
+					<div class="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+						<svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+						</svg>
+					</div>
+					<h3 class="card-title mb-2 text-xl">Governance & Risk</h3>
+					<p class="text-base-content/70">
+						Integrate Safety/Environment and Cybersecurity data. Manage sensitive data (GDPR, ICS) and IP. Exercise your "Duty of Alert" effectively.
+					</p>
+				</div>
+			</div>
+
+			<!-- Feature 6 -->
+			<div class="card bg-base-100 border-t-4 border-cyan-500 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+				<div class="card-body">
+					<div class="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400">
+						<svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+						</svg>
+					</div>
+					<h3 class="card-title mb-2 text-xl">Reporting</h3>
+					<p class="text-base-content/70">
+						Automate your reporting chain. Ensure seamless Major Deliverables tracking and transparent communication with the Programs, replacing legacy tools.
+					</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Process strip -->
+		<div class="mt-16 grid grid-cols-1 gap-6 md:grid-cols-3">
+			<div class="alert bg-base-100 shadow-sm">
+				<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+				</svg>
+				<div>
+					<h4 class="font-bold">1) Opportunity</h4>
+					<div class="text-base-content/70 text-sm">Context, Needs, Value Creation estimation.</div>
+				</div>
+			</div>
+
+			<div class="alert bg-base-100 shadow-sm">
+				<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+				</svg>
+				<div>
+					<h4 class="font-bold">2) Contract</h4>
+					<div class="text-base-content/70 text-sm">Major Deliverables, Budget, Risks.</div>
+				</div>
+			</div>
+
+			<div class="alert bg-base-100 shadow-sm">
+				<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+				</svg>
+				<div>
+					<h4 class="font-bold">3) Valorization</h4>
+					<div class="text-base-content/70 text-sm">Steering, Delivery, Value Confirmation.</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<!-- Ecosystem / Components Section -->
+<section class="bg-base-100 dark:bg-base-300 py-24">
+	<div class="container mx-auto px-6">
+		<div class="mb-16 text-center">
+			<h2 class="text-base-content mb-6 text-4xl font-bold md:text-5xl">Native Integration</h2>
+			<p class="text-base-content/70 mx-auto max-w-2xl text-xl">
+				A single platform connecting Project Managers, Strategic Pilots, and Contributors around the Reference Framework artifacts.
+			</p>
+		</div>
+
+		<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
+			@let sources =
+				[
+					{ name: 'Project Manager', desc: 'Leadership', color: 'text-primary', bg: 'bg-primary/10' },
+					{ name: 'Strategic Pilot', desc: 'Governance', color: 'text-secondary', bg: 'bg-secondary/10' },
+					{ name: 'Project Contract', desc: 'Commitment', color: 'text-green-600', bg: 'bg-green-100' },
+					{ name: 'Major Deliverables', desc: 'Deliverables', color: 'text-purple-600', bg: 'bg-purple-100' },
+					{ name: 'Steering Decisions', desc: 'Steering', color: 'text-indigo-600', bg: 'bg-indigo-100' },
+					{ name: 'Flash Report', desc: 'Communication', color: 'text-cyan-600', bg: 'bg-cyan-100' },
+					{ name: 'Work Packages', desc: 'Lots', color: 'text-pink-600', bg: 'bg-pink-100' },
+					{ name: 'Legacy Data', desc: 'Import', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+					{ name: 'Industrial File', desc: 'Transfer', color: 'text-primary', bg: 'bg-primary/10' },
+					{ name: 'Value Creation', desc: 'ROI', color: 'text-primary', bg: 'bg-primary/10' },
+				];
+
+			@for (source of sources; track source.name) {
+				<div class="border-base-200 bg-base-200/50 hover:bg-base-200 flex flex-col items-center rounded-xl border p-4 text-center transition-colors">
+					<div
+						class="mb-2 flex h-10 w-10 items-center justify-center rounded-lg font-bold"
+						[class]="source.bg + ' ' + source.color + ' dark:bg-opacity-20'"
+					>
+						{{ source.name.charAt(0) }}
+					</div>
+					<h4 class="text-base-content text-sm font-bold">{{ source.name }}</h4>
+					<p class="text-base-content/60 text-xs">{{ source.desc }}</p>
+				</div>
+			}
+		</div>
+
+		<!-- FAQ teaser -->
+		<div class="mx-auto mt-16 max-w-4xl">
+			<div class="collapse collapse-arrow bg-base-200/60 border-base-200 border">
+				<input type="checkbox" />
+				<div class="collapse-title text-base-content text-lg font-semibold">How does it support the Engagement Committee?</div>
+				<div class="collapse-content text-base-content/70">
+					<p>
+						Leopar generates the standard "Engagement File" automatically based on your Opportunity Study, Value Analysis, and Risk Assessment (S/E, Cyber), ensuring a smooth Go/No-Go decision process.
+					</p>
+				</div>
+			</div>
+
+			<div class="collapse collapse-arrow bg-base-200/60 border-base-200 mt-3 border">
+				<input type="checkbox" />
+				<div class="collapse-title text-base-content text-lg font-semibold">Does it replace legacy reporting tools?</div>
+				<div class="collapse-content text-base-content/70">
+					<p>
+						Yes. We ensure full tracking of Major Deliverables milestones and transparent communication without the need for double entry in legacy systems.
+					</p>
+				</div>
+			</div>
+
+			<div class="collapse collapse-arrow bg-base-200/60 border-base-200 mt-3 border">
+				<input type="checkbox" />
+				<div class="collapse-title text-base-content text-lg font-semibold">How are Work Packages managed?</div>
+				<div class="collapse-content text-base-content/70">
+					<p>
+						Projects are broken down into Work Packages with assigned contributors. Each package feeds into the global Project Contract and Deliverable tracking.
+					</p>
+				</div>
+			</div>
+		</div>
+
+		<p class="text-base-content/50 mt-12 text-center italic">Compliance with "R&D Project Management Standard 2020" guaranteed.</p>
+	</div>
+</section>
+
+<!-- Final CTA -->
+<section class="from-primary to-secondary relative overflow-hidden bg-gradient-to-r py-20">
+	<div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(white 1px, transparent 1px); background-size: 30px 30px"></div>
+
+	<div class="relative z-10 container mx-auto px-6 text-center text-white">
+		<h2 class="mb-6 text-4xl font-bold">Ready to master your Project Contract?</h2>
+		<p class="mx-auto mb-10 max-w-2xl text-xl opacity-90">
+			Align with Strategy. Secure your Deliverables. Demonstrate Value.
+		</p>
+
+		<div class="flex flex-col justify-center gap-4 sm:flex-row">
+			<a
+				[routerLink]="['/app/start']"
+				class="btn btn-lg text-primary hover:bg-primary/10 hover:text-primary rounded-full border-none bg-white px-10 shadow-lg"
+			>
+				Init. Project Contract
+				<svg class="ml-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+				</svg>
+			</a>
+
+			<a
+				[routerLink]="['/pricing']"
+				class="btn btn-lg btn-outline rounded-full border-white px-8 text-white hover:border-white hover:bg-white/20"
+			>
+				View Framework
+			</a>
+		</div>
+
+		<div class="mt-12 text-sm opacity-60">Compliance with R&D Project Management Standard 2020 • Integrated Reporting • Value Driven</div>
+	</div>
+</section>

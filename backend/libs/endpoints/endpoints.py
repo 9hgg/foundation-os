@@ -18,12 +18,17 @@ from libs.db import context_db
 from libs.folders.models import FolderToResource
 from libs.logger import print, print_color
 from libs.resource import Resource, ResourceManager, getattr_by_alias_or_name
+from libs.resource.resource_errors import ResourceWithKindUndefinedError
 from libs.sessions.models import AppSession
 from libs.users.models import User
 from libs.utils.deps import ClassicDeps__dep
-from libs.utils.types import EndpointError, EndpointOutput, to_snake
+from libs.utils.methods import deep_update_pydantic_object
+from libs.utils.types import (
+    EndpointError,
+    EndpointOutput,
+    to_snake,
+)
 
-from .config import ENDPOINTS_SETTINGS
 from .types import PaginatedResponse, SimpleResponse, get_paginated_results
 
 
@@ -48,11 +53,15 @@ def check_concurrency_conflict(
     if isinstance(client_time_updated, str):
         try:
             # Try ISO format first (most common from JavaScript)
-            client_dt = datetime.fromisoformat(client_time_updated.replace("Z", "+00:00"))
+            client_dt = datetime.fromisoformat(
+                client_time_updated.replace("Z", "+00:00")
+            )
         except ValueError:
             try:
                 # Fallback to basic strptime
-                client_dt = datetime.strptime(client_time_updated, "%Y-%m-%dT%H:%M:%S.%fZ")
+                client_dt = datetime.strptime(
+                    client_time_updated, "%Y-%m-%dT%H:%M:%S.%fZ"
+                )
             except ValueError:
                 return False  # If we can't parse the timestamp, assume no conflict
     elif isinstance(client_time_updated, datetime):
@@ -63,22 +72,8 @@ def check_concurrency_conflict(
             "check_concurrency_conflict: client_time_updated is not a valid datetime or string",
         )
         return False
-    print_color(
-        "yellow",
-        "check_concurrency_conflict: client_dt",
-        client_dt,
-        "resource_time_updated",
-        resource_time_updated,
-    )
     # Compare with database timestamp
     is_inferior = client_dt < resource_time_updated
-    print_color(
-        "yellow",
-        "check_concurrency_conflict: client_dt < resource_time_updated",
-        is_inferior,
-        "delta t:",
-        (resource_time_updated - client_dt).total_seconds(),
-    )
     return is_inferior  # Return True if client is outdated (conflict), False otherwise
 
 
@@ -139,7 +134,6 @@ def decode_filters(
                 comparison=comparison,
             )
         )
-        print("Decoded filter:", decoded_filters)
     return decoded_filters
 
 
@@ -185,10 +179,12 @@ def add_acl_filters(
                 Membership.user_id == current_user_db.id
             )
 
-            or_access_conditions.append(and_(Acl.who == Who.team.value, Acl.who_id.in_(user_teams_subquery)))
+            or_access_conditions.append(
+                and_(Acl.who == Who.team.value, Acl.who_id.in_(user_teams_subquery))
+            )
 
         # Admin access (if user is admin and admin access via ACL is included)
-        if include_admin and current_user_db.email in ENDPOINTS_SETTINGS.ADMIN_EMAILS:
+        if include_admin and current_user_db.is_admin():
             or_access_conditions.append(Acl.who == Who.admin.value)
 
     # Session access (if session exists and not ignored)
@@ -237,7 +233,9 @@ def get_resource_if_READ_allowed(
         )
 
         # explicitly keep anonymous access
-        query = add_acl_filters(current_user_db, session_db, query, ignore_anonymous=False)
+        query = add_acl_filters(
+            current_user_db, session_db, query, ignore_anonymous=False
+        )
 
         # group by resource_id to avoid duplicates
         query = query.group_by(resource_type.id)
@@ -272,7 +270,9 @@ def get_resource_if_WRITE_allowed(
             .filter(Acl.resource_kind == resource_kind)
         )
 
-        query = add_acl_filters(current_user_db, session_db, query, ignore_anonymous=True)
+        query = add_acl_filters(
+            current_user_db, session_db, query, ignore_anonymous=True
+        )
 
         # group by resource_id to avoid duplicates
         query = query.group_by(resource_type.id)
@@ -304,7 +304,9 @@ def read_all_resources(
         query = add_acl_filters(user, session, query)
 
         # group by resource_id to avoid duplicates
-        query = query.group_by(ResourceClass.id).order_by(ResourceClass.time_created.asc())
+        query = query.group_by(ResourceClass.id).order_by(
+            ResourceClass.time_created.asc()
+        )
         result = query.all()
 
     return EndpointOutput(
@@ -322,7 +324,7 @@ class InputModelType(typing.Protocol[T]):
 def create_crud_endpoints(
     ResourceClass: type[T],
     prefix: str,
-    tags: list[typing.Union[str, Enum]] = [],
+    tags: typing.Optional[list[typing.Union[str, Enum]]] = None,
     *,
     include_read: bool = True,
     include_all_by_app: bool = False,
@@ -332,7 +334,13 @@ def create_crud_endpoints(
     include_delete: bool = False,
     include_simplified: bool = False,
     include_bypass: bool = False,
+    possible_proxies: typing.Optional[dict] = None,
 ):
+    if tags is None:
+        tags = []
+    if possible_proxies is None:
+        possible_proxies = {}
+
     if typing.TYPE_CHECKING:
         ResponseModelType = type[Resource]
         ResourceClass = Resource
@@ -373,7 +381,9 @@ def create_crud_endpoints(
             status_code=status.HTTP_200_OK,
             response_model=EndpointOutput[PaginatedResponse[ResponseModelType]],
             operation_id=f"list_{ResourceClass.__kind__}_paginated",
-            summary=(f"List all accessible from {ResourceClass.__tablename__}, paginated"),
+            summary=(
+                f"List all accessible from {ResourceClass.__tablename__}, paginated"
+            ),
             response_model_by_alias=True,
         )
         def read_resources(
@@ -385,6 +395,8 @@ def create_crud_endpoints(
             ordering_by: typing.Optional[str] = Query(None),
             ignore_anonymous: bool = Query(False),
             bypass_acls: bool = Query(False),
+            proxy: typing.Optional[str] = Query(None),
+            proxy_value: typing.Optional[str] = Query(None),
         ):
             """
             List all resources with pagination.
@@ -397,30 +409,144 @@ def create_crud_endpoints(
                 query = db.query(ResourceClass)
 
                 if bypass_acls and include_bypass:
-                    # check email is verified
-                    if not current_user_db.email_verified:
-                        print("Email not verified", current_user_db)
+                    if not current_user_db or not current_user_db.is_admin():
                         return EndpointOutput(
                             error=EndpointError(
                                 title=translator.translate("Unauthorized"),
                                 description=translator.translate(
-                                    "You must be logged in with a verified email to list resources."
+                                    "You must be logged in as a verified admin to list resources."
+                                ),
+                                code="Unauthorized",
+                            )
+                        )
+                elif proxy:
+                    if proxy not in possible_proxies:
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title=translator.translate("Unauthorized"),
+                                description=translator.translate(
+                                    "Invalid proxy parameter."
+                                ),
+                                code="Unauthorized",
+                            )
+                        )
+                    if not proxy_value:
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title=translator.translate("Bad Request"),
+                                description=translator.translate(
+                                    "Missing proxy_value parameter."
+                                ),
+                                code="BadRequest",
+                            )
+                        )
+                    try:
+                        proxy_value_uuid = uuid.UUID(proxy_value)
+                    except ValueError:
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title=translator.translate("Bad Request"),
+                                description=translator.translate(
+                                    "Invalid proxy_value parameter."
+                                ),
+                                code="BadRequest",
+                            )
+                        )
+
+                    # instead of filtering on ACLs directly on the resource, we filter on the proxy resource that has a relation with the resource and filter on the proxy value
+                    proxy_details = possible_proxies.get(proxy)
+                    if proxy_details is None:
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title=translator.translate("Unauthorized"),
+                                description=translator.translate(
+                                    "Invalid proxy details configuration."
+                                ),
+                                code="Unauthorized",
+                            )
+                        )
+                    if not isinstance(proxy_details, dict):
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title=translator.translate("Unauthorized"),
+                                description=translator.translate(
+                                    "Invalid proxy details configuration: expected a dictionary."
+                                ),
+                                code="Unauthorized",
+                            )
+                        )
+                    proxy_field_name = proxy_details.get("field_name")
+                    if proxy_field_name is None:
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title=translator.translate("Unauthorized"),
+                                description=translator.translate(
+                                    "Invalid proxy details configuration: missing field name."
+                                ),
+                                code="Unauthorized",
+                            )
+                        )
+                    if not hasattr(ResourceClass, proxy_field_name):
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title=translator.translate("Unauthorized"),
+                                description=translator.translate(
+                                    "Invalid proxy details configuration: unknown field name."
+                                ),
+                                code="Unauthorized",
+                            )
+                        )
+                    proxy_resource_kind = proxy_details.get("resource_kind")
+                    if proxy_resource_kind is None:
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title=translator.translate("Unauthorized"),
+                                description=translator.translate(
+                                    "Invalid proxy details configuration: missing resource kind."
+                                ),
+                                code="Unauthorized",
+                            )
+                        )
+                    try:
+                        proxy_resource = ResourceManager.get_resource_by_kind(
+                            proxy_resource_kind
+                        )
+                    except ResourceWithKindUndefinedError:
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title=translator.translate("Unauthorized"),
+                                description=translator.translate(
+                                    "Invalid proxy details configuration: unknown resource kind."
                                 ),
                                 code="Unauthorized",
                             )
                         )
 
-                    # check if user is admin
-                    if current_user_db.email not in ENDPOINTS_SETTINGS.ADMIN_EMAILS:
-                        return EndpointOutput(
-                            error=EndpointError(
-                                title=translator.translate("Unauthorized"),
-                                description=translator.translate(
-                                    "You must be logged in as an admin to list resources."
-                                ),
-                                code="Unauthorized",
-                            )
+                    # we join on the proxy resource and filter on the proxy value
+                    query = (
+                        query.join(
+                            proxy_resource,
+                            getattr(ResourceClass, proxy_field_name)
+                            == proxy_resource.id,
                         )
+                        .filter(proxy_resource.id == proxy_value_uuid)
+                        .join(
+                            Acl,
+                            and_(
+                                Acl.resource_id == proxy_resource.id,
+                                Acl.resource_kind == proxy_resource_kind,
+                                Acl.operation == Operation.READ.value,
+                            ),
+                        )
+                    )
+
+                    query = add_acl_filters(
+                        current_user_db,
+                        session,
+                        query,
+                        ignore_anonymous=ignore_anonymous,
+                    )
+
                 else:
                     # we list all ACLs that allow READ on the resource
                     query = (
@@ -429,7 +555,12 @@ def create_crud_endpoints(
                         .filter(Acl.resource_kind == ResourceClass.__kind__)
                     )
 
-                    query = add_acl_filters(current_user_db, session, query, ignore_anonymous=ignore_anonymous)
+                    query = add_acl_filters(
+                        current_user_db,
+                        session,
+                        query,
+                        ignore_anonymous=ignore_anonymous,
+                    )
 
                 for filter in filter_objs:
                     if not hasattr(ResourceClass, filter.field_name):
@@ -474,7 +605,9 @@ def create_crud_endpoints(
                 if ordering_by:
                     ordering_field_name, direction = ordering_by.split(":", 2)
                     if ordering_field_name:
-                        ordering_field = getattr_by_alias_or_name(ResourceClass, ordering_field_name)
+                        ordering_field = getattr_by_alias_or_name(
+                            ResourceClass, ordering_field_name
+                        )
 
                         if isinstance(ordering_field.type, str):
                             # if the field is a string, we lowercase it
@@ -490,9 +623,7 @@ def create_crud_endpoints(
                 # print the query
                 # print_color("yellow", query)
 
-                root_url = (
-                    f"{request.base_url.scheme}://{request.base_url.netloc}{router.url_path_for('read_resources')}"
-                )
+                root_url = f"{request.base_url.scheme}://{request.base_url.netloc}{router.url_path_for('read_resources')}"
                 result = get_paginated_results(
                     query,
                     page,
@@ -597,7 +728,11 @@ def create_crud_endpoints(
                     func.row_number().over(order_by=None).label("position"),
                     subquery.c.id,
                 ).subquery()
-                position_result = db.query(position_query.c.position).filter(position_query.c.id == resource_id).first()
+                position_result = (
+                    db.query(position_query.c.position)
+                    .filter(position_query.c.id == resource_id)
+                    .first()
+                )
 
                 if not position_result:
                     raise fastapi.HTTPException(
@@ -640,7 +775,9 @@ def create_crud_endpoints(
                 return EndpointOutput(
                     error=EndpointError(
                         title=translator.translate("Unauthorized"),
-                        description=translator.translate("You must be logged in to create a resource."),
+                        description=translator.translate(
+                            "You must be logged in to create a resource."
+                        ),
                         code="Unauthorized",
                     )
                 )
@@ -897,7 +1034,9 @@ def create_crud_endpoints(
                 resource_through_acl_db = query.first()
 
                 # independant of ACLs
-                resource_already_exists = ResourceClass.in_db(obj_id=resource_id, _db=db)
+                resource_already_exists = ResourceClass.in_db(
+                    obj_id=resource_id, _db=db
+                )
 
             resource_db: typing.Optional[Resource] = None
 
@@ -907,7 +1046,9 @@ def create_crud_endpoints(
                     return EndpointOutput(
                         error=EndpointError(
                             title="Unauthorized",
-                            description=("You do not have the right to write over this resource."),
+                            description=(
+                                "You do not have the right to write over this resource."
+                            ),
                             code="Unauthorized",
                         )
                     )
@@ -922,7 +1063,9 @@ def create_crud_endpoints(
                     )
 
                     # Check for concurrency conflicts
-                    if check_concurrency_conflict(time_updated, resource_through_acl_db.time_updated):
+                    if check_concurrency_conflict(
+                        time_updated, resource_through_acl_db.time_updated
+                    ):
                         print_color(
                             "red",
                             "Concurrency conflict detected for resource",
@@ -944,12 +1087,16 @@ def create_crud_endpoints(
                     #   - update will keep "unset" values to replace them with None
                     #   - if values are required, it will raise an error
                     #   - you should use patch in this case
-                    resource_db = ResourceClass.update(obj_id=resource_id, new_obj=resource_in)
+                    resource_db = ResourceClass.update(
+                        obj_id=resource_id, new_obj=resource_in
+                    )
             else:
                 # resource does not exists
                 if current_user_db is not None or session is not None:
                     # if the user is logged in, we can create the missing resource
-                    resource_db = ResourceClass.create(obj_dict=resource_in.model_dump(exclude_unset=True))
+                    resource_db = ResourceClass.create(
+                        obj_dict=resource_in.model_dump(exclude_unset=True)
+                    )
                     if current_user_db:
                         create_default_acls(
                             resource=resource_db,
@@ -1051,11 +1198,22 @@ def create_crud_endpoints(
                     )
                 )
 
-            resource_db = ResourceClass.patch(obj_id=resource_id, update_dict=update_dict_in)
+            # using patch with a dict is tricky as sql will just accept any dict
+            # so we must ensure that the dict is valid regarding the pydantic model
+            # DON'T DO : resource_db = ResourceClass.patch(
+            #     obj_id=resource_id, update_dict=update_dict_in
+            # )
+            # instead : create a copy of the original object, update it with the update dict and validate it with pydantic,
+            # then update the resource in db if validation is ok
+            resource_copy = deep_update_pydantic_object(resource_db, update_dict_in)
+
+            # temporary : serialize and deserialize the object to purge from extra fields:
+            clean_resource = ResourceClass.model_validate(resource_copy.model_dump())
+            clean_resource.save()
 
             return EndpointOutput(
                 result=SimpleResponse(
-                    data=resource_db,
+                    data=clean_resource,
                     self=f"/{resource_id}",
                     all=router.prefix + "/?page=1",
                 )

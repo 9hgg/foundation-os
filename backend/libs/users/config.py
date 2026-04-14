@@ -6,9 +6,11 @@ class UsersSettings(BaseSettings):
     APP_ROOT_DOMAIN: str | None = None
     FRONTEND_URL: str | None = None
     BACKEND_URL: str | None = None
+    ADMIN_EMAILS: list[str] = []
     SENDER_EMAIL: str  # REQUIRED: Must be set via environment variable
     PASSWORD_RESET_TOKEN_EXPIRY_MINUTES: int = 120  # Default: 2 hours
     EMAIL_VERIFICATION_TOKEN_EXPIRY_MINUTES: int = 120  # Default: 2 hours (same as password reset)
+    CHANGE_EMAIL_TOKEN_EXPIRY_MINUTES: int = 120  # Default: 2 hours
 
     model_config = SettingsConfigDict(
         case_sensitive=True,

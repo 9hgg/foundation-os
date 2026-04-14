@@ -1,25 +1,23 @@
-<div class="modal-box bg-base-100 flex h-full max-h-[90vh] w-11/12 max-w-5xl flex-col p-0">
+<div class="bg-base-100 flex h-full w-full max-w-5xl flex-col  p-3 justify-between">
 	<!-- Header -->
-	<div class="border-base-200 border-b px-6 py-4">
-		<h3
-			class="text-lg font-bold"
-			[translate]
-		>
-			File selection
-		</h3>
-	</div>
+
+	<h3
+		class="border-base-200 h-16 border-b px-6 py-4 text-lg font-bold"
+		[translate]
+	>
+		File selection
+	</h3>
 
 	<!-- Body -->
-	<div class="flex-1 overflow-auto p-0">
-		<lib-file-table
-			click-behavior="select"
-			class="block h-full w-full"
-			#fileTable
-		></lib-file-table>
-	</div>
+
+	<lib-file-table
+		click-behavior="select"
+		class="block h-[calc(90vh-170px)] w-full"
+		#fileTable
+	></lib-file-table>
 
 	<!-- Footer Actions -->
-	<div class="modal-action border-base-200 bg-base-100 m-0 border-t px-6 py-4">
+	<div class="modal-action border-base-200 bg-base-100 m-0 h-16 border-t px-6 py-4">
 		<button
 			class="btn"
 			(click)="cancel()"

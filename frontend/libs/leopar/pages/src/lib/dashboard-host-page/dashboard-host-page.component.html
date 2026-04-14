@@ -1,0 +1,338 @@
+@if (layoutService.dashboardHeaderVisible()) {
+	<header
+		class="bg-base-100 border-base-300 w-full border-b"
+		[style.height]="layoutService.dashboardHeaderHeightPx() + 'px'"
+	></header>
+}
+<div
+	class="bg-base-100 dark:bg-base-300 dark:text-base-content flex overflow-hidden"
+	[style.height]="layoutService.dashboardHeightLeft()"
+>
+	@if (layoutService.navBarVisible()) {
+		<nav
+			name="dashboard-left-menu"
+			class="bg-base-100 border-base-300 flex h-full w-16 shrink-0 flex-col justify-between overflow-y-auto border-r transition-all duration-300 sm:w-64"
+		>
+			<div
+				name="top-links"
+				class="w-full flex-1"
+			>
+				<!-- Brand / Logo -->
+				<div class="mt-4 mb-6 flex justify-center sm:justify-start sm:px-6">
+					<a
+						class="flex items-center gap-2 text-xl font-bold transition-transform hover:scale-105"
+						[routerLink]="''"
+					>
+						<span class="from-primary to-secondary bg-gradient-to-r bg-clip-text text-transparent">
+							<span class="hidden sm:inline">Leopar</span>
+							<span class="text-2xl sm:hidden">C</span>
+						</span>
+					</a>
+				</div>
+
+				<!-- New Button -->
+				<div class="mb-6 px-3">
+					<button
+						class="btn btn-primary w-full px-0 shadow-md sm:px-4"
+						[cdkMenuTriggerFor]="newMenuTpl"
+					>
+						<tw-add class="h-5 w-5"></tw-add>
+						<span
+							class="ml-2 hidden sm:inline"
+							[translate]
+							[translationContext]="'dashboard-menu'"
+							>New</span
+						>
+					</button>
+				</div>
+
+				<ng-template #newMenuTpl>
+					<ul
+						class="menu bg-base-100 rounded-box border-base-200 text-base-content z-50 w-56 gap-1 border p-2 shadow-xl"
+						cdkMenu
+					>
+						<li>
+							<button class="flex items-center gap-2">
+								<tw-project class="h-5 w-5 opacity-70"></tw-project>
+								<span [translate]>S/E Opportunity</span>
+							</button>
+						</li>
+						<li>
+							<button class="flex items-center gap-2">
+								<tw-file class="h-5 w-5 opacity-70"></tw-file>
+								<span [translate]>Project Contract</span>
+							</button>
+						</li>
+					</ul>
+				</ng-template>
+
+				<!-- Main Menu -->
+				<ul class="menu menu-md w-full space-y-1 p-2">
+					<!-- Dashboard -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							[routerLinkActiveOptions]="{ exact: true }"
+							class="gap-3"
+						>
+							<tw-dashboard class="h-5 w-5"></tw-dashboard>
+							<span
+								class="hidden sm:inline"
+								[translate]
+								[translationContext]="'dashboard-menu'"
+								>Dashboard</span
+							>
+						</a>
+					</li>
+
+					<!-- Projects -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/projects'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-project class="h-5 w-5"></tw-project>
+							<span class="hidden sm:inline" [translate]>Projects</span>
+						</a>
+					</li>
+
+					<!-- Contributors -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/contributors'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-user class="h-5 w-5"></tw-user>
+							<span class="hidden sm:inline" [translate]>Contributors</span>
+						</a>
+					</li>
+
+					<!-- Customers -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/customers'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-user class="h-5 w-5"></tw-user>
+							<span class="hidden sm:inline" [translate]>Customers</span>
+						</a>
+					</li>
+
+					<!-- Facilities -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/facilities'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-folder class="h-5 w-5"></tw-folder>
+							<span class="hidden sm:inline" [translate]>Facilities</span>
+						</a>
+					</li>
+
+					<!-- Batches -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/batches'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-folder class="h-5 w-5"></tw-folder>
+							<span class="hidden sm:inline" [translate]>Batches</span>
+						</a>
+					</li>
+
+					<!-- Deliverables -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/deliverables'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-file class="h-5 w-5"></tw-file>
+							<span class="hidden sm:inline" [translate]>Deliverables</span>
+						</a>
+					</li>
+
+					<!-- Activities -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/activities'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-folder class="h-5 w-5"></tw-folder>
+							<span class="hidden sm:inline" [translate]>Activities</span>
+						</a>
+					</li>
+
+					<!-- Purchases -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/purchases'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-folder class="h-5 w-5"></tw-folder>
+							<span class="hidden sm:inline" [translate]>Purchases</span>
+						</a>
+					</li>
+
+					<!-- Files -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/files'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-folder class="h-5 w-5"></tw-folder>
+							<span
+								class="hidden sm:inline"
+								[translate]
+								[translationContext]="'dashboard-menu'"
+								>Files</span
+							>
+						</a>
+					</li>
+
+					<!-- Explorer -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/explorer'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<span class="text-xl">🗂️</span>
+							<span
+								class="hidden sm:inline"
+								[translate]
+								[translationContext]="'dashboard-menu'"
+								>Explorer</span
+							>
+						</a>
+					</li>
+
+					<!-- Teams -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/teams'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-team class="h-5 w-5"></tw-team>
+							<span
+								class="hidden sm:inline"
+								[translate]
+								[translationContext]="'dashboard-menu'"
+								>Teams</span
+							>
+						</a>
+					</li>
+					<!-- Admin -->
+					@if (isAdmin()) {
+						<li>
+							<a
+								[routerLink]="'/admin/i18n'"
+								[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+								class="gap-3"
+							>
+								<tw-lock-open class="h-5 w-5"></tw-lock-open>
+								<span
+									class="hidden sm:inline"
+									[translate]
+									[translationContext]="'dashboard-menu'"
+									>Admin</span
+								>
+							</a>
+						</li>
+					}
+				</ul>
+			</div>
+
+			<!-- Bottom Menu -->
+			<div
+				name="bottom-links"
+				class="w-full shrink-0 p-2"
+			>
+				<div class="divider my-2"></div>
+				<ul class="menu menu-md w-full space-y-1 p-0">
+					<!-- Support -->
+					<li>
+						<a
+							[routerLink]="'/host/dashboard/support'"
+							[routerLinkActive]="'active bg-primary/10 text-primary font-medium'"
+							class="gap-3"
+						>
+							<tw-support class="h-5 w-5"></tw-support>
+							<span
+								class="hidden sm:inline"
+								[translate]
+								[translationContext]="'dashboard-menu'"
+								>Support</span
+							>
+						</a>
+					</li>
+				</ul>
+
+				<!-- User Profile Section -->
+				<div
+					class="user-profile-section bg-base-200 hover:bg-base-300 mt-4 flex cursor-pointer flex-col items-center justify-between gap-2 rounded-lg p-2 transition-colors sm:flex-row sm:p-3"
+					(click)="navigateToProfile()"
+				>
+					<!-- User info section -->
+					<div class="flex min-w-0 items-center gap-3">
+						@let currentUserAvatar_ = currentUserAvatar();
+						@if (currentUserAvatar_) {
+							<div class="avatar">
+								<div class="w-8 rounded-full">
+									<img
+										[src]="currentUserAvatar_"
+										alt="Profile"
+									/>
+								</div>
+							</div>
+						} @else {
+							<div class="avatar placeholder">
+								<div class="bg-primary text-primary-content flex h-8 w-8 items-center justify-center rounded-full">
+									<tw-user class="h-5 w-5"></tw-user>
+								</div>
+							</div>
+						}
+						<div class="hidden min-w-0 flex-col sm:flex">
+							<span class="max-w-[100px] truncate text-sm font-medium">{{ currentUserDisplay() }}</span>
+						</div>
+					</div>
+
+					<!-- Action buttons -->
+					<div class="flex items-center gap-1">
+						<!-- Log out button -->
+						<button
+							class="btn btn-ghost btn-xs btn-square text-error hover:bg-error/10"
+							(click)="$event.stopPropagation(); logout()"
+							title="Log out"
+						>
+							<tw-logout class="h-4 w-4"></tw-logout>
+						</button>
+					</div>
+				</div>
+			</div>
+		</nav>
+	}
+	<main
+		name="dashboard-body"
+		class="bg-base-200 h-full grow overflow-auto"
+	>
+		<router-outlet></router-outlet>
+	</main>
+</div>
+
+@if (layoutService.dashboardFooterVisible()) {
+	<footer
+		class="bg-base-200 border-base-300 w-full border-t"
+		[style.height]="layoutService.dashboardFooterHeightPx() + 'px'"
+	></footer>
+}

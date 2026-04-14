@@ -204,6 +204,17 @@ export class TwTrashIcon {}
 export class TwPencilIcon {}
 
 /**
+ * calculator icon
+ */
+@Component({
+	selector: 'tw-calculator',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template:'<svg  class="h-full w-full" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.5 2h-15A1.502 1.502 0 0 0 3 3.5v17A1.502 1.502 0 0 0 4.5 22h15a1.502 1.502 0 0 0 1.5-1.5v-17A1.502 1.502 0 0 0 19.5 2zm.5 18.5a.501.501 0 0 1-.5.5h-15a.501.501 0 0 1-.5-.5v-17a.501.501 0 0 1 .5-.5h15a.501.501 0 0 1 .5.5zM5 9h14V4H5zm1-4h12v3H6zm2 6H6a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1zm0 3H6v-2h2zm5-3h-2a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1zm0 3h-2v-2h2zm0 2h-2a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1zm0 3h-2v-2h2zm-5-3H6a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1zm0 3H6v-2h2zm10-8h-2a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1zm0 8h-2v-7h2z"/><path fill="none" d="M0 0h24v24H0z"/></svg>',
+})
+export class TwCalculatorIcon{}
+
+/**
  * tag icon
  */
 @Component({
@@ -221,7 +232,7 @@ export class TwTagIcon {}
 	selector: 'tw-archive',
 	styles: ':host{display:inline-block}',
 	standalone: true,
-	template: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM6.24 5h11.52l.81.97H5.44l.8-.97zM5 19V8h14v11H5zm8.45-9h-2.9v3H8l4 4 4-4h-2.55z"/></svg>',
+	template: '<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" viewBox="0 0 24 24" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM6.24 5h11.52l.81.97H5.44l.8-.97zM5 19V8h14v11H5zm8.45-9h-2.9v3H8l4 4 4-4h-2.55z"/></svg>',
 })
 export class TwArchiveIcon {}
 
@@ -479,6 +490,20 @@ export class TwTextColorIcon {}
 		'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="w-full h-full"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M21.73 10.456l.685-.742A2.454 2.454 0 0 1 23 11.433c0 2.744-3.938 5.032-7.947 5.941l1.396-1.434c3.007-1.002 5.55-2.746 5.55-4.507a1.595 1.595 0 0 0-.268-.977zm-19.53.25c0-3.745 5.101-6.434 9.664-6.505h.16c2.01 0 2.323.337 2.539.57a1.266 1.266 0 0 1 .331.918 2.856 2.856 0 0 1-.142.824 3.555 3.555 0 0 0-.17.991 1.863 1.863 0 0 0 1.632 1.882l.862-.84c-.873-.102-1.494-.342-1.494-1.042 0-.548.312-.997.312-1.815a2.27 2.27 0 0 0-.606-1.607c-.345-.372-.817-.88-3.264-.88h-.16C6.828 3.28 1.2 6.237 1.2 10.704c0 3.164 2.758 5.244 5.785 6.292a3.098 3.098 0 0 1 1.147-.683c-3.038-.84-5.932-2.76-5.932-5.609zM12 7.5A1.5 1.5 0 1 1 10.5 6 1.5 1.5 0 0 1 12 7.5zm-1 0a.5.5 0 1 0-.5.5.5.5 0 0 0 .5-.5zM6.5 11A1.5 1.5 0 1 1 8 9.5 1.5 1.5 0 0 1 6.5 11zM7 9.5a.5.5 0 1 0-.5.5.5.5 0 0 0 .5-.5zm3 4A1.5 1.5 0 1 1 8.5 12a1.5 1.5 0 0 1 1.5 1.5zm-1 0a.5.5 0 1 0-.5.5.5.5 0 0 0 .5-.5zm13.11-7.483L18.4 9.35l-7.45 7.25 1.4 1.4 7.25-7.449 3.383-3.661a.626.626 0 0 0-.873-.873zM9.368 17.619l1.439 1.738a2.94 2.94 0 0 1-1.63 2.234 3.92 3.92 0 0 1-1.626.359 3.598 3.598 0 0 1-1.733-.427s1.8-.968 1.809-2.464c.006-1.38 1.451-1.44 1.703-1.44zm.35 1.99l-.78-.94a.379.379 0 0 0-.311.395 3.191 3.191 0 0 1-.633 1.85 3.042 3.042 0 0 0 .772-.234 1.823 1.823 0 0 0 .952-1.07z"></path><path fill="none" d="M0 0h24v24H0z"></path></g></svg>',
 })
 export class TwPaletteIcon {}
+
+/**
+ * palette color
+ */
+@Component({
+	selector: 'tw-palette',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template:
+		'<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>',
+})
+export class TwPaletteColorIcon {}
+
+
 
 /**
  * Paint choice icon
@@ -830,6 +855,18 @@ export class TwDashboardIcon {}
 export class TwSearchIcon {}
 
 /**
+ * sensor icon
+ */
+@Component({
+	selector: 'tw-sensor',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template:
+		'<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><rect x="8.25" y="8.25" width="7.5" height="7.5" rx="1.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.75v2.5m-1.25-1.25h2.5M5.25 12a6.75 6.75 0 0 1 6.75-6.75m0 13.5A6.75 6.75 0 0 1 5.25 12m13.5 0a6.75 6.75 0 0 0-6.75-6.75m0 13.5A6.75 6.75 0 0 0 18.75 12" /></svg>',
+})
+export class TwSensorIcon {}
+
+/**
  * database icon
  */
 @Component({
@@ -861,6 +898,40 @@ export class TwCodeIcon {}
 	template: '<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>',
 })
 export class TwFlowIcon {}
+
+/**
+ * truck icon
+ */
+@Component({
+	selector: 'tw-truck',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template:
+		'<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM18.75 18.75a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6h10.5v9.75H4.5A1.5 1.5 0 0 1 3 14.25v-6.75A1.5 1.5 0 0 1 4.5 6Zm10.5 3.75h2.379a1.5 1.5 0 0 1 1.06.44l1.871 1.87a1.5 1.5 0 0 1 .44 1.061v2.629h-5.75V9.75Z" /></svg>',
+})
+export class TwTruckIcon {}
+
+/**
+ * chart bar icon
+ */
+@Component({
+	selector: 'tw-chart-bar',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template: '<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 19.5h16.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 16.5V10.5m4.5 6v-9m4.5 9V8.25" /></svg>',
+})
+export class TwChartBarIcon {}
+
+/**
+ * workflow icon
+ */
+@Component({
+	selector: 'tw-workflow',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template: '<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><circle cx="6" cy="6" r="2.25" /><circle cx="18" cy="12" r="2.25" /><circle cx="6" cy="18" r="2.25" /><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6h4.5a3 3 0 0 1 3 3v.75M8.25 18h4.5a3 3 0 0 0 3-3v-.75" /></svg>',
+})
+export class TwWorkflowIcon {}
 
 /**
  * support icon
@@ -902,7 +973,8 @@ export class TwBars3Icon {}
 	selector: 'tw-star',
 	styles: ':host{display:inline-block}',
 	standalone: true,
-	template: '<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>',
+	template:
+		'<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>',
 })
 export class TwStarIcon {}
 
@@ -1037,3 +1109,56 @@ export class TwMicrophoneIcon {}
 	template: '<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>',
 })
 export class TwVideoCameraIcon {}
+
+/**
+ * chat bubble left ellipsis icon (notes/chat sidebar hint)
+ */
+@Component({
+	selector: 'tw-chat-bubble',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template: '<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>',
+})
+export class TwChatBubbleIcon {}
+
+
+
+/**
+ * book
+ */
+@Component({
+	selector: 'tw-book',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template: '<svg class="h-full w-full" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 13h4v1H9zm13 7h-3v3H5.75A3.754 3.754 0 0 1 2 19.25V3.5C2 2.051 3.437 1 5.417 1H22zM18 6H5.416A4.175 4.175 0 0 1 3 5.318V19.25A2.753 2.753 0 0 0 5.75 22H18zm3-4H5.416C4.04 2 3 2.645 3 3.5S4.04 5 5.417 5H19v14h2zm-6 8H7v1h8z"/></svg>',
+})
+export class TwBookIcon {}
+
+/**
+ * book
+ */
+@Component({
+	selector: 'tw-event-starred',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template: '<svg class="h-full w-full" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 4.026h2V7H2V4.026h2v-1H1V21h22V3.026h-3zM22 20H2V8.026h20zM7 4.026v-1h10v1zM5 2h1v3H5zm13 0h1v3h-1zM9.209 17.309L12 15.28l2.791 2.028-1.066-3.281L16.515 12h-3.449L12 8.719 10.934 12h-3.45l2.791 2.028zM11.66 13l.34-1.046.34 1.046h1.097l-.888.646.34 1.044-.889-.645-.889.645.34-1.044-.889-.646z"/></svg>',
+})
+export class TwEventStarredIcon {}
+
+
+
+/**
+ * tile map
+ */
+@Component({
+	selector: 'tw-tile-map',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template: '<svg class="h-full w-full" stroke="currentColor"  viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.83 3.078l3.051 18.105a13.093 13.093 0 0 0-5.423-1.017c-5.242 0-6.792 1.634-12.034 1.634A13.093 13.093 0 0 1 1 20.783L2.879 9.879l.866.866-1.621 9.405a13.727 13.727 0 0 0 4.3.65 22.054 22.054 0 0 0 5.783-.79 24.03 24.03 0 0 1 6.25-.844 16.25 16.25 0 0 1 4.158.52l-2.674-15.87a11.86 11.86 0 0 0-3.63-.615 7.791 7.791 0 0 0-3.49.725c-.26.106-.529.216-.821.321V3.178a9.538 9.538 0 0 1 4.31-.978 12.674 12.674 0 0 1 4.52.878zM12 11V5h7v13H6v-7zm-5 6h2.382a1.9 1.9 0 0 1 .669-1.215 1.314 1.314 0 0 0 .246-.275 1.058 1.058 0 0 0-.052-.21 1.43 1.43 0 0 1-.08-.572 1.499 1.499 0 0 1 .735-1.097l.144-.09c.123-.073.244-.136.354-.193a2.509 2.509 0 0 0 .26-.146l.342-.326V12H7zm5 0v-2.841c-.047.025-.09.05-.142.076-.094.05-.198.103-.3.163l-.11.07c-.239.156-.28.263-.289.355a.33.33 0 0 0 .02.11 1.507 1.507 0 0 1 .1.763 1.562 1.562 0 0 1-.482.758 1.258 1.258 0 0 0-.392.546zm6 0v-2.95a3.406 3.406 0 0 0-1.067.458A2.75 2.75 0 0 1 15.5 15a4.35 4.35 0 0 1-2.5-.768V17zm-5-6h5V6h-5zm0 1v.92A3.324 3.324 0 0 0 15.5 14a1.9 1.9 0 0 0 .93-.357 4.185 4.185 0 0 1 1.57-.597V12zm-2-2H4V3h7zM9.516 4.15A1.897 1.897 0 0 1 9.814 4H5v3.66a.516.516 0 0 0 .34-.028c.411-.188.643-.96.743-1.288a1.418 1.418 0 0 1 1.241-.923 1.692 1.692 0 0 1 .791.047.732.732 0 0 0 .276.042c.11-.007.215-.178.374-.457a2.397 2.397 0 0 1 .75-.904zM10 9V5.048a1.839 1.839 0 0 0-.366.499 1.516 1.516 0 0 1-1.18.96 1.815 1.815 0 0 1-.593-.071.687.687 0 0 0-.354-.032c-.193.036-.43.105-.467.229A2.915 2.915 0 0 1 5.756 8.54a1.474 1.474 0 0 1-.62.135c-.044 0-.091-.013-.136-.016V9z"/></svg>',
+})
+export class TwTileMapIcon {}
+
+
+
+/** */
+

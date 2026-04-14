@@ -3,7 +3,7 @@ import { EmbedBlot } from 'parchment';
 import { sanitize } from 'quill/formats/link';
 import { CallbackFunction } from '../blots.utils';
 
-const ATTRIBUTES = ['alt', 'width', 'height'];
+const ATTRIBUTES = ['alt', 'url', 'width', 'height'];
 
 export class VideoBlot extends EmbedBlot {
 	static override blotName = 'video';
@@ -211,7 +211,13 @@ export class VideoBlot extends EmbedBlot {
 					iframe.setAttribute(name, value);
 				}
 			} else {
-				iframe.removeAttribute(name);
+				if (name === 'alt') {
+					iframe.removeAttribute('title');
+				} else if (name === 'url') {
+					iframe.removeAttribute('src');
+				} else {
+					iframe.removeAttribute(name);
+				}
 			}
 		} else {
 			super.format(name, value);

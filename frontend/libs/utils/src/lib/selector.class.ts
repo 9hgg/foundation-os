@@ -69,6 +69,12 @@ export class Selector<T> {
 	 */
 	select(item: T) {
 		if (this.isSelected(item)) return;
+		// if max is 1, replace the selected item, else add the item to the selected items
+		if (this._max === 1) {
+			this._selectedItems$$$.value = [item];
+			this.selectedItems_sig.set(this._selectedItems$$$.value);
+			return;
+		}
 		this._selectedItems$$$.value = [...this._selectedItems$$$.value, item];
 		this.selectedItems_sig.set(this._selectedItems$$$.value);
 	}

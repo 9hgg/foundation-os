@@ -1,0 +1,8 @@
+@let a = activity$$$.$ | async; @if (a) {
+<div class="p-6">
+  <h1 class="text-lg font-semibold mb-3">Activity JSON</h1>
+  <pre class="bg-base-100 border p-4 rounded">{{ a | json }}</pre>
+</div>
+} @else {
+<div class="p-6 text-center">Activity not found</div>
+}

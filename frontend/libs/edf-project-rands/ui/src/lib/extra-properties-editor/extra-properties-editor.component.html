@@ -1,0 +1,131 @@
+<div class="space-y-6">
+	<div>
+		<div class="mb-4 flex items-center justify-between">
+			<h2
+				class="text-base-content text-lg font-semibold"
+				[translate]
+			>
+				Extra Properties
+			</h2>
+		</div>
+
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+			@for (entry of entries(); track entry.id) {
+				<div class="card bg-base-100 border-base-200 border shadow-xs">
+					<div class="p-4">
+						<div class="mb-2 flex items-center justify-between gap-2">
+							<span>
+								<span class="font-bold">{{ entry.value|json }}</span
+								>&nbsp;<span class="text-sm font-medium">({{ entry.value.key }})</span></span
+							>
+							<button
+								class="btn btn-ghost text-error btn-xs"
+								(click)="removeProperty(entry.id)"
+							>
+								Delete
+							</button>
+						</div>
+
+						@switch (entry.value.kind) {
+							@case ('text') {
+								<input
+									type="text"
+									class="input input-bordered w-full"
+									[value]="entry.value.content"
+									(input)="updateProperty(entry.id, 'content', $any($event.target).value)"
+								/>
+							}
+							@case ('textarea') {
+								<textarea
+									class="textarea textarea-bordered w-full"
+									[value]="entry.value.content"
+									(input)="updateProperty(entry.id, 'content', $any($event.target).value)"
+								></textarea>
+							}
+							@case ('date') {
+								<input
+									type="date"
+									class="input input-bordered w-full"
+									[value]="entry.value.content"
+									(input)="updateProperty(entry.id, 'content', $any($event.target).value)"
+								/>
+							}
+							@case ('quill') {
+								<lib-quill-textarea
+									[html]="entry.value.content"
+									(htmlChange)="updateProperty(entry.id, 'content', $event)"
+								></lib-quill-textarea>
+							}
+							@default {
+								<input
+									type="text"
+									class="input input-bordered w-full"
+									[value]="entry.value.content"
+									(input)="updateProperty(entry.id, 'content', $any($event.target).value)"
+								/>
+							}
+						}
+					</div>
+				</div>
+			}
+		</div>
+
+		<div class="divider">Add Property</div>
+		<div class="bg-base-100 border-base-200 flex items-end gap-2 rounded-xl border p-4 shadow-xs">
+			<div class="form-control w-full max-w-xs">
+				<label
+					class="label"
+					for="newPropNameInput"
+					><span class="label-text">Name</span></label
+				>
+				<input
+					id="newPropNameInput"
+					type="text"
+					class="input input-bordered w-full"
+					placeholder="Property name"
+					[ngModel]="newPropertyName()"
+					(ngModelChange)="newPropertyName.set($event)"
+				/>
+			</div>
+			<div class="form-control w-full max-w-xs">
+				<label
+					class="label"
+					for="newPropKeyInput"
+					><span class="label-text">Key</span></label
+				>
+				<input
+					id="newPropKeyInput"
+					type="text"
+					class="input input-bordered w-full"
+					placeholder="Property key"
+					[ngModel]="newPropertyKey()"
+					(ngModelChange)="newPropertyKey.set($event)"
+				/>
+			</div>
+			<div class="form-control w-full max-w-xs">
+				<label
+					class="label"
+					for="newPropKindSelect"
+					><span class="label-text">Kind</span></label
+				>
+				<select
+					id="newPropKindSelect"
+					class="select select-bordered w-full"
+					[ngModel]="newPropertyKind()"
+					(ngModelChange)="newPropertyKind.set($event)"
+				>
+					<option value="text">Text</option>
+					<option value="textarea">Long Text</option>
+					<option value="quill">Rich Text</option>
+					<option value="date">Date</option>
+				</select>
+			</div>
+			<button
+				class="btn btn-primary"
+				(click)="addProperty()"
+			>
+				Add
+			</button>
+		</div>
+	</div>
+</div>

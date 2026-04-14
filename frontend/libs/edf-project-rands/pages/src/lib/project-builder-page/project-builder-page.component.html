@@ -1,0 +1,361 @@
+@let project = patchableProject.patchedItem();
+@let isPresentationFocusMode = (activeTab() === 'presentation' || activeTab() === 'presentations') && presentationFocusMode();
+@if (project) {
+	<div
+		#pageShell
+		class="bg-base-200/50 flex h-full min-h-96 w-full flex-col"
+	>
+		<!-- Top Bar -->
+		@if (!isPresentationFocusMode) {
+			<nav class="bg-base-100 border-base-200 m-2 flex shrink-0 items-center justify-between overflow-x-auto rounded-xl border px-6 py-3 shadow-sm">
+				<a
+					class="text-base-content hover:text-primary flex cursor-pointer items-center justify-center transition-colors sm:justify-start"
+					[routerLink]="'/host/dashboard/projects'"
+				>
+					<div class="flex cursor-pointer items-center gap-3">
+						<div class="from-primary to-secondary flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 200 2048 2048"
+								class="h-5 w-5 fill-white"
+							>
+								<path d="M1024 165l941 942-90 90-83-82v805h-640v-640H896v640H256v-805l-83 82-90-90zm640 1627V987l-640-640-640 640v805h384v-640h512v640h384z" />
+							</svg>
+						</div>
+						<span
+							class="text-lg font-semibold"
+							[translate]
+							>Éditeur de projet</span
+						>
+						@if (project.name) {
+							<span class="text-base-content/35 text-lg">/</span>
+							<span class="text-base-content/75 text-lg font-medium">{{ project.name }}</span>
+						}
+					</div>
+				</a>
+			</nav>
+		}
+
+		<!-- Main Layout -->
+		<div
+			class="relative flex min-h-96 flex-1 grow gap-4 overflow-auto"
+			[class.m-2]="!isPresentationFocusMode"
+			[class.m-0]="isPresentationFocusMode"
+		>
+			@if (activeTab() === 'presentation' && !isPresentationFocusMode) {
+				<aside class="bg-base-100 border-base-200 relative w-80 shrink-0 space-y-4 overflow-auto rounded-xl border p-4 shadow-sm">
+					<div>
+						<div class="text-base-content/45 mb-2 text-xs font-semibold tracking-[0.24em] uppercase">
+							Update report
+						</div>
+						<h2 class="text-base-content text-lg font-semibold">Table des matières</h2>
+						<p class="text-base-content/60 mt-1 text-sm">Accéder directement à une diapositive de la présentation.</p>
+					</div>
+
+					@if (presentationTocItems().length > 0) {
+						<nav class="space-y-2">
+							@for (item of presentationTocItems(); track item.id) {
+								<button
+									class="bg-base-200/35 hover:bg-base-200 w-full rounded-xl border border-transparent px-3 py-3 text-left transition-colors"
+									(click)="scrollToPresentationActivity(item.id)"
+								>
+									<div class="flex items-center justify-between gap-3">
+										<div class="font-mono text-xs font-semibold text-primary">{{ item.label }}</div>
+										<div class="text-base-content/45 font-mono text-xs">{{ item.slideNumber }}/{{ presentationTocItems().length }}</div>
+									</div>
+									<div class="text-base-content mt-1 text-sm font-medium">{{ item.title }}</div>
+								</button>
+							}
+						</nav>
+					} @else {
+						<div class="text-base-content/40 py-8 text-sm">Aucune diapositive dans cette présentation.</div>
+					}
+				</aside>
+			} @else if (!isPresentationFocusMode) {
+				<lib-project-builder-menu
+					class="contents"
+					[projectId]="project.id"
+				></lib-project-builder-menu>
+			}
+
+			<!-- Content Area -->
+			<main #mainContent class="flex-1 overflow-y-auto scroll-smooth">
+				<div
+					class="space-y-6"
+					[class.mx-auto]="!isPresentationFocusMode"
+					[class.max-w-5xl]="!isPresentationFocusMode"
+					[class.px-2]="isPresentationFocusMode"
+					[class.py-2]="isPresentationFocusMode"
+				>
+					<div
+						id="reports-section"
+						class="bg-base-100 border-base-200 rounded-xl border shadow-sm"
+					>
+						<div class="w-full p-6">
+							<div class="overflow-x-auto pb-1">
+								<div
+									role="tablist"
+									class="tabs tabs-box flex w-max min-w-full gap-1"
+								>
+									<button
+										role="tab"
+										class="tab whitespace-nowrap"
+										[class.tab-active]="activeTab() === 'extra-properties'"
+										(click)="activeTab.set('extra-properties')"
+									>
+										Propriétés supplémentaires
+									</button>
+									<button
+										role="tab"
+										class="tab whitespace-nowrap"
+										[class.tab-active]="activeTab() === 'details'"
+										(click)="activeTab.set('details')"
+									>
+										Détails des activités
+									</button>
+									<button
+										role="tab"
+										class="tab whitespace-nowrap"
+										[class.tab-active]="activeTab() === 'reports'"
+										(click)="activeTab.set('reports')"
+									>
+										Rapports
+									</button>
+									<button
+										role="tab"
+										class="tab whitespace-nowrap"
+										[class.tab-active]="activeTab() === 'achats'"
+										(click)="activeTab.set('achats')"
+									>
+										Achats
+									</button>
+									<button
+										role="tab"
+										class="tab whitespace-nowrap"
+										[class.tab-active]="activeTab() === 'contributeurs'"
+										(click)="activeTab.set('contributeurs')"
+									>
+										Contributeurs
+									</button>
+									<button
+										role="tab"
+										class="tab whitespace-nowrap"
+										[class.tab-active]="activeTab() === 'presentation'"
+										(click)="activeTab.set('presentation')"
+									>
+										Update report
+									</button>
+									<button
+										role="tab"
+										class="tab whitespace-nowrap"
+										[class.tab-active]="activeTab() === 'presentations'"
+										(click)="activeTab.set('presentations')"
+									>
+										Presentations
+									</button>
+									<button
+										role="tab"
+										class="tab whitespace-nowrap"
+										[class.tab-active]="activeTab() === 'slides'"
+										(click)="activeTab.set('slides')"
+									>
+										Slides
+									</button>
+									<button
+										role="tab"
+										class="tab whitespace-nowrap"
+										[class.tab-active]="activeTab() === 'cost-followup'"
+										(click)="activeTab.set('cost-followup')"
+									>
+										Suivi des coûts
+									</button>
+								</div>
+							</div>
+
+							<div class="mt-6 space-y-6">
+								@if (activeTab() === 'extra-properties') {
+									<lib-extra-properties-editor
+										[extraProperties]="project.config.extraProperties"
+										(extraPropertiesChange)="patchableProject.updateField('config.extraProperties', $event, true)"
+									></lib-extra-properties-editor>
+								} @else if (activeTab() === 'details') {
+									<div>
+										<div class="mb-4 flex items-center justify-between">
+											<h2
+												class="text-base-content text-lg font-semibold"
+												[translate]
+											>
+												Activités et lots
+											</h2>
+											<div class="join">
+												<button
+													class="btn btn-sm btn-outline join-item"
+													(click)="addActivity()"
+													[translate]
+												>
+													Ajouter une activité
+												</button>
+												<button
+													class="btn btn-sm btn-secondary join-item"
+													(click)="addBatch()"
+													[translate]
+												>
+													Ajouter un lot
+												</button>
+											</div>
+										</div>
+
+										<lib-project-batch-selector
+											class="mb-5 block"
+											[batches]="batches()"
+											[(selectedBatchId)]="selectedBatchId"
+										></lib-project-batch-selector>
+
+										<!-- table of detailed activities -->
+										@if (selectedBatch(); as selectedBatch) {
+											<div class="mb-4 flex items-center gap-2">
+												<div class="badge badge-primary">{{ selectedBatch.prefix }} - {{ selectedBatch.title }}</div>
+												<div class="badge badge-secondary">{{ displayedDetailedActivities().length }} <span>activités</span></div>
+												<button
+													class="btn btn-xs btn-ghost"
+													(click)="selectedBatchId.set('no-zero')"
+													[translate]
+												>
+													Effacer le filtre
+												</button>
+											</div>
+										} @else if (selectedBatchId() === 'no-zero') {
+											<div class="mb-4 flex items-center gap-2">
+												<div class="badge badge-secondary">{{ displayedDetailedActivities().length }} <span>activités (hors "L0")</span></div>
+												<button
+													class="btn btn-xs btn-ghost"
+													(click)="selectedBatchId.set(null)"
+													[translate]
+												>
+													Effacer le filtre
+												</button>
+											</div>
+										} @else {
+											<div class="mb-4">
+												<div class="badge badge-secondary">{{ displayedDetailedActivities().length }} <span>activités</span></div>
+											</div>
+										}
+
+										<lib-detailed-project-table
+											#detailedProjectTable
+											click-behavior="none"
+											(cellClicked)="goToBuilder($event)"
+											class="block min-w-full"
+											[projectId]="projectId()"
+											[displayBatchColumn]="!selectedBatchId() || selectedBatchId() === 'no-zero'"
+											(deliverableToCreate)="addDeliverableToActivity($event)"
+										></lib-detailed-project-table>
+									</div>
+								} @else if (activeTab() === 'reports') {
+									<lib-report-editor
+										[availableData]="availableData()"
+										[(activeReportId)]="activeReportId"
+										[reportConfigs]="project.config.reportConfigs || {}"
+										(reportConfigsChange)="patchableProject.updateField('config.reportConfigs',$event,true)"
+									></lib-report-editor>
+								} @else if (activeTab() === 'achats') {
+									<lib-project-purchases-tab
+										[purchases]="purchases()"
+										[detailedActivities]="allDetailedActivities()"
+										[(selectedYear)]="selectedPurchasesYear"
+									></lib-project-purchases-tab>
+								} @else if (activeTab() === 'contributeurs') {
+									<div class="space-y-5">
+										<lib-project-batch-selector
+											[batches]="batches()"
+											[(selectedBatchId)]="selectedBatchId"
+										></lib-project-batch-selector>
+										<lib-project-contributors-tab
+											[contributions]="contributions()"
+											[visibleActivityIds]="displayedActivityIds()"
+											[detailedActivities]="displayedDetailedActivities()"
+											[(selectedYear)]="selectedContributorsYear"
+										></lib-project-contributors-tab>
+									</div>
+								} @else if (activeTab() === 'presentation') {
+									<div class="space-y-5">
+										<lib-project-batch-selector
+											[batches]="batches()"
+											[(selectedBatchId)]="selectedBatchId"
+										></lib-project-batch-selector>
+										<lib-project-presentation-tab
+											[detailedActivities]="displayedDetailedActivities()"
+											[contributions]="contributions()"
+											[purchases]="purchases()"
+											[facilityUsages]="facilityUsages()"
+											[contributorCategories]="contributorCategories()"
+											[projectYears]="projectPresentationYears()"
+											[project]="project"
+											[mainCustomer]="mainCustomerDisplayName()"
+											[sponsorCustomer]="sponsorCustomerDisplayName()"
+											[projectManager]="projectManagerDisplayName()"
+											[strategicLead]="strategicLeadDisplayName()"
+											[(selectedYear)]="selectedPresentationYear"
+											[(focusMode)]="presentationFocusMode"
+											(tocItemsChange)="presentationTocItems.set($event)"
+										></lib-project-presentation-tab>
+									</div>
+								} @else if (activeTab() === 'presentations') {
+									<lib-project-presentations-tab
+										[detailedActivities]="allDetailedActivities()"
+										[contributions]="contributions()"
+										[purchases]="purchases()"
+										[facilityUsages]="facilityUsages()"
+										[contributorCategories]="contributorCategories()"
+										[projectYears]="projectPresentationYears()"
+										[project]="project"
+										[presentationCatalogs]="project.config.presentationCatalogs || []"
+										[slideCatalog]="project.config.presentationSlideCatalog || []"
+										[mainCustomer]="mainCustomerDisplayName()"
+										[sponsorCustomer]="sponsorCustomerDisplayName()"
+										[projectManager]="projectManagerDisplayName()"
+										[strategicLead]="strategicLeadDisplayName()"
+										[(focusMode)]="presentationFocusMode"
+										[(selectedPresentationCatalogId)]="selectedPresentationCatalogId"
+										(presentationCatalogsChange)="patchableProject.updateField('config.presentationCatalogs', $event, true)"
+									></lib-project-presentations-tab>
+								} @else if (activeTab() === 'slides') {
+									<lib-project-slides-tab
+										[slideCatalog]="project.config.presentationSlideCatalog || []"
+										(slideCatalogChange)="patchableProject.updateField('config.presentationSlideCatalog', $event, true)"
+									></lib-project-slides-tab>
+								} @else if (activeTab() === 'cost-followup') {
+									<lib-project-cost-followup-tab
+										[projectCode]="project.code"
+										[selectedFileId]="project.config.costTrackingFileId ?? null"
+										(selectedFileIdChange)="patchableProject.updateField('config.costTrackingFileId', $event, true)"
+									></lib-project-cost-followup-tab>
+								} @else {
+									<div>Onglet non implémenté : {{ activeTab() }}</div>
+								}
+							</div>
+						</div>
+					</div>
+				</div>
+			</main>
+		</div>
+	</div>
+} @else {
+	<div class="bg-base-200/50 flex h-full items-center justify-center">
+		<div class="text-center">
+			<div class="mb-4 text-6xl">🎨</div>
+			<h1
+				class="text-base-content text-2xl font-bold"
+				[translate]
+			>
+				Projet introuvable
+			</h1>
+			<p
+				class="text-base-content/60 py-6"
+				[translate]
+			>
+				Le projet demandé n'est pas disponible
+			</p>
+		</div>
+	</div>
+}

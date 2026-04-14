@@ -75,10 +75,35 @@ export class TranslationTableComponent extends RepositoryTableComponent<Translat
 	}
 
 	private _i18n_enterManualTranslation = this._translationService.prep('Enter translation');
+	private _i18n_originalLanguage = this._translationService.prep('Original language');
+	private _i18n_originalText = this._translationService.prep('Original text');
+	private _i18n_context = this._translationService.prep('Context');
+
+	private _escapeHtml(value: string) {
+		return value
+			.replaceAll('&', '&amp;')
+			.replaceAll('<', '&lt;')
+			.replaceAll('>', '&gt;')
+			.replaceAll('"', '&quot;')
+			.replaceAll("'", '&#39;');
+	}
+
+	private _buildDuplicateTranslationMessage(translation: Translation) {
+		const languageSource = this._escapeHtml((translation.languageSource || 'unknown').toUpperCase());
+		const sourceContent = this._escapeHtml(translation.sourceContent || '-');
+		const translationContext = this._escapeHtml(translation.translationContext || '-');
+
+		return [
+			`<strong>${this._escapeHtml(this._i18n_originalLanguage())}</strong>: ${languageSource}`,
+			`<strong>${this._escapeHtml(this._i18n_originalText())}</strong><br><span class="block whitespace-pre-wrap">${sourceContent}</span>`,
+			`<strong>${this._escapeHtml(this._i18n_context())}</strong><br><span class="block whitespace-pre-wrap">${translationContext}</span>`,
+		].join('<br><br>');
+	}
+
 	duplicateTranslation(translation: Translation) {
 		this._notificationService
-			.prompt(undefined, this._i18n_enterManualTranslation(), {
-				width: '300px',
+			.prompt(this._buildDuplicateTranslationMessage(translation), this._i18n_enterManualTranslation(), {
+				width: '560px',
 				defaultValue: translation.translatedContent || '',
 			})
 			.closed.pipe(

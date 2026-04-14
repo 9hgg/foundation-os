@@ -1,10 +1,11 @@
-import pytest
-from unittest.mock import MagicMock
 import uuid
-from libs.files.api import create_crud_file_router
-from fastapi import Request
+from unittest.mock import MagicMock
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+from libs.files.api import create_crud_file_router
 
 
 @pytest.fixture
@@ -28,8 +29,8 @@ def test_get_upload_details_new_file(
 ):
     app = client.app
 
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value
@@ -59,8 +60,8 @@ def test_get_upload_details_existing_file(
     client, mock_file_storage, mock_file_cls, mock_user, mock_session, mock_translator
 ):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value
@@ -91,8 +92,8 @@ def test_get_upload_details_folder_creation(
     mock_add_to_folder,
 ):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value
@@ -112,8 +113,8 @@ def test_get_upload_details_folder_creation(
 
 def test_get_upload_details_invalid_folder_path(client, mock_user, mock_session, mock_translator, mock_file_storage):
     app = client.app
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
 
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value

@@ -1,0 +1,114 @@
+@reference "tailwindcss";
+
+.presentation-update--highlighted {
+	border-color: color-mix(in oklab, var(--color-primary) 38%, transparent);
+	background-color: color-mix(in oklab, var(--color-primary) 8%, var(--color-base-200));
+	box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 14%, transparent);
+}
+
+.presentation-effort-chart {
+	height: 320px;
+	width: 100%;
+}
+
+:host-context(body.presentation-print-mode) [data-presentation-export-hide] {
+	display: none !important;
+}
+
+:host-context(body.presentation-print-mode) [data-presentation-description-content] {
+	max-height: none !important;
+	overflow: visible !important;
+	mask-image: none !important;
+	-webkit-mask-image: none !important;
+}
+
+:host-context(body.presentation-print-mode) .presentation-update-action {
+	display: none !important;
+}
+
+@media print {
+	body.presentation-print-mode {
+		background: white !important;
+	}
+
+	body.presentation-print-mode app-root > * {
+		display: none !important;
+	}
+
+	body.presentation-print-mode lib-edf-project-rand-builder-page,
+	body.presentation-print-mode lib-edf-project-rand-builder-page > div,
+	body.presentation-print-mode lib-edf-project-rand-builder-page > div > div,
+	body.presentation-print-mode lib-edf-project-rand-builder-page main,
+	body.presentation-print-mode lib-project-presentation-tab {
+		display: block !important;
+		overflow: visible !important;
+		height: auto !important;
+		max-height: none !important;
+	}
+
+	body.presentation-print-mode lib-project-presentation-tab > div > :not(#presentation-print-slides) {
+		display: none !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides {
+		display: block !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section {
+		break-after: page;
+		page-break-after: always;
+		box-shadow: none !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] > div:first-child {
+		padding-top: 1.25rem !important;
+		padding-bottom: 1.25rem !important;
+		transform: scale(0.78);
+		transform-origin: top center;
+		width: 128.2052%;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] .space-y-6 {
+		gap: 1rem !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] .grid {
+		gap: 1rem !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] .space-y-4 > * + * {
+		margin-top: 0.75rem !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] .space-y-3 > * + * {
+		margin-top: 0.5rem !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] .px-6,
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] .px-5 {
+		padding-left: 1rem !important;
+		padding-right: 1rem !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] .py-6,
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] .py-5,
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] .py-4 {
+		padding-top: 0.75rem !important;
+		padding-bottom: 0.75rem !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] h2 {
+		font-size: 2rem !important;
+		line-height: 1.15 !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] p,
+	body.presentation-print-mode #presentation-print-slides > section[data-presentation-safety-slide] li {
+		line-height: 1.45 !important;
+	}
+
+	body.presentation-print-mode #presentation-print-slides > section:last-child {
+		break-after: auto;
+		page-break-after: auto;
+	}
+}

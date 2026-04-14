@@ -1,0 +1,161 @@
+<div class="space-y-6">
+	<div class="flex flex-wrap items-start justify-between gap-4">
+		<div>
+			<h2 class="text-base-content text-lg font-semibold">Suivi des coûts</h2>
+			<p class="text-base-content/60 mt-1 text-sm">
+				Sélectionner un tableau de bord chef de projet pour visualiser les heures passées sur ce projet, mois par mois.
+			</p>
+		</div>
+		<div class="flex flex-wrap gap-2">
+			<button
+				type="button"
+				class="btn btn-sm btn-outline"
+				(click)="selectExistingFile()"
+			>
+				Sélectionner un fichier
+			</button>
+			<lib-upload-button
+				accept=".xlsx,.xls"
+				height="auto"
+				width="auto"
+				(uploadedFiles)="processUploadedFiles($event)"
+			>
+				<button
+					type="button"
+					class="btn btn-sm btn-outline"
+				>
+					Importer un nouveau fichier
+				</button>
+			</lib-upload-button>
+			@if (selectedFileId()) {
+				<button
+					type="button"
+					class="btn btn-sm btn-ghost"
+					(click)="clearSelectedFile()"
+				>
+					Retirer le fichier
+				</button>
+			}
+		</div>
+	</div>
+
+	@if (selectedFile(); as file) {
+		<div class="bg-base-100 border-base-200 flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
+			<div class="h-20 w-24 shrink-0 overflow-hidden rounded-xl border border-base-200">
+				<lib-file-thumbnail
+					[entityFile]="file"
+					class="h-full w-full"
+				></lib-file-thumbnail>
+			</div>
+			<div class="min-w-0">
+				<div class="text-base-content text-sm font-semibold">{{ file.publicFilename || file.originalFilename || file.id }}</div>
+				<div class="text-base-content/55 mt-1 text-xs">Code projet analysé : {{ projectCode() || '—' }}</div>
+			</div>
+		</div>
+	}
+
+	@if (isLoading()) {
+		<div class="bg-base-100 border-base-200 rounded-2xl border p-6 text-sm shadow-sm">Chargement du suivi des coûts...</div>
+	} @else if (errorMessage(); as errorMessage) {
+		<div class="alert alert-error shadow-sm">{{ errorMessage }}</div>
+	} @else if (followupData(); as data) {
+		<div class="grid gap-4 md:grid-cols-3">
+			<div class="bg-base-100 border-base-200 rounded-2xl border p-4 shadow-sm">
+				<div class="text-base-content/55 text-xs font-semibold uppercase tracking-[0.2em]">Projet</div>
+				<div class="text-base-content mt-2 text-2xl font-semibold">{{ data.projectCode }}</div>
+			</div>
+			<div class="bg-base-100 border-base-200 rounded-2xl border p-4 shadow-sm">
+				<div class="text-base-content/55 text-xs font-semibold uppercase tracking-[0.2em]">Contributeurs</div>
+				<div class="text-base-content mt-2 text-2xl font-semibold">{{ data.contributors.length }}</div>
+			</div>
+			<div class="bg-base-100 border-base-200 rounded-2xl border p-4 shadow-sm">
+				<div class="text-base-content/55 text-xs font-semibold uppercase tracking-[0.2em]">Heures totales</div>
+				<div class="text-base-content mt-2 text-2xl font-semibold">{{ data.totalHours }}</div>
+			</div>
+		</div>
+
+		@if (data.contributors.length > 0 && monthColumns().length > 0) {
+			<div class="bg-base-100 border-base-200 rounded-2xl border p-4 shadow-sm">
+				<div class="mb-3 flex flex-wrap items-start justify-between gap-3">
+					<div>
+						<h3 class="text-base-content text-base font-semibold">
+							{{ selectedDisplayMode() === 'cumulative' ? 'Temps cumulé par contributeur' : 'Heures par contributeur et par mois' }}
+						</h3>
+						<p class="text-base-content/55 mt-1 text-sm">Lecture du fichier filtrée sur le code projet courant.</p>
+					</div>
+					<div class="join">
+						<button
+							type="button"
+							class="btn btn-sm join-item"
+							[class.btn-active]="selectedDisplayMode() === 'cumulative'"
+							(click)="setDisplayMode('cumulative')"
+						>
+							Cumulé
+						</button>
+						<button
+							type="button"
+							class="btn btn-sm join-item"
+							[class.btn-active]="selectedDisplayMode() === 'monthly'"
+							(click)="setDisplayMode('monthly')"
+						>
+							Mois par mois
+						</button>
+					</div>
+				</div>
+				<div
+					#chartHost
+					class="cost-followup-chart"
+				></div>
+			</div>
+
+			<div class="bg-base-100 border-base-200 rounded-2xl border p-4 shadow-sm">
+				<div class="overflow-x-auto">
+					<table class="table table-sm w-full">
+						<thead>
+							<tr class="bg-base-200/60 text-base-content/70">
+								<th>Contributeur</th>
+								@for (month of monthColumns(); track month.key) {
+									<th class="text-right whitespace-nowrap">{{ month.label }}</th>
+								}
+								<th class="text-right whitespace-nowrap">{{ selectedDisplayMode() === 'cumulative' ? 'Cumul final' : 'Total' }}</th>
+							</tr>
+						</thead>
+						<tbody>
+							@for (row of contributorRows(); track row.contributorKey) {
+								<tr>
+									<td class="min-w-60">
+										<div class="font-medium">{{ row.contributorName }}</div>
+										@if (row.nni) {
+											<div class="text-base-content/45 text-xs">{{ row.nni }}</div>
+											}
+										</td>
+										@for (month of monthColumns(); track month.key) {
+											<td class="text-right tabular-nums whitespace-nowrap">{{ row.displayedMonthlyHours[month.key] }}</td>
+										}
+										<td class="text-right font-semibold tabular-nums whitespace-nowrap">{{ row.displayedTotalHours }}</td>
+									</tr>
+								}
+							</tbody>
+						<tfoot>
+							<tr class="bg-base-200/60 font-semibold">
+								<td>Total</td>
+								@for (month of monthColumns(); track month.key) {
+									<td class="text-right tabular-nums whitespace-nowrap">{{ totalHoursByMonth()[month.key] }}</td>
+								}
+								<td class="text-right tabular-nums whitespace-nowrap">{{ data.totalHours }}</td>
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+			</div>
+		} @else {
+			<div class="bg-base-100 border-base-200 rounded-2xl border p-8 text-center shadow-sm">
+				<div class="text-base-content/55 text-sm">Aucune heure trouvée dans ce fichier pour le code projet {{ data.projectCode }}.</div>
+			</div>
+		}
+	} @else {
+		<div class="bg-base-100 border-base-200 rounded-2xl border p-8 text-center shadow-sm">
+			<div class="text-base-content/55 text-sm">Sélectionner un fichier pour afficher le suivi des coûts du projet.</div>
+		</div>
+	}
+</div>

@@ -1,0 +1,153 @@
+<div class="space-y-5">
+	<div class="flex flex-wrap items-end justify-between gap-4">
+		<div>
+			<div class="text-base-content/45 text-xs font-semibold uppercase tracking-[0.28em]">Catalogue de slides</div>
+			<h2 class="text-base-content mt-2 text-xl font-semibold">Créer et gérer les slides réutilisables</h2>
+			<p class="text-base-content/65 mt-1 text-sm">Ces slides peuvent ensuite être insérés dans n'importe quelle présentation.</p>
+		</div>
+
+		<div class="flex flex-wrap gap-2">
+			<button
+				type="button"
+				class="btn btn-primary"
+				(click)="addSlide()"
+			>
+				Nouveau slide
+			</button>
+			<button
+				type="button"
+				class="btn btn-outline"
+				(click)="duplicateSelectedSlide()"
+				[disabled]="!selectedSlide()"
+			>
+				Dupliquer
+			</button>
+			<button
+				type="button"
+				class="btn btn-error btn-outline"
+				(click)="deleteSelectedSlide()"
+				[disabled]="!selectedSlide()"
+			>
+				Supprimer
+			</button>
+		</div>
+	</div>
+
+	<div class="grid gap-5 xl:grid-cols-[22rem_minmax(0,1fr)]">
+		<section class="bg-base-100 border-base-200 rounded-2xl border p-5 shadow-sm">
+			<div class="flex items-center justify-between gap-3">
+				<div>
+					<div class="text-base-content text-sm font-semibold">Slides disponibles</div>
+					<div class="text-base-content/55 text-xs">{{ slideCatalog().length }} slide(s)</div>
+				</div>
+			</div>
+
+			@if (slideCatalog().length === 0) {
+				<div class="mt-4 rounded-2xl border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55">
+					Aucun slide dans le catalogue pour le moment.
+				</div>
+			} @else {
+				<div class="mt-4 space-y-2">
+					@for (slide of slideCatalog(); track slide.id) {
+						<button
+							type="button"
+							class="w-full rounded-2xl border px-4 py-3 text-left transition-colors"
+							[class.border-primary]="selectedSlide()?.id === slide.id"
+							[class.bg-primary/5]="selectedSlide()?.id === slide.id"
+							[class.border-base-200]="selectedSlide()?.id !== slide.id"
+							[class.bg-base-200/20]="selectedSlide()?.id !== slide.id"
+							(click)="selectSlide(slide.id)"
+						>
+							<div class="text-sm font-semibold">{{ slide.title }}</div>
+							<div class="text-base-content/55 mt-1 text-xs">{{ slide.label }} · {{ slide.id }}</div>
+						</button>
+					}
+				</div>
+			}
+		</section>
+
+		<section class="bg-base-100 border-base-200 rounded-2xl border p-5 shadow-sm">
+			@if (selectedSlide()) {
+				<div class="space-y-4">
+					<div>
+						<div class="text-base-content text-sm font-semibold">Édition</div>
+						<div class="text-base-content/55 mt-1 text-xs">{{ selectedSlide()?.id }}</div>
+					</div>
+
+					<div class="grid gap-4 lg:grid-cols-2">
+						<label class="form-control">
+							<div class="label px-0 pt-0">
+								<span class="label-text font-medium">Label</span>
+							</div>
+							<input
+								type="text"
+								class="input input-bordered w-full"
+								[ngModel]="selectedSlideLabel()"
+								(ngModelChange)="updateSelectedSlideLabel($event)"
+							/>
+						</label>
+
+						<label class="form-control">
+							<div class="label px-0 pt-0">
+								<span class="label-text font-medium">Titre</span>
+							</div>
+							<input
+								type="text"
+								class="input input-bordered w-full"
+								[ngModel]="selectedSlideTitle()"
+								(ngModelChange)="updateSelectedSlideTitle($event)"
+							/>
+						</label>
+					</div>
+
+					<label class="form-control">
+						<div class="label px-0 pt-0">
+							<span class="label-text font-medium">Sous-titre</span>
+						</div>
+						<input
+							type="text"
+							class="input input-bordered w-full"
+							[ngModel]="selectedSlideSubtitle()"
+							(ngModelChange)="updateSelectedSlideSubtitle($event)"
+						/>
+					</label>
+
+					<label class="form-control">
+						<div class="label px-0 pt-0">
+							<span class="label-text font-medium">Contenu</span>
+						</div>
+						<lib-quill-textarea
+							[html]="selectedSlideBodyHtml()"
+							(htmlChange)="updateSelectedSlideBodyHtml($event)"
+						></lib-quill-textarea>
+					</label>
+
+					<div class="flex flex-wrap gap-4">
+						<label class="label cursor-pointer justify-start gap-3 px-0">
+							<input
+								type="checkbox"
+								class="checkbox checkbox-sm"
+								[ngModel]="selectedSlideIncludeInToc()"
+								(ngModelChange)="updateSelectedSlideIncludeInToc($event)"
+							/>
+							<span class="label-text">Afficher dans la table des matières</span>
+						</label>
+						<label class="label cursor-pointer justify-start gap-3 px-0">
+							<input
+								type="checkbox"
+								class="checkbox checkbox-sm"
+								[ngModel]="selectedSlideShowNumber()"
+								(ngModelChange)="updateSelectedSlideShowNumber($event)"
+							/>
+							<span class="label-text">Afficher la numérotation</span>
+						</label>
+					</div>
+				</div>
+			} @else {
+				<div class="rounded-2xl border border-dashed border-base-300 px-4 py-10 text-sm text-base-content/55">
+					Sélectionner un slide du catalogue ou en créer un nouveau.
+				</div>
+			}
+		</section>
+	</div>
+</div>

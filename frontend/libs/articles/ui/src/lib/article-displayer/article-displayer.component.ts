@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, ChangeDetectionStrategy, Component, effect, inject, input, model } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
-import { ChatDisplayerComponent } from 'libs/conversations/ui/src/lib/chat-displayer/chat-displayer.component';
+import { ChatDisplayerComponent } from '@foundation/conversations/ui';
 import { filter, of, take, tap } from 'rxjs';
 
 @Component({

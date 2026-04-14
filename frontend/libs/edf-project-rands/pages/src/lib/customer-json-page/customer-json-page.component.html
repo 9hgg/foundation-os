@@ -1,0 +1,8 @@
+@let customer = customer$$$.$ | async; @if (customer) {
+<div class="p-6">
+  <h1 class="text-lg font-semibold mb-3">Customer JSON</h1>
+  <pre class="bg-base-100 border p-4 rounded">{{ customer | json }}</pre>
+</div>
+} @else {
+<div class="p-6 text-center">Customer not found</div>
+}

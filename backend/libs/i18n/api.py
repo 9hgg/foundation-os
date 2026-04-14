@@ -1,15 +1,21 @@
 import hashlib
 
+import cachetools
+
 from fastapi import Body
 
 from libs.endpoints import create_crud_endpoints
-from libs.endpoints.config import ENDPOINTS_SETTINGS
 from libs.i18n.deps import Translator__dep
 from libs.resource.resource import context_db
 from libs.utils.deps import ClassicDeps__dep
 from libs.utils.types import BaseModelWithConfig, EndpointError, EndpointOutput
 
 from . import models
+
+
+SMART_TRANSLATION_CACHE: cachetools.TTLCache = cachetools.TTLCache(
+    maxsize=2048, ttl=120
+)
 
 
 class SentenceToTranslate(BaseModelWithConfig):
@@ -36,6 +42,21 @@ class SentenceTranslated(SentenceToTranslate):
     raw_translated_sentence: str
 
 
+def _build_smart_translation_cache_key(
+    input_sentence: str,
+    lang_code: str,
+    translation_context: str | None = None,
+    input_language: str | None = None,
+) -> str:
+    hash_payload = input_sentence
+    if translation_context:
+        hash_payload += "{{" + translation_context + "}}"
+    if input_language:
+        hash_payload += "{{src:" + input_language + "}}"
+    hash_string = hashlib.sha256(hash_payload.encode()).hexdigest()
+    return f"{hash_string}:{lang_code}"
+
+
 def _get_smart_translation(
     db,
     input_sentence: str,
@@ -43,12 +64,16 @@ def _get_smart_translation(
     translation_context: str | None = None,
     input_language: str | None = None,
 ) -> str | None:
-    hash_payload = input_sentence
-    if translation_context:
-        hash_payload += "{{" + translation_context + "}}"
-    if input_language:
-        hash_payload += "{{src:" + input_language + "}}"
-    hash_string = hashlib.sha256(hash_payload.encode()).hexdigest()
+    cache_key = _build_smart_translation_cache_key(
+        input_sentence=input_sentence,
+        lang_code=lang_code,
+        translation_context=translation_context,
+        input_language=input_language,
+    )
+    if cache_key in SMART_TRANSLATION_CACHE:
+        return SMART_TRANSLATION_CACHE[cache_key]
+
+    hash_string = cache_key.split(":", 1)[0]
 
     existing_translations = (
         models.Translation.query(db)
@@ -64,10 +89,13 @@ def _get_smart_translation(
         # 1. Look for manual
         for t in existing_translations:
             if t.translator == "manual":
+                SMART_TRANSLATION_CACHE[cache_key] = t.translated_content
                 return t.translated_content
         # 2. Most recent
+        SMART_TRANSLATION_CACHE[cache_key] = existing_translations[0].translated_content
         return existing_translations[0].translated_content
 
+    SMART_TRANSLATION_CACHE[cache_key] = None
     return None
 
 
@@ -86,26 +114,17 @@ def create_crud_translation_router(prefix: str = "/api/translations"):
     ):
         current_user_db, _, _ = classic_deps
 
-        # check email is verified
-        if not current_user_db or not current_user_db.email_verified:
+        if not current_user_db or not current_user_db.is_admin():
             return EndpointOutput(
                 error=EndpointError(
                     title="Not authorized",
-                    description="You are not authorized to delete translations (email not verified)",
-                    code="unauthorized",
-                )
-            )
-
-        if not current_user_db or current_user_db.email not in ENDPOINTS_SETTINGS.ADMIN_EMAILS:
-            return EndpointOutput(
-                error=EndpointError(
-                    title="Not authorized",
-                    description="You are not authorized to delete translations (email not in admin list)",
+                    description="You are not authorized to delete translations",
                     code="unauthorized",
                 )
             )
 
         models.Translation.delete(obj_id=translation_id)
+        SMART_TRANSLATION_CACHE.clear()
 
         return EndpointOutput(result={"success": True})
 
@@ -116,26 +135,17 @@ def create_crud_translation_router(prefix: str = "/api/translations"):
     ):
         current_user_db, _, _ = classic_deps
 
-        # check email is verified
-        if not current_user_db or not current_user_db.email_verified:
+        if not current_user_db or not current_user_db.is_admin():
             return EndpointOutput(
                 error=EndpointError(
                     title="Not authorized",
-                    description="You are not authorized to create manual translations (email not verified)",
-                    code="unauthorized",
-                )
-            )
-
-        if not current_user_db or current_user_db.email not in ENDPOINTS_SETTINGS.ADMIN_EMAILS:
-            return EndpointOutput(
-                error=EndpointError(
-                    title="Not authorized",
-                    description="You are not authorized to create manual translations (email not in admin list)",
+                    description="You are not authorized to create manual translations",
                     code="unauthorized",
                 )
             )
 
         translation_db = models.Translation.create(obj=translation_to_create)
+        SMART_TRANSLATION_CACHE.clear()
 
         return EndpointOutput(result=translation_db)
 

@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 import sqlalchemy as sa
 import sqlmodel
@@ -64,8 +65,8 @@ class MailAttempt(Resource, table=True):
     __description__: str = "A mail attempt is an attempt to send a mail."
     __private__: bool = False
 
-    status: str = sqlmodel.Field(nullable=True)  # sending, sent, failed, unknown
-    error: str = sqlmodel.Field(nullable=True)
+    status: Optional[str] = sqlmodel.Field(nullable=True)  # sending, sent, failed, unknown
+    error: Optional[str] = sqlmodel.Field(nullable=True)
     # foreign key over Mail
     mail_id: uuid.UUID = sqlmodel.Field(nullable=False, foreign_key="mails.id")
     # foreign key over MailProvider

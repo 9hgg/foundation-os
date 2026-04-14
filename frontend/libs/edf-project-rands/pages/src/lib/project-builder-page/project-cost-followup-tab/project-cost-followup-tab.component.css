@@ -1,0 +1,6 @@
+@reference "tailwindcss";
+
+.cost-followup-chart {
+	height: 28rem;
+	width: 100%;
+}

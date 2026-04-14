@@ -1,0 +1,113 @@
+@reference "tailwindcss";
+
+:host {
+	display: block;
+}
+
+.project-batch-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 0.85rem;
+}
+
+.project-batch-card {
+	position: relative;
+	display: flex;
+	min-height: 110px;
+	cursor: pointer;
+	flex-direction: column;
+	justify-content: flex-start;
+	gap: 0.45rem;
+	border-radius: 1rem;
+	border: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, var(--color-base-100) 94%, white 6%), color-mix(in srgb, var(--color-base-200) 82%, white 18%));
+	padding: 0.95rem 1rem;
+	box-shadow: 0 10px 30px -24px color-mix(in srgb, var(--color-base-content) 36%, transparent);
+	transition:
+		transform 160ms ease,
+		border-color 160ms ease,
+		box-shadow 160ms ease,
+		background 160ms ease;
+}
+
+.project-batch-card:hover {
+	transform: translateY(-1px);
+	border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-base-content) 10%);
+	box-shadow: 0 18px 35px -24px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.project-batch-card:focus-visible {
+	outline: 2px solid color-mix(in srgb, var(--color-primary) 75%, white 25%);
+	outline-offset: 2px;
+}
+
+.project-batch-card.is-selected {
+	border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 12%, var(--color-base-100) 88%), color-mix(in srgb, var(--color-primary) 7%, var(--color-base-200) 93%));
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent),
+		0 22px 40px -26px color-mix(in srgb, var(--color-primary) 45%, transparent);
+}
+
+.project-batch-card__eyebrow {
+	padding-right: 2.25rem;
+	font-size: 0.7rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: color-mix(in srgb, var(--color-base-content) 52%, transparent);
+}
+
+.project-batch-card__title {
+	padding-right: 2.25rem;
+	font-size: 1.05rem;
+	font-weight: 700;
+	line-height: 1.15;
+	color: var(--color-base-content);
+}
+
+.project-batch-card__meta {
+	font-size: 0.9rem;
+	line-height: 1.3;
+	color: color-mix(in srgb, var(--color-base-content) 68%, transparent);
+	word-break: break-word;
+}
+
+.project-batch-card__nav-btn {
+	position: absolute;
+	top: 0.7rem;
+	right: 0.7rem;
+	display: inline-flex;
+	height: 2rem;
+	width: 2rem;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px;
+	border: 1px solid color-mix(in srgb, var(--color-base-content) 12%, transparent);
+	background: color-mix(in srgb, var(--color-base-100) 92%, white 8%);
+	color: color-mix(in srgb, var(--color-base-content) 78%, transparent);
+	transition:
+		background 140ms ease,
+		color 140ms ease,
+		border-color 140ms ease,
+		transform 140ms ease;
+}
+
+.project-batch-card__nav-btn:hover {
+	transform: translateY(-1px);
+	border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+	background: color-mix(in srgb, var(--color-primary) 12%, var(--color-base-100) 88%);
+	color: var(--color-primary);
+}
+
+.project-batch-card__nav-btn:focus-visible {
+	outline: 2px solid color-mix(in srgb, var(--color-primary) 70%, white 30%);
+	outline-offset: 2px;
+}
+
+.project-batch-card__nav-btn svg {
+	height: 0.95rem;
+	width: 0.95rem;
+}

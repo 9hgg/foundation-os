@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 
 import { AppConfigService } from '@foundation/app/config';
 import { RequestService } from '@foundation/network/services';
@@ -26,6 +26,8 @@ export class GenericProfilePageComponent {
 	protected _appConfig = inject(AppConfigService);
 
 	public isEmailVerificationLoading = false;
+	public readonly isChangeEmailLoading = signal(false);
+	public readonly changeEmailSuccess = signal(false);
 
 	public convertToUrl = convertToUrl;
 
@@ -50,11 +52,7 @@ export class GenericProfilePageComponent {
 			}
 
 			if (key === 'email') {
-				if (validateEmail(promptResult.value)) {
-					this._notificationService.warning('Contact the support to change your email address.', 'Not implemented yet');
-				} else {
-					this._notificationService.error('Invalid email address');
-				}
+				// Email changes go through the dedicated requestEmailChange() flow
 				return;
 			}
 
@@ -151,6 +149,39 @@ export class GenericProfilePageComponent {
 		this._notificationService.success(`Successfully ${action} ${newsletterKey} newsletter`);
 	}
 
+	public requestEmailChange(newEmail: string) {
+		if (this.isChangeEmailLoading()) return;
+
+		if (!validateEmail(newEmail)) {
+			this._notificationService.error('Invalid email address');
+			return;
+		}
+
+		const currentEmail = this.usersRepository.currentProfile()?.email;
+		if (newEmail.toLowerCase() === currentEmail?.toLowerCase()) {
+			this._notificationService.warning('New email is the same as the current one');
+			return;
+		}
+
+		this.isChangeEmailLoading.set(true);
+		this.changeEmailSuccess.set(false);
+
+		this._requestService
+			.post$<{ message: string }>('/api/users/email/request-change', { newEmail }, undefined)
+			.pipe(
+				tap((response) => {
+					this.isChangeEmailLoading.set(false);
+					if (response.error) {
+						this._notificationService.error(response.error.title, response.error.description ?? '');
+					} else if (response.result) {
+						this.changeEmailSuccess.set(true);
+						this._notificationService.success(response.result.message ?? 'A confirmation email has been sent to your new address.', 'Check your inbox');
+					}
+				})
+			)
+			.subscribe();
+	}
+
 	public sendEmailVerification() {
 		if (this.isEmailVerificationLoading) return;
 		this.isEmailVerificationLoading = true;
@@ -162,7 +193,7 @@ export class GenericProfilePageComponent {
 					if (response.error) {
 						this._notificationService.error(response.error.title, response.error.description || 'Failed to send verification email');
 					} else if (response.result) {
-						this._notificationService.success('Verification email sent!', `A verification email has been sent to ${response.result.email}. Please check your inbox and click the verification link.`);
+						this._notificationService.success(`A verification email has been sent to ${response.result.email}. Please check your inbox and click the verification link.`, 'Verification email sent!');
 					}
 				})
 			)

@@ -1,0 +1,38 @@
+<div class="bg-base-200/30 flex h-full w-full flex-col overflow-auto">
+	<header class="bg-base-100 border-base-200 flex items-center justify-between border-b px-8 py-6">
+		<div>
+			<h1 class="text-base-content text-3xl font-bold"><span [translate]>Contributors</span></h1>
+			<p class="text-base-content/50 mt-1 text-sm font-medium">Manage contributors</p>
+		</div>
+		<div class="flex gap-2">
+			<button
+				class="btn btn-primary shadow-primary/20 shadow-lg"
+				(click)="createNew()"
+			>
+				<span [translate]>New contributor</span>
+			</button>
+			<button
+				class="btn btn-ghost"
+				(click)="importFromExcel()"
+			>
+				<span [translate]>Import from Excel</span>
+			</button>
+			<!-- Admin-only purge button -->
+			@if (isAdmin()) {
+				<button
+					class="btn btn-error"
+					(click)="purgeAll()"
+				>
+					<span [translate]>Purge contributors</span>
+				</button>
+			}
+		</div>
+	</header>
+
+	<main class="flex-1 p-8">
+		<lib-contributor-table
+			click-behavior="emit"
+			(rowClicked)="contributorsRepository.goToContributor($event.id)"
+		></lib-contributor-table>
+	</main>
+</div>

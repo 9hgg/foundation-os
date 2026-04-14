@@ -26,6 +26,7 @@ export * from './lib/jwt.utils';
 export * from './lib/lazy-load-img.directive';
 export * from './lib/maths.utils';
 export * from './lib/memory.utils';
+export * from './lib/meta-data.service';
 export * from './lib/newlines-to-br.pipe';
 export * from './lib/octet-humand-readable.pipe';
 export * from './lib/parser.class';

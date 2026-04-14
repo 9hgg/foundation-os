@@ -13,9 +13,6 @@ import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { UserPillComponent } from '@foundation/users/ui';
 import { DateAsAgoPipe } from '@foundation/utils';
-import { FormsRepository } from '@spoken/forms/state';
-import { InterviewsRepository } from '@spoken/interviews/state';
-import { InterviewPillComponent } from '@spoken/interviews/ui';
 import { tap } from 'rxjs';
 
 const EXCLUDE_ARCHIVED_FILTER: Filter = {
@@ -42,7 +39,6 @@ const EXCLUDE_ARCHIVED_FILTER: Filter = {
 		UserPillComponent,
 		DateAsAgoPipe,
 		TwArchiveIcon,
-		InterviewPillComponent,
 	],
 	templateUrl: './notification-table.component.html',
 	styleUrl: './notification-table.component.css',
@@ -50,8 +46,6 @@ const EXCLUDE_ARCHIVED_FILTER: Filter = {
 })
 export class NotificationTableComponent extends RepositoryTableComponent<Notification, NotificationsRepository> {
 	private _articlesRepository = inject(ArticlesRepository);
-	private _interviewsRepository = inject(InterviewsRepository);
-	private _formsRepository = inject(FormsRepository);
 
 	constructor(
 		private _repository: NotificationsRepository,
@@ -69,15 +63,6 @@ export class NotificationTableComponent extends RepositoryTableComponent<Notific
 			},
 			clickBehavior
 		);
-
-		// _repository.store.objects$$$
-		// 	.pipe(
-		// 		takeUntilDestroyed(),
-		// 		tap((notifications) => {
-		// 			console.log('Notifications updated:', notifications);
-		// 		})
-		// 	)
-		// 	.subscribe();
 	}
 
 	public toggleRead(notification: Notification) {
@@ -101,14 +86,6 @@ export class NotificationTableComponent extends RepositoryTableComponent<Notific
 				})
 			)
 			.subscribe();
-	}
-
-	goToInterviewResponses(interviewId: string): void {
-		this._interviewsRepository.goToInterview(interviewId, {
-			queryParams: {
-				mainTab: 'Responses',
-			},
-		});
 	}
 
 	toggleDisplayAllArchived() {
@@ -155,20 +132,6 @@ export class NotificationTableComponent extends RepositoryTableComponent<Notific
 				this._articlesRepository.goToArticle(articleId, { messageId });
 				break;
 			}
-
-			case 'interaction.interview':
-				console.log('Interview function called for notification:', notification);
-				// if it is an interview we should go to the interview
-				this.goToInterviewResponses(notification.targetId);
-				break;
-
-			case 'interaction.form':
-				this._formsRepository.goToForm(notification.targetId, {
-					queryParams: {
-						mainTab: 'Responses', // Assuming similar structure
-					},
-				});
-				break;
 
 			default:
 				console.log('Not implemented for notification:', notification);

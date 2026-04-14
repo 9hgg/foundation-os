@@ -1,1 +1,8 @@
 @reference "tailwindcss";
+:host{
+    display: block;
+    height: 90vh;
+    width: 100%;
+    overflow: hidden;
+    max-width: 90vw;
+}

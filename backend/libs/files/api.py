@@ -2,7 +2,7 @@ import datetime
 import os
 import time
 import uuid
-from libs.utils.origin import get_origin
+
 import fastapi
 from fastapi import (
     BackgroundTasks,
@@ -33,6 +33,8 @@ from libs.tasks.methods import sync_launch_tasks_processing
 from libs.tasks.tasks_manager import TasksManager
 from libs.users.deps import CurrentUser__dep
 from libs.utils.deps import ClassicDeps__dep
+from libs.utils.origin import get_origin
+from libs.utils.text import slugify
 from libs.utils.types import EndpointError, EndpointOutput
 
 from .methods.deps import CurrentStorage__dep
@@ -1141,10 +1143,15 @@ def create_crud_file_router(prefix: str = "/api/files"):
 
         file_name = file_db.public_filename or file_db.id.hex[:8]
 
+        # remove the extension from the file name if it ends with it, to avoid double extensions like "file.jpg.jpg"
         if file_db.extension_client and file_name.endswith(file_db.extension_client):
             file_name = file_name.replace(file_db.extension_client, "")
         if file_db.extension and file_name.endswith(file_db.extension):
             file_name = file_name.replace(file_db.extension, "")
+
+        # slugify the file name to avoid header errors
+        file_name = slugify(file_name)
+
         if extension and not file_name.endswith(extension):
             file_name += "." + extension
         file_name = file_name.replace("..", ".")

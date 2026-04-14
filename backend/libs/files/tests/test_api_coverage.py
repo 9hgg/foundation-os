@@ -1,16 +1,19 @@
 import uuid
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+
+from libs.files.models import File
 
 
 @pytest.fixture
 def files_context():
     from libs.files.api import create_crud_file_router
-    from libs.utils.deps import get_deps
     from libs.files.methods.deps import get_default_file_storage
-    
+    from libs.utils.deps import get_deps
+
     return {
         "create_crud_file_router": create_crud_file_router,
         "get_deps": get_deps,
@@ -54,9 +57,8 @@ def mock_folder_cls():
 @pytest.fixture
 def mock_tasks_manager():
     with patch("libs.files.api.TasksManager") as mock_tm_cls:
-        mock_tm_instance = MagicMock()
-        mock_tm_cls.return_value = mock_tm_instance
-        yield mock_tm_instance
+        mock_tm_cls.create_task.return_value = MagicMock(id=uuid.uuid4())
+        yield mock_tm_cls
 
 
 @pytest.fixture
@@ -104,7 +106,7 @@ def mock_sync_launch():
 def setup_overrides(app, files_context, mock_user, mock_translator, mock_file_storage):
     get_deps = files_context["get_deps"]
     get_default_file_storage = files_context["get_default_file_storage"]
-    
+
     app.dependency_overrides[get_deps] = lambda: (mock_user, None, mock_translator)
     app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value
     yield
@@ -120,7 +122,7 @@ def test_get_chunk_upload_url(
     mock_file.storage_id = uuid.uuid4()
     mock_file.storage_folder_path = "path/to/file"
     mock_file_cls.by_id.return_value = mock_file
-    
+
     # Configure storage mock
     storage_mock = mock_file_storage.return_value
     storage_mock.get_upload_url.return_value = "http://upload-url/chunk"
@@ -144,7 +146,7 @@ def test_recover_from_chunks_no_chunks(
     mock_file.storage_id = uuid.uuid4()
     mock_file.storage_folder_path = "path/to/file"
     mock_file_cls.by_id.return_value = mock_file
-    
+
     storage_mock = mock_file_storage.return_value
     storage_mock.get_files_in_folder.return_value = []
 
@@ -187,7 +189,7 @@ def test_update_after_upload_not_in_storage(
     # To simulate "not in storage", we rely on storage.exists_in_storage or similar logic.
     # The endpoint calls `storage.get_original_alternative` -> returns None -> "File not found in storage"
     mock_file_cls.by_id.return_value = mock_file
-    
+
     storage_mock = mock_file_storage.return_value
     storage_mock.get_original_alternative.return_value = None
 
@@ -232,11 +234,16 @@ def test_get_upload_details_create_folders(
     mock_folder_cls.get_first_by.return_value = None
 
     # Configure mock file creation
-    mock_file_instance = MagicMock()
-    mock_file_instance.id = uuid.uuid4()
-    # Add attributes required by response model validation if needed
-    # Or just return a simple object that satisfies SimpleResponse
-    mock_file_cls.return_value = mock_file_instance
+    mock_file_instance = File(
+        id=uuid.uuid4(),
+        storage_id=uuid.uuid4(),
+        storage_folder_path="root/sub/test.txt",
+        public_filename="test.txt",
+        original_filename="test.txt",
+        extension_client=".txt",
+        mime_client="text/plain",
+        in_storage=False,
+    )
     mock_file_cls.create.return_value = mock_file_instance
 
     response = client.post(
@@ -244,11 +251,10 @@ def test_get_upload_details_create_folders(
     )
 
     assert response.status_code == 200
-    # Check for errors in case validation failed
-    assert "error" not in response.json(), f"Response contains error: {response.json()}"
-    
+    assert response.json()["error"] is None, f"Response contains error: {response.json()}"
+
     assert mock_folder_cls.create.call_count == 2
-    
+
     # Verify calls
     calls = mock_folder_cls.create.call_args_list
     assert calls[0][1]["obj_dict"]["name"] == "root"
@@ -282,7 +288,7 @@ def test_upload_file_chunked(
     assert response.status_code == 200
     data = response.json()
     assert data["result"]["uploaded"] is True
-    
+
     # Verify storage.upload was called
     storage_mock.upload.assert_called_once()
 
@@ -313,6 +319,4 @@ def test_update_after_upload_success(
     assert response.status_code == 200
     data = response.json()
     assert "result" in data
-    # We are returning the 'file' object in result, which is the mocked file
-    # We can check if taskId is correct
     assert data["result"]["taskId"] == str(mock_task.id)

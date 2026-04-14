@@ -1,0 +1,572 @@
+<div class="space-y-6">
+	<div
+		role="tablist"
+		class="tabs tabs-bordered"
+	>
+		@for (report of reports(); track report.id) {
+			<button
+				role="tab"
+				class="tab"
+				[class.tab-active]="activeReportId() === report.id"
+				(click)="activeReportId.set(report.id)"
+			>
+				{{ report.config.title || 'Report' }}
+			</button>
+		}
+		<button
+			role="tab"
+			class="tab"
+			(click)="addReportConfig()"
+		>
+			+ Add report
+		</button>
+	</div>
+
+	@if (activeReport(); as activeReport) {
+		<div class="space-y-6">
+			<div class="flex items-center justify-between">
+				<h2 class="text-base-content text-lg font-semibold">Report settings</h2>
+				<div class="flex items-center gap-2">
+					<button
+						class="btn btn-sm btn-outline"
+						[cdkMenuTriggerFor]="exportMenuTpl"
+					>
+						Actions ▾
+					</button>
+					<button
+						class="btn btn-sm btn-error btn-outline"
+						(click)="deleteReportConfig(activeReport.id)"
+					>
+						Delete report
+					</button>
+				</div>
+			</div>
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+				<div>
+					<label
+						[attr.for]="'report-title-' + activeReport.id"
+						class="label px-0 pt-0"
+					>
+						<span class="label-text font-medium">Report title</span>
+					</label>
+					<input
+						[attr.id]="'report-title-' + activeReport.id"
+						type="text"
+						class="input input-bordered input-sm w-full"
+						[value]="activeReport.config.title"
+						(input)="updateReportTitle(activeReport.id, $any($event.target).value)"
+					/>
+				</div>
+				<div>
+					<label
+						[attr.for]="'report-description-' + activeReport.id"
+						class="label px-0 pt-0"
+					>
+						<span class="label-text font-medium">Description</span>
+					</label>
+					<input
+						[attr.id]="'report-description-' + activeReport.id"
+						type="text"
+						class="input input-bordered input-sm w-full"
+						[value]="activeReport.config.description || ''"
+						(input)="updateReportDescription(activeReport.id, $any($event.target).value)"
+					/>
+				</div>
+				<div>
+					<label
+						[attr.for]="'report-local-sync-path-' + activeReport.id"
+						class="label px-0 pt-0"
+					>
+						<span class="label-text font-medium">Local sync path (hint)</span>
+					</label>
+					<input
+						[attr.id]="'report-local-sync-path-' + activeReport.id"
+						type="text"
+						class="input input-bordered input-sm w-full"
+						[value]="activeReport.config.localSyncPath || ''"
+						(input)="updateReportLocalSyncPath(activeReport.id, $any($event.target).value)"
+					/>
+				</div>
+			</div>
+
+			<div class="collapse-arrow border-base-200 collapse border">
+				<input type="checkbox" />
+				<div
+					class="collapse-title text-base font-semibold"
+					[translate]
+				>
+					Sub templates
+				</div>
+				<div class="collapse-content space-y-4">
+					@for (entry of activeReport.config.templates | keyvalue; track entry.key) {
+						<div>
+							<div class="mb-2 flex items-center justify-between">
+								<button
+									type="button"
+									class="hover:text-primary hover:bg-base-200 cursor-pointer text-left text-sm font-medium"
+									(click)="toggleTemplateExpansion(entry.key)"
+								>
+									{{ entry.value.title }} ({{ entry.value.key }})
+									<span class="w-full px-3 py-2 text-left text-xs">
+										{{ expandedTemplates().has(entry.key) ? 'Hide editor' : 'Edit content' }}
+									</span>
+								</button>
+
+								@if (!isTemplateUsed(entry.value.key)) {
+									<span class="badge badge-warning badge-xs ml-2">Unused</span>
+								}
+
+								@if (currentWord()?.source === 'template-' + entry.key) {
+									<span class="label-text-alt text-primary ml-2 font-bold">{{ currentWord()?.word }}</span>
+								}
+
+								<div class="flex items-center gap-2">
+									<button
+										class="btn btn-ghost btn-xs"
+										[cdkMenuTriggerFor]="templateActionsMenu"
+									>
+										<!-- 3 dots -->
+										<tw-more-vertical class="h-4 w-4"></tw-more-vertical>
+									</button>
+									<ng-template #templateActionsMenu>
+										<div
+											class="bg-base-100 border-base-200 min-w-44 rounded-md border py-1 shadow-lg"
+											cdkMenu
+										>
+											<button
+												class="hover:bg-base-200 w-full px-3 py-2 text-left text-xs"
+												cdkMenuItem
+												(click)="promptEditTemplateTitle(activeReport.id, entry.key)"
+											>
+												Edit title
+											</button>
+											<button
+												class="hover:bg-base-200 w-full px-3 py-2 text-left text-xs"
+												cdkMenuItem
+												(click)="promptEditTemplateKey(activeReport.id, entry.key)"
+											>
+												Edit key
+											</button>
+
+											<div class="divider my-1"></div>
+											<button
+												class="hover:bg-base-200 text-error w-full px-3 py-2 text-left text-xs"
+												cdkMenuItem
+												(click)="deleteTemplatePart(activeReport.id, entry.key)"
+											>
+												Delete template
+											</button>
+										</div>
+									</ng-template>
+								</div>
+							</div>
+							@if (expandedTemplates().has(entry.key)) {
+								<textarea
+									class="textarea textarea-bordered w-full font-mono text-xs leading-normal"
+									[rows]="15"
+									[value]="entry.value.content || ''"
+									(input)="updateReportTemplatePart(activeReport.id, entry.key, $any($event.target).value)"
+									(click)="onTextareaCursorActivity($event, 'template-' + entry.key)"
+									(keyup)="onTextareaCursorActivity($event, 'template-' + entry.key)"
+								></textarea>
+							}
+						</div>
+					}
+
+					<div
+						class="divider text-xs"
+						[translate]
+					>
+						Add template part
+					</div>
+					<div class="flex items-end gap-2">
+						<label class="form-control w-full max-w-xs">
+							<div class="label"><span class="label-text-alt">Title</span></div>
+							<input
+								#newPartTitle
+								type="text"
+								class="input input-bordered input-sm w-full"
+								placeholder="e.g. Footer"
+							/>
+						</label>
+
+						<label class="form-control w-full max-w-xs">
+							<div class="label"><span class="label-text-alt">Key</span></div>
+							<datalist id="defaultTemplateKeys">
+								<option value="styles"></option>
+								<option value="header"></option>
+								<option value="footer"></option>
+								<option value="cover"></option>
+								<option value="introduction"></option>
+								<option value="stakeholders"></option>
+								<option value="schedule"></option>
+								<option value="batches"></option>
+								<option value="deliverables"></option>
+							</datalist>
+							<input
+								#newPartKey
+								type="text"
+								list="defaultTemplateKeys"
+								placeholder="e.g. footer"
+								class="input input-bordered input-sm w-full"
+							/>
+						</label>
+						<label class="form-control w-full">
+							<div class="label"><span class="label-text-alt">Content</span></div>
+							<textarea
+								#newPartContent
+								class="textarea textarea-bordered textarea-sm h-10 min-h-10 w-full"
+								placeholder="<div>...</div>"
+							></textarea>
+						</label>
+						<button
+							class="btn btn-sm btn-primary"
+							(click)="createNewSubTemplate(activeReport.id, newPartTitle, newPartKey, newPartContent)"
+							[translate]
+						>
+							Add
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="collapse-arrow border-base-200 collapse border">
+				<input type="checkbox" />
+				<div class="collapse-title text-base font-semibold">Main template</div>
+				<div class="collapse-content">
+					<label
+						[attr.for]="'report-template-' + activeReport.id"
+						class="label px-0 pt-0"
+					>
+						<span class="label-text font-medium">Template</span>
+						@if (currentWord()?.source === 'main-template') {
+							<span class="label-text-alt text-primary ml-2 font-bold">{{ currentWord()?.word }}</span>
+						}
+					</label>
+					<textarea
+						[attr.id]="'report-template-' + activeReport.id"
+						class="textarea textarea-bordered h-96 w-full font-mono text-xs leading-normal"
+						[value]="activeReport.config.template || ''"
+						(input)="updateReportTemplate(activeReport.id, $any($event.target).value)"
+						(click)="onTextareaCursorActivity($event, 'main-template')"
+						(keyup)="onTextareaCursorActivity($event, 'main-template')"
+					></textarea>
+				</div>
+			</div>
+
+			<div class="collapse-arrow border-base-200 collapse border">
+				<input type="checkbox" />
+				<div class="collapse-title text-base font-semibold">PDF Configuration (JSON)</div>
+				<div class="collapse-content">
+					<label
+						[attr.for]="'report-pdf-options-' + activeReport.id"
+						class="label px-0 pt-0"
+					>
+						<span class="label-text font-medium">Options (JSON)</span>
+						@if (currentWord()?.source === 'pdf-options') {
+							<span class="label-text-alt text-primary ml-2 font-bold">{{ currentWord()?.word }}</span>
+						}
+					</label>
+					<textarea
+						[attr.id]="'report-pdf-options-' + activeReport.id"
+						class="textarea textarea-bordered h-48 w-full font-mono text-xs leading-normal"
+						[value]="activeReport.config.pdfOptions || defaultPdfOptions | json"
+						(input)="updatePdfOptions(activeReport.id, $any($event.target).value)"
+						(click)="onTextareaCursorActivity($event, 'pdf-options')"
+						(keyup)="onTextareaCursorActivity($event, 'pdf-options')"
+					></textarea>
+				</div>
+			</div>
+
+			<div class="collapse-arrow border-base-200 collapse border">
+				<input type="checkbox" />
+				<div class="collapse-title text-base font-semibold">Report variables</div>
+				<div class="collapse-content space-y-4">
+					@for (entry of activeReport.config.data | keyvalue; track entry.key) {
+						<div class="border-base-200 space-y-3 rounded-lg border p-3">
+							<div class="flex items-center justify-between">
+								<div class="text-sm font-semibold">
+									{{ entry.value.title }}&nbsp;<span class="text-xs font-medium">({{ entry.value.key }})</span>
+									@if (!isVariableUsed(entry.value.key)) {
+										<span class="badge badge-warning badge-xs ml-2">Unused</span>
+									}
+								</div>
+								<div class="flex items-center gap-2">
+									<button
+										class="btn btn-ghost btn-xs"
+										[class.text-primary]="expandedVariables().has(entry.key)"
+										(click)="toggleVariableExpansion(entry.key)"
+									>
+										{{ expandedVariables().has(entry.key) ? 'Collapse' : 'Edit' }}
+									</button>
+									<button
+										class="btn btn-xs btn-ghost text-error"
+										(click)="deleteReportVariable(activeReport.id, entry.key)"
+									>
+										Remove
+									</button>
+								</div>
+							</div>
+							@if (expandedVariables().has(entry.key)) {
+								<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+									<label class="form-control w-full">
+										<div class="label px-0 pt-0">
+											<span class="label-text text-sm">Title</span>
+										</div>
+										<input
+											type="text"
+											class="input input-bordered input-sm w-full"
+											[value]="entry.value.title"
+											(input)="updateReportVariableField(activeReport.id, entry.key, 'title', $any($event.target).value)"
+										/>
+									</label>
+									<label class="form-control w-full">
+										<div class="label px-0 pt-0">
+											<span class="label-text text-sm">Kind</span>
+										</div>
+										<select
+											class="select select-bordered select-sm w-full"
+											[value]="entry.value.kind"
+											(change)="updateReportVariableField(activeReport.id, entry.key, 'kind', $any($event.target).value)"
+										>
+											<option value="text">Text</option>
+											<option value="textarea">Long Text</option>
+											<option value="quill">Rich Text</option>
+											<option value="date">Date</option>
+										</select>
+									</label>
+								</div>
+								<div class="form-control w-full">
+									<div class="label px-0 pt-0">
+										<span class="label-text text-sm">Content</span>
+									</div>
+									@switch (entry.value.kind) {
+										@case ('text') {
+											<input
+												type="text"
+												class="input input-bordered input-sm w-full"
+												[value]="entry.value.content || ''"
+												(input)="updateReportVariableField(activeReport.id, entry.key, 'content', $any($event.target).value)"
+											/>
+										}
+										@case ('textarea') {
+											<textarea
+												class="textarea textarea-bordered textarea-sm w-full"
+												[value]="entry.value.content || ''"
+												(input)="updateReportVariableField(activeReport.id, entry.key, 'content', $any($event.target).value)"
+											></textarea>
+										}
+										@case ('date') {
+											<input
+												type="date"
+												class="input input-bordered input-sm w-full"
+												[value]="entry.value.content || ''"
+												(input)="updateReportVariableField(activeReport.id, entry.key, 'content', $any($event.target).value)"
+											/>
+										}
+										@case ('quill') {
+											<lib-quill-textarea
+												[html]="entry.value.content"
+												(htmlChange)="updateReportVariableField(activeReport.id, entry.key, 'content', $event)"
+											></lib-quill-textarea>
+										}
+										@default {
+											<textarea
+												class="textarea textarea-bordered textarea-sm w-full"
+												[value]="entry.value.content || ''"
+												(input)="updateReportVariableField(activeReport.id, entry.key, 'content', $any($event.target).value)"
+											></textarea>
+										}
+									}
+								</div>
+							}
+						</div>
+					}
+
+					<div class="divider text-xs">Add variable</div>
+					<div class="border-base-200 rounded-lg border p-3">
+						<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+							<label class="form-control w-full">
+								<div class="label px-0 pt-0">
+									<span class="label-text text-sm">Key</span>
+								</div>
+								<input
+									#newVarKey
+									type="text"
+									class="input input-bordered input-sm w-full"
+									placeholder="quickSummary"
+								/>
+							</label>
+							<label class="form-control w-full">
+								<div class="label px-0 pt-0">
+									<span class="label-text text-sm">Title</span>
+								</div>
+								<input
+									#newVarTitle
+									type="text"
+									class="input input-bordered input-sm w-full"
+									placeholder="Quick summary"
+								/>
+							</label>
+							<label class="form-control w-full">
+								<div class="label px-0 pt-0">
+									<span class="label-text text-sm">Kind</span>
+								</div>
+								<select
+									class="select select-bordered select-sm w-full"
+									[ngModel]="newVariableKind()"
+									(ngModelChange)="newVariableKind.set($event)"
+								>
+									<option value="text">Text</option>
+									<option value="textarea">Long Text</option>
+									<option value="quill">Rich Text</option>
+									<option value="date">Date</option>
+								</select>
+							</label>
+							<div class="form-control w-full">
+								<div class="label px-0 pt-0">
+									<span class="label-text text-sm">Content</span>
+								</div>
+								@switch (newVariableKind()) {
+									@case ('text') {
+										<input
+											type="text"
+											class="input input-bordered input-sm w-full"
+											[ngModel]="newVariableContent()"
+											(ngModelChange)="newVariableContent.set($event)"
+										/>
+									}
+									@case ('textarea') {
+										<textarea
+											class="textarea textarea-bordered textarea-sm w-full"
+											[ngModel]="newVariableContent()"
+											(ngModelChange)="newVariableContent.set($event)"
+										></textarea>
+									}
+									@case ('date') {
+										<input
+											type="date"
+											class="input input-bordered input-sm w-full"
+											[ngModel]="newVariableContent()"
+											(ngModelChange)="newVariableContent.set($event)"
+										/>
+									}
+									@case ('quill') {
+										<lib-quill-textarea
+											[html]="newVariableContent()"
+											(htmlChange)="newVariableContent.set($event)"
+										></lib-quill-textarea>
+									}
+									@default {
+										<textarea
+											class="textarea textarea-bordered textarea-sm w-full"
+											[ngModel]="newVariableContent()"
+											(ngModelChange)="newVariableContent.set($event)"
+										></textarea>
+									}
+								}
+							</div>
+						</div>
+						<button
+							class="btn btn-sm btn-outline mt-3"
+							(click)="addReportVariable(activeReport.id, newVarKey, newVarTitle, newVariableKind(), newVariableContent())"
+						>
+							Add variable
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	} @else {
+		<div class="text-base-content/50 py-8 text-center">Select a report to edit or create a new one.</div>
+	}
+</div>
+
+<div class="bg-base-100 border-base-200 mt-6 flex h-[80vh] flex-col rounded-xl border shadow-sm">
+	<div class="flex h-full flex-col p-6">
+		<div class="mb-4 flex items-center justify-between">
+			<h2 class="text-base-content text-lg font-semibold">Report preview</h2>
+			<div class="flex items-center gap-2">
+				<button
+					class="btn btn-sm btn-outline"
+					(click)="downloadReportAsHtml()"
+				>
+					Download HTML
+				</button>
+				<button
+					class="btn btn-sm btn-outline"
+					[class.btn-disabled]="isGeneratingPdf()"
+					(click)="refreshPdfReport()"
+				>
+					@if (isGeneratingPdf()) {
+						<span class="loading loading-spinner loading-xs"></span>
+					}
+					Refresh
+				</button>
+			</div>
+		</div>
+		@if (pdfUrl(); as url) {
+			<div class="bg-base-200/40 grow rounded-lg p-2">
+				<lib-pdf-viewer
+					class="block w-full"
+					[pdfUrl]="url"
+				></lib-pdf-viewer>
+			</div>
+		} @else {
+			<div class="text-base-content/60 flex h-40 items-center justify-center text-sm">No report available</div>
+		}
+	</div>
+</div>
+
+<ng-template #exportMenuTpl>
+	<div
+		class="bg-base-100 border-base-200 flex min-w-80 flex-col rounded-md border py-2 shadow-lg"
+		cdkMenu
+	>
+		<div class="menu-title px-4 py-1 text-[10px] uppercase opacity-60">Templates</div>
+		<button
+			class="hover:bg-base-200 px-4 py-2 text-left text-sm"
+			cdkMenuItem
+			(click)="exportTemplatesToLocalFolder()"
+		>
+			Export templates to local folder
+		</button>
+		<button
+			class="hover:bg-base-200 px-4 py-2 text-left text-sm"
+			cdkMenuItem
+			(click)="importTemplatesFromLocalFolder()"
+		>
+			Import templates from local folder
+		</button>
+		<div class="divider my-1"></div>
+		<div class="menu-title px-4 py-1 text-[10px] uppercase opacity-60">Report JSON</div>
+		<button
+			class="hover:bg-base-200 px-4 py-2 text-left text-sm"
+			cdkMenuItem
+			(click)="downloadReportJsonFile()"
+		>
+			Download report as JSON
+		</button>
+		<button
+			class="hover:bg-base-200 px-4 py-2 text-left text-sm"
+			cdkMenuItem
+			(click)="saveReportJsonToApp()"
+		>
+			Save report as JSON in app
+		</button>
+		<button
+			class="hover:bg-base-200 px-4 py-2 text-left text-sm"
+			cdkMenuItem
+			(click)="importReportJsonFromFileSystem()"
+		>
+			Import report from JSON file (file system)
+		</button>
+		<button
+			class="hover:bg-base-200 px-4 py-2 text-left text-sm"
+			cdkMenuItem
+			(click)="importReportJsonFromApp()"
+		>
+			Import report from JSON file (in app)
+		</button>
+	</div>
+</ng-template>

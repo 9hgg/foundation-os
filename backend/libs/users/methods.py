@@ -89,7 +89,6 @@ def get_current_user_optional(
     # Check the cache first
     user = USER_CACHE.get(authToken)
     if user:
-        print("Returning user from cache")
         return user
 
     sub = payload.get("sub", None)

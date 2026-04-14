@@ -1,0 +1,994 @@
+@let a = activity();
+@if (a) {
+	<div class="bg-base-200/50 flex h-full min-h-96 w-full flex-col">
+		<nav class="bg-base-100 border-base-200 m-2 flex shrink-0 items-center justify-between overflow-x-auto rounded-xl border px-6 py-3 shadow-sm">
+			@let projectId = project()?.id;
+			<a
+				class="text-base-content hover:text-primary flex cursor-pointer items-center justify-center transition-colors sm:justify-start"
+				[routerLink]="'/host/dashboard/projects/' + (projectId ? projectId + '/builder' : '')"
+			>
+				<div class="flex cursor-pointer items-center gap-3">
+					<div class="from-primary to-secondary flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							class="h-5 w-5 fill-white"
+						>
+							<path d="M3 6h18v2H3zM3 10h18v10H3z" />
+						</svg>
+					</div>
+					<span
+						class="text-lg font-semibold"
+						[translate]
+						>Éditeur d'activité</span
+					>
+					@if (a.title) {
+						<span class="text-base-content/35 text-lg">/</span>
+						<span class="text-base-content/75 text-lg font-medium">{{ a.title }}</span>
+					}
+					@if (project()) {
+						<button
+							type="button"
+							class="btn btn-xs btn-outline ml-3"
+							(click)="$event.preventDefault(); $event.stopPropagation(); goToPresentation()"
+						>
+							Voir dans la présentation
+						</button>
+					}
+				</div>
+			</a>
+		</nav>
+
+		<div class="relative m-2 flex h-full min-h-96 flex-1 gap-4 overflow-auto">
+			<aside class="bg-base-100 border-base-200 relative w-80 shrink-0 space-y-4 overflow-auto rounded-xl border p-4 shadow-sm">
+				<div class="w-full">
+					<label
+						for="activity-prefix"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Prefix</span
+						></label
+					>
+					<input
+						id="activity-prefix"
+						type="text"
+						class="input input-bordered input-sm w-full"
+						[value]="a.prefix"
+						(change)="patchableActivity.updateField('prefix', $any($event.target).value)"
+						(keyup)="patchableActivity.updateField('prefix', $any($event.target).value)"
+						placeholder="Prefix..."
+					/>
+				</div>
+				<div class="w-full">
+					<label
+						for="activity-title"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Title</span
+						></label
+					>
+					<input
+						id="activity-title"
+						type="text"
+						class="input input-bordered input-sm w-full"
+						[value]="a.title"
+						(change)="patchableActivity.updateField('title', $any($event.target).value)"
+						(keyup)="patchableActivity.updateField('title', $any($event.target).value)"
+						placeholder="Title..."
+					/>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="activity-priority"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Priority</span
+						></label
+					>
+					<input
+						id="activity-priority"
+						type="number"
+						class="input input-bordered input-sm w-full"
+						[value]="a.priority"
+						(change)="patchableActivity.updateField('priority', +$any($event.target).value || 0)"
+						(keyup)="patchableActivity.updateField('priority', +$any($event.target).value || 0)"
+					/>
+				</div>
+
+				<div class="divider my-2"></div>
+
+				<div class="w-full">
+					<label
+						for="activity-description"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Description</span
+						></label
+					>
+					<lib-quill-textarea
+						id="activity-description"
+						[html]="a.description || ''"
+						(htmlChange)="patchableActivity.updateField('description', $event)"
+					></lib-quill-textarea>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="activity-strategic-interests"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Strategic interests</span
+						></label
+					>
+					<textarea
+						id="activity-strategic-interests"
+						class="textarea textarea-bordered textarea-sm w-full"
+						rows="3"
+						(change)="patchableActivity.updateField('strategicInterests', $any($event.target).value)"
+						(keyup)="patchableActivity.updateField('strategicInterests', $any($event.target).value)"
+						>{{ a.strategicInterests }}</textarea
+					>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="activity-finality"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Finality</span
+						></label
+					>
+					<textarea
+						id="activity-finality"
+						class="textarea textarea-bordered textarea-sm w-full"
+						rows="3"
+						(change)="patchableActivity.updateField('finality', $any($event.target).value)"
+						(keyup)="patchableActivity.updateField('finality', $any($event.target).value)"
+						>{{ a.finality }}</textarea
+					>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="activity-synergies"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Synergies</span
+						></label
+					>
+					<textarea
+						id="activity-synergies"
+						class="textarea textarea-bordered textarea-sm w-full"
+						rows="3"
+						(change)="patchableActivity.updateField('synergies', $any($event.target).value)"
+						(keyup)="patchableActivity.updateField('synergies', $any($event.target).value)"
+						>{{ a.synergies }}</textarea
+					>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="activity-risks"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Risks</span
+						></label
+					>
+					<textarea
+						id="activity-risks"
+						class="textarea textarea-bordered textarea-sm w-full"
+						rows="3"
+						(change)="patchableActivity.updateField('risks', $any($event.target).value)"
+						(keyup)="patchableActivity.updateField('risks', $any($event.target).value)"
+						>{{ a.risks }}</textarea
+					>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="activity-parades"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Parades</span
+						></label
+					>
+					<textarea
+						id="activity-parades"
+						class="textarea textarea-bordered textarea-sm w-full"
+						rows="3"
+						(change)="patchableActivity.updateField('parades', $any($event.target).value)"
+						(keyup)="patchableActivity.updateField('parades', $any($event.target).value)"
+						>{{ a.parades }}</textarea
+					>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="activity-tags"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Tags</span
+						></label
+					>
+					<input
+						id="activity-tags"
+						type="text"
+						class="input input-bordered input-sm w-full"
+						[value]="a.tags.join(', ')"
+						(change)="updateTagsFromString($any($event.target).value)"
+						(keyup)="updateTagsFromString($any($event.target).value)"
+						placeholder="tag-1, tag-2"
+					/>
+				</div>
+
+				<div class="w-full">
+					<label
+						for="activity-hidden"
+						class="label px-0 pt-0"
+						><span
+							class="label-text font-medium"
+							[translate]
+							>Hidden</span
+						></label
+					>
+					<input
+						id="activity-hidden"
+						type="checkbox"
+						class="checkbox"
+						[checked]="!!a.hidden"
+						(change)="patchableActivity.updateField('hidden', $any($event.target).checked)"
+					/>
+				</div>
+			</aside>
+
+			<main class="flex-1 overflow-y-auto scroll-smooth">
+				<div class="mx-auto max-w-5xl space-y-6">
+					<!-- updates -->
+					<div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+						<div class="p-6">
+							<div class="mb-4 flex items-center justify-between">
+								<div>
+									<h2 class="text-base-content text-lg font-semibold">Actualités</h2>
+									<p class="text-base-content/60 text-sm">Suivi du projet, retours clients, informations des contributeurs et faits marquants.</p>
+								</div>
+								<div class="flex items-center gap-2">
+									<div class="badge badge-outline">{{ activityUpdatesView().length }}</div>
+									<button
+										class="btn btn-sm btn-secondary"
+										(click)="addActivityUpdate()"
+									>
+										Ajouter une actualité
+									</button>
+								</div>
+							</div>
+
+							@if (activityUpdatesView().length > 0) {
+								<div class="space-y-4">
+									@for (update of activityUpdatesView(); track update.id; let index = $index) {
+										<div
+											class="activity-update-card bg-base-200/35 border-base-200 rounded-xl border p-4"
+											[attr.id]="'activity-update-' + update.id"
+											[class.activity-update-card--highlighted]="highlightedUpdateId() === update.id"
+										>
+											<div class="mb-4 flex items-start justify-between gap-4">
+												<button
+													type="button"
+													class="min-w-0 flex-1 text-left"
+													(click)="updateExpandedSelector.toggle(update.id)"
+												>
+													<div class="flex items-start gap-3">
+														<span class="text-base-content/50 mt-1 text-xs font-semibold uppercase tracking-[0.18em]">Actualité {{ index + 1 }}</span>
+														<div class="min-w-0">
+															<div class="text-base-content truncate text-base font-semibold">{{ update.title || ('Actualité ' + (index + 1)) }}</div>
+															<div class="text-base-content/70 text-sm">{{ update.sourceKindLabel }}{{ update.sourceName ? ' · ' + update.sourceName : '' }}</div>
+															@if (update.date) {
+																<div class="text-base-content/50 mt-1 text-xs">{{ update.date | date: 'dd/MM/yyyy HH:mm' }}</div>
+															}
+														</div>
+													</div>
+												</button>
+												<div class="flex items-center gap-2">
+													<button
+														type="button"
+														class="btn btn-xs btn-ghost"
+														(click)="$event.stopPropagation(); updateExpandedSelector.toggle(update.id)"
+														[title]="updateExpandedSelector.isSelected(update.id) ? 'Réduire' : 'Déplier'"
+														[aria-label]="updateExpandedSelector.isSelected(update.id) ? 'Réduire' : 'Déplier'"
+													>
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2"
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															aria-hidden="true"
+															class="h-4 w-4 transition-transform"
+															[class.rotate-180]="updateExpandedSelector.isSelected(update.id)"
+														>
+															<path d="m6 9 6 6 6-6" />
+														</svg>
+													</button>
+													<button
+														type="button"
+														class="btn btn-xs btn-ghost"
+														(click)="$event.stopPropagation(); goToPresentationUpdate(update.id)"
+														title="Voir dans la présentation"
+														aria-label="Voir dans la présentation"
+													>
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2"
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															aria-hidden="true"
+															class="h-4 w-4"
+														>
+															<path d="M7 17 17 7" />
+															<path d="M7 7h10v10" />
+														</svg>
+													</button>
+													<button
+														class="btn btn-xs btn-ghost text-error"
+														(click)="$event.stopPropagation(); removeActivityUpdate(update.id)"
+													>
+														Retirer
+													</button>
+												</div>
+											</div>
+
+											@if (updateExpandedSelector.isSelected(update.id)) {
+											<div class="grid gap-4 md:grid-cols-2">
+												<div class="w-full">
+													<label class="label px-0 pt-0"><span class="label-text font-medium">Date</span></label>
+													<input
+														type="datetime-local"
+														class="input input-bordered input-sm w-full"
+														[value]="update.dateInput"
+														(change)="updateActivityUpdateDate(update.id, $any($event.target).value)"
+													/>
+												</div>
+												<div class="w-full">
+													<label class="label px-0 pt-0"><span class="label-text font-medium">Source ({{ update.sourceKindLabel }})</span></label>
+													<select
+														class="select select-bordered select-sm w-full"
+														[ngModel]="update.sourceKind"
+														(ngModelChange)="updateActivityUpdateField(update.id, 'sourceKind', $event)"
+													>
+														@for (sourceKind of activityUpdateSourceKinds; track sourceKind.value) {
+															<option [value]="sourceKind.value">{{ sourceKind.label }}</option>
+														}
+													</select>
+												</div>
+												<div class="w-full">
+													<label class="label px-0 pt-0"><span class="label-text font-medium">Nom de la source</span></label>
+													<input
+														type="text"
+														class="input input-bordered input-sm w-full"
+														[value]="update.sourceName || ''"
+														(change)="updateActivityUpdateField(update.id, 'sourceName', $any($event.target).value)"
+														(keyup)="updateActivityUpdateField(update.id, 'sourceName', $any($event.target).value)"
+														placeholder="Client, contributeur, réunion, etc."
+													/>
+												</div>
+												<div class="w-full">
+													<label class="label px-0 pt-0"><span class="label-text font-medium">Titre</span></label>
+													<input
+														type="text"
+														class="input input-bordered input-sm w-full"
+														[value]="update.title || ''"
+														(change)="updateActivityUpdateField(update.id, 'title', $any($event.target).value)"
+														(keyup)="updateActivityUpdateField(update.id, 'title', $any($event.target).value)"
+														placeholder="Titre court"
+													/>
+												</div>
+											</div>
+
+											<div class="mt-4 w-full">
+												<label class="label px-0 pt-0"><span class="label-text font-medium">Contenu</span></label>
+												<lib-quill-textarea
+													[html]="update.content || ''"
+													(htmlChange)="updateActivityUpdateField(update.id, 'content', $event)"
+												></lib-quill-textarea>
+											</div>
+
+											<div class="mt-4 space-y-3">
+												<div class="flex items-center justify-between gap-3">
+													<label class="label px-0 pt-0"><span class="label-text font-medium">Fichiers</span></label>
+													<div class="flex items-center gap-2">
+														<button
+															type="button"
+															class="btn btn-xs btn-outline"
+															(click)="addFilesToActivityUpdate(update.id)"
+														>
+															Attacher des fichiers
+														</button>
+														<lib-upload-button
+															height="auto"
+															width="auto"
+															(uploadedFiles)="processUploadedFilesForActivityUpdate(update.id, $event)"
+														>
+															<button
+																type="button"
+																class="btn btn-xs btn-outline"
+															>
+																Importer un nouveau fichier
+															</button>
+														</lib-upload-button>
+													</div>
+												</div>
+
+												@if (update.files.length > 0) {
+													<div class="flex flex-wrap gap-3">
+														@for (file of update.files; track file.id) {
+															<div class="bg-base-100 border-base-200 flex w-32 flex-col gap-2 rounded-xl border p-2 shadow-xs overflow-clip">
+																<button
+																	type="button"
+																	class="hover:border-primary rounded-lg border border-transparent transition-colors"
+																	(click)="openActivityUpdateFile(file)"
+																>
+																	<lib-file-thumbnail
+																		[entityFile]="file"
+																		class="h-24 w-full"
+																	></lib-file-thumbnail>
+																</button>
+																<button
+																	type="button"
+																	class="text-base-content hover:text-primary truncate text-left text-xs font-medium"
+																	(click)="openActivityUpdateFile(file)"
+																	[title]="file.publicFilename || file.originalFilename || file.id"
+																>
+																	{{ file.publicFilename || file.originalFilename || file.id }}
+																</button>
+																<button
+																	type="button"
+																	class="btn btn-ghost btn-xs text-error"
+																	(click)="removeActivityUpdateFile(update.id, file.id)"
+																>
+																	Retirer
+																</button>
+															</div>
+														}
+													</div>
+												} @else {
+													<div class="text-base-content/45 text-sm">Aucun fichier joint à cette actualité.</div>
+												}
+											</div>
+
+											<div class="mt-4 space-y-3">
+												<div class="flex items-center justify-between gap-3">
+													<label class="label px-0 pt-0"><span class="label-text font-medium">Liens</span></label>
+													<button
+														type="button"
+														class="btn btn-xs btn-outline"
+														(click)="addActivityUpdateLink(update.id)"
+													>
+														Ajouter un lien
+													</button>
+												</div>
+
+												@if ((update.links || []).length > 0) {
+													<div class="space-y-2">
+														@for (link of (update.links || []); track $index; let linkIndex = $index) {
+															<div class="grid gap-2 md:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto]">
+																<input
+																	type="text"
+																	class="input input-bordered input-sm w-full"
+																	[value]="link.title || ''"
+																	(change)="updateActivityUpdateLink(update.id, linkIndex, 'title', $any($event.target).value)"
+																	(keyup)="updateActivityUpdateLink(update.id, linkIndex, 'title', $any($event.target).value)"
+																	placeholder="Titre affiché dans la présentation"
+																/>
+																<input
+																	type="text"
+																	class="input input-bordered input-sm w-full"
+																	[value]="link.url || ''"
+																	(change)="updateActivityUpdateLink(update.id, linkIndex, 'url', $any($event.target).value)"
+																	(keyup)="updateActivityUpdateLink(update.id, linkIndex, 'url', $any($event.target).value)"
+																	placeholder="https://... ou chemin local"
+																/>
+																<button
+																	type="button"
+																	class="btn btn-ghost btn-xs text-error"
+																	(click)="removeActivityUpdateLink(update.id, linkIndex)"
+																>
+																	Retirer
+																</button>
+															</div>
+														}
+													</div>
+												} @else {
+													<div class="text-base-content/45 text-sm">Aucun lien pour cette actualité.</div>
+												}
+											</div>
+											}
+										</div>
+									}
+								</div>
+							} @else {
+								<div class="text-base-content/45 rounded-xl border border-dashed p-8 text-center">
+									<div class="mb-2 text-4xl">📝</div>
+									<p class="font-medium">Aucune actualité pour le moment</p>
+									<p class="text-sm">Ajoutez des nouvelles du projet, des retours de contributeurs ou des informations client pour garder l'historique visible.</p>
+								</div>
+							}
+						</div>
+					</div>
+
+					<!-- proposals -->
+					<div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+						<div class="p-6">
+							<div class="mb-4 flex items-center justify-between">
+								<div>
+									<h2 class="text-base-content text-lg font-semibold">Propositions</h2>
+									<p class="text-base-content/60 text-sm">Points à arbitrer ou questions à traiter pendant la présentation.</p>
+								</div>
+								<div class="flex items-center gap-2">
+									<div class="badge badge-outline">{{ activityProposalsView().length }}</div>
+									<button
+										class="btn btn-sm btn-secondary"
+										(click)="addActivityProposal()"
+									>
+										Ajouter une proposition
+									</button>
+								</div>
+							</div>
+
+							@if (activityProposalsView().length > 0) {
+								<div class="space-y-4">
+									@for (proposal of activityProposalsView(); track proposal.id; let index = $index) {
+										<div
+											class="bg-base-200/35 border-base-200 rounded-xl border p-4"
+											[attr.id]="'activity-proposal-' + proposal.id"
+											[class.activity-update-card--highlighted]="highlightedProposalId() === proposal.id"
+										>
+											<div class="mb-4 flex items-start justify-between gap-4">
+												<button
+													type="button"
+													class="min-w-0 flex-1 text-left"
+													(click)="proposalExpandedSelector.toggle(proposal.id)"
+												>
+													<div class="flex items-start gap-3">
+														<span class="text-base-content/50 mt-1 text-xs font-semibold uppercase tracking-[0.18em]">Proposition {{ index + 1 }}</span>
+														<div class="min-w-0">
+															<div class="text-base-content truncate text-base font-semibold">{{ proposal.title || ('Proposition ' + (index + 1)) }}</div>
+															<div class="text-base-content/70 text-sm">{{ proposal.kindLabel }}</div>
+															@if (proposal.date) {
+																<div class="text-base-content/50 mt-1 text-xs">{{ proposal.date | date: 'dd/MM/yyyy HH:mm' }}</div>
+															}
+														</div>
+													</div>
+												</button>
+												<div class="flex items-center gap-2">
+													<button
+														type="button"
+														class="btn btn-xs btn-ghost"
+														(click)="$event.stopPropagation(); proposalExpandedSelector.toggle(proposal.id)"
+														[title]="proposalExpandedSelector.isSelected(proposal.id) ? 'Réduire' : 'Déplier'"
+														[aria-label]="proposalExpandedSelector.isSelected(proposal.id) ? 'Réduire' : 'Déplier'"
+													>
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2"
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															aria-hidden="true"
+															class="h-4 w-4 transition-transform"
+															[class.rotate-180]="proposalExpandedSelector.isSelected(proposal.id)"
+														>
+															<path d="m6 9 6 6 6-6" />
+														</svg>
+													</button>
+													<button
+														class="btn btn-xs btn-ghost text-error"
+														(click)="$event.stopPropagation(); removeActivityProposal(proposal.id)"
+													>
+														Retirer
+													</button>
+												</div>
+											</div>
+
+											@if (proposalExpandedSelector.isSelected(proposal.id)) {
+												<div class="grid gap-4 md:grid-cols-2">
+													<div class="w-full">
+														<label class="label px-0 pt-0"><span class="label-text font-medium">Date</span></label>
+														<input
+															type="datetime-local"
+															class="input input-bordered input-sm w-full"
+															[value]="proposal.dateInput"
+															(change)="updateActivityProposalDate(proposal.id, $any($event.target).value)"
+														/>
+													</div>
+													<div class="w-full">
+														<label class="label px-0 pt-0"><span class="label-text font-medium">Type</span></label>
+														<select
+															class="select select-bordered select-sm w-full"
+															[ngModel]="proposal.kind"
+															(ngModelChange)="updateActivityProposalField(proposal.id, 'kind', $event)"
+														>
+															@for (kind of activityProposalKinds; track kind.value) {
+																<option [value]="kind.value">{{ kind.label }}</option>
+															}
+														</select>
+													</div>
+													<div class="w-full md:col-span-2">
+														<label class="label px-0 pt-0"><span class="label-text font-medium">Titre</span></label>
+														<input
+															type="text"
+															class="input input-bordered input-sm w-full"
+															[value]="proposal.title || ''"
+															(change)="updateActivityProposalField(proposal.id, 'title', $any($event.target).value)"
+															(keyup)="updateActivityProposalField(proposal.id, 'title', $any($event.target).value)"
+															placeholder="Titre court"
+														/>
+													</div>
+												</div>
+
+												<div class="mt-4 w-full">
+													<label class="label px-0 pt-0"><span class="label-text font-medium">Contenu</span></label>
+													<lib-quill-textarea
+														[html]="proposal.content || ''"
+														(htmlChange)="updateActivityProposalField(proposal.id, 'content', $event)"
+													></lib-quill-textarea>
+												</div>
+
+												<div class="mt-4 w-full">
+													<label class="label px-0 pt-0"><span class="label-text font-medium">Réponse préparée</span></label>
+													<lib-quill-textarea
+														[html]="proposal.answerContent || ''"
+														(htmlChange)="updateActivityProposalField(proposal.id, 'answerContent', $event)"
+													></lib-quill-textarea>
+												</div>
+
+												<div class="mt-4 space-y-3">
+													<div class="flex items-center justify-between gap-3">
+														<label class="label px-0 pt-0"><span class="label-text font-medium">Fichiers</span></label>
+														<div class="flex items-center gap-2">
+															<button
+																type="button"
+																class="btn btn-xs btn-outline"
+																(click)="addFilesToActivityProposal(proposal.id)"
+															>
+																Attacher des fichiers
+															</button>
+															<lib-upload-button
+																height="auto"
+																width="auto"
+																(uploadedFiles)="processUploadedFilesForActivityProposal(proposal.id, $event)"
+															>
+																<button
+																	type="button"
+																	class="btn btn-xs btn-outline"
+																>
+																	Importer un nouveau fichier
+																</button>
+															</lib-upload-button>
+														</div>
+													</div>
+
+													@if (proposal.files.length > 0) {
+														<div class="flex flex-wrap gap-3">
+															@for (file of proposal.files; track file.id) {
+																<div class="bg-base-100 border-base-200 flex w-32 flex-col gap-2 rounded-xl border p-2 shadow-xs overflow-clip">
+																	<button
+																		type="button"
+																		class="hover:border-primary rounded-lg border border-transparent transition-colors"
+																		(click)="openActivityProposalFile(file)"
+																	>
+																		<lib-file-thumbnail
+																			[entityFile]="file"
+																			class="h-24 w-full"
+																		></lib-file-thumbnail>
+																	</button>
+																	<button
+																		type="button"
+																		class="text-base-content hover:text-primary truncate text-left text-xs font-medium"
+																		(click)="openActivityProposalFile(file)"
+																		[title]="file.publicFilename || file.originalFilename || file.id"
+																	>
+																		{{ file.publicFilename || file.originalFilename || file.id }}
+																	</button>
+																	<button
+																		type="button"
+																		class="btn btn-ghost btn-xs text-error"
+																		(click)="removeActivityProposalFile(proposal.id, file.id)"
+																	>
+																		Retirer
+																	</button>
+																</div>
+															}
+														</div>
+													} @else {
+														<div class="text-base-content/45 text-sm">Aucun fichier joint à cette proposition.</div>
+													}
+												</div>
+
+												<div class="mt-4 space-y-3">
+													<div class="flex items-center justify-between gap-3">
+														<label class="label px-0 pt-0"><span class="label-text font-medium">Liens</span></label>
+														<button
+															type="button"
+															class="btn btn-xs btn-outline"
+															(click)="addActivityProposalLink(proposal.id)"
+														>
+															Ajouter un lien
+														</button>
+													</div>
+
+													@if ((proposal.links || []).length > 0) {
+														<div class="space-y-2">
+															@for (link of (proposal.links || []); track $index; let linkIndex = $index) {
+																<div class="grid gap-2 md:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto]">
+																	<input
+																		type="text"
+																		class="input input-bordered input-sm w-full"
+																		[value]="link.title || ''"
+																		(change)="updateActivityProposalLink(proposal.id, linkIndex, 'title', $any($event.target).value)"
+																		(keyup)="updateActivityProposalLink(proposal.id, linkIndex, 'title', $any($event.target).value)"
+																		placeholder="Titre affiché dans la présentation"
+																	/>
+																	<input
+																		type="text"
+																		class="input input-bordered input-sm w-full"
+																		[value]="link.url || ''"
+																		(change)="updateActivityProposalLink(proposal.id, linkIndex, 'url', $any($event.target).value)"
+																		(keyup)="updateActivityProposalLink(proposal.id, linkIndex, 'url', $any($event.target).value)"
+																		placeholder="https://... ou chemin local"
+																	/>
+																	<button
+																		type="button"
+																		class="btn btn-ghost btn-xs text-error"
+																		(click)="removeActivityProposalLink(proposal.id, linkIndex)"
+																	>
+																		Retirer
+																	</button>
+																</div>
+															}
+														</div>
+													} @else {
+														<div class="text-base-content/45 text-sm">Aucun lien pour cette proposition.</div>
+													}
+												</div>
+											}
+										</div>
+									}
+								</div>
+							} @else {
+								<div class="text-base-content/45 rounded-xl border border-dashed p-8 text-center">
+									<div class="mb-2 text-4xl">💬</div>
+									<p class="font-medium">Aucune proposition pour le moment</p>
+									<p class="text-sm">Ajoutez ici les inflexions, questions et propositions à discuter pendant la présentation.</p>
+								</div>
+							}
+						</div>
+					</div>
+
+					<!-- deliverables -->
+					<div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+						<div class="p-6">
+							<div class="mb-4 flex items-center justify-between">
+								<h2
+									class="text-base-content text-lg font-semibold"
+									[translate]
+								>
+									Deliverables
+								</h2>
+								<div class="flex items-center gap-2">
+									<button
+										class="btn btn-sm btn-outline"
+										(click)="attachDeliverable()"
+									>
+										<span [translate]>Attach existing</span>
+									</button>
+									<button
+										class="btn btn-sm btn-secondary"
+										(click)="createAndAttachDeliverable()"
+									>
+										<span [translate]>Create deliverable</span>
+									</button>
+								</div>
+							</div>
+
+							<lib-deliverable-table
+								click-behavior="emit"
+								class="block w-full"
+								[explicitItems]="deliverables()"
+								action-mode="detach"
+								(rowClicked)="openDeliverable($event)"
+								(detachRequested)="removeDeliverable($event)"
+							></lib-deliverable-table>
+						</div>
+					</div>
+
+					<!-- annual contributions -->
+					<div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+						<div class="p-6">
+							<div class="mb-4 flex items-center justify-between">
+								<h2
+									class="text-base-content text-lg font-semibold"
+									[translate]
+								>
+									Annual contributions
+								</h2>
+								<button
+									class="btn btn-sm btn-secondary"
+									(click)="addAnnualContribution()"
+								>
+									<span [translate]>Add contribution</span>
+								</button>
+							</div>
+
+							<lib-annual-contribution-table
+								click-behavior="none"
+								class="block w-full"
+								[activityId]="activityId()"
+								[explicitItems]="annualContributions()"
+								(addFallbackRequested)="addAnnualContribution()"
+								(refreshRequested)="refreshAnnualContributions()"
+								(contributorChangeRequested)="selectContributionContributor($event)"
+								(removeRequested)="removeAnnualContribution($event)"
+							></lib-annual-contribution-table>
+						</div>
+					</div>
+
+					<!-- purchases -->
+					<div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+						<div class="p-6">
+							<div class="mb-4 flex items-center justify-between">
+								<h2
+									class="text-base-content text-lg font-semibold"
+									[translate]
+								>
+									Purchases
+								</h2>
+								<button
+									class="btn btn-sm btn-secondary"
+									(click)="addPurchase()"
+								>
+									<span [translate]>Add purchase</span>
+								</button>
+							</div>
+
+							<lib-purchase-table
+								click-behavior="none"
+								class="block w-full"
+								[inlineEditable]="true"
+								[activityId]="activityId()"
+								[explicitItems]="purchases()"
+								(refreshRequested)="refreshPurchases()"
+								(addFallbackRequested)="addPurchase()"
+							></lib-purchase-table>
+						</div>
+					</div>
+
+					<!-- annual facility usages -->
+					<div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+						<div class="p-6">
+							<div class="mb-4 flex items-center justify-between">
+								<h2
+									class="text-base-content text-lg font-semibold"
+									[translate]
+								>
+									Annual facility usage
+								</h2>
+								<button
+									class="btn btn-sm btn-secondary"
+									(click)="addAnnualFacilityUsage()"
+								>
+									<span [translate]>Add facility usage</span>
+								</button>
+							</div>
+
+							<lib-annual-facility-usage-table
+								click-behavior="none"
+								class="block w-full"
+								[inlineEditable]="true"
+								[activityId]="activityId()"
+								[explicitItems]="annualFacilityUsages()"
+								(refreshRequested)="refreshFacilityUsages()"
+								(addFallbackRequested)="addAnnualFacilityUsage()"
+								(removeRequested)="removeAnnualFacilityUsage($event)"
+							></lib-annual-facility-usage-table>
+						</div>
+					</div>
+
+					@if (yearlyBilledCostTable(); as costTable) {
+						<div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+							<div class="p-6">
+								<div class="mb-4 flex items-center justify-between">
+									<h2
+										class="text-base-content text-lg font-semibold"
+										[translate]
+									>
+										Yearly billed cost
+									</h2>
+								</div>
+								<div class="overflow-x-auto">
+									<table class="table w-full">
+										<thead>
+											<tr>
+												@for (header of costTable.headers; track $index) {
+													<th>{{ header }}</th>
+												}
+											</tr>
+										</thead>
+											<tbody>
+												@for (row of costTable.rows; track rowIndex; let rowIndex = $index) {
+													<tr>
+														@for (cell of row; track cellIndex; let cellIndex = $index) {
+															<td>{{ cell }}</td>
+														}
+													</tr>
+												}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						</div>
+					}
+
+					<!-- details -->
+					<div class="bg-base-100 border-base-200 rounded-xl border shadow-sm">
+						<div class="p-6">
+							<div class="mb-4 flex items-center justify-between">
+								<h2
+									class="text-base-content text-lg font-semibold"
+									[translate]
+								>
+									Details
+								</h2>
+							</div>
+							<pre class="bg-base-200/40 max-h-96 overflow-auto rounded-lg p-4 text-sm wrap-break-word whitespace-pre-wrap">{{ a | json }}</pre>
+						</div>
+					</div>
+				</div>
+			</main>
+		</div>
+	</div>
+} @else {
+	<div class="bg-base-200/50 flex h-full items-center justify-center">
+		<div class="text-center">
+			<div class="mb-4 text-6xl">⚙️</div>
+			<h1
+				class="text-base-content text-2xl font-bold"
+				[translate]
+			>
+				Activity Not Found
+			</h1>
+			<p
+				class="text-base-content/60 py-6"
+				[translate]
+			>
+				The requested activity is not available
+			</p>
+		</div>
+	</div>
+}

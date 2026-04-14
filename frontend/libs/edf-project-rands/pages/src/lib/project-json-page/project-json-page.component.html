@@ -1,0 +1,23 @@
+<div class="flex h-full w-full flex-col overflow-auto p-4">
+	<h1
+		class="text-2xl font-bold"
+		[translate]
+	>
+		Project JSON
+	</h1>
+
+	<!-- go to builder button -->
+	<button
+		[routerLink]="'/host/dashboard/projects/' + (projectId() ? projectId() + '/builder' : '')"
+		class="btn btn-primary mb-4"
+	>
+		<span [translate]>Go to builder</span>
+	</button>
+
+	<hr />
+	{{ { projectId: projectId() } | json }}
+	<hr />
+	<pre class="bg-base-200/40 overflow-auto rounded-lg p-4 text-sm wrap-break-word whitespace-pre-wrap">
+		{{ { project: project$$$.$ | async } | json }}
+    </pre>
+</div>
