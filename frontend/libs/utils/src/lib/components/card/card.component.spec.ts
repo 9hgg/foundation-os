@@ -1,7 +1,9 @@
-import * as SUT from './card.component';
+import { CardComponent } from './card.component';
 
 describe('card.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('CardComponent', () => {
+		it('is exported', () => {
+			expect(CardComponent).toBeDefined();
+		});
+	});
 });

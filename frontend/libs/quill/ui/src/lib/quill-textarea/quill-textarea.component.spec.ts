@@ -1,7 +1,9 @@
-import * as SUT from './quill-textarea.component';
+import { QuillTextareaComponent } from './quill-textarea.component';
 
 describe('quill-textarea.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('QuillTextareaComponent', () => {
+		it('is exported', () => {
+			expect(QuillTextareaComponent).toBeDefined();
+		});
+	});
 });

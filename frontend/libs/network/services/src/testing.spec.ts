@@ -1,7 +1,9 @@
-import * as SUT from './testing';
+import { createMockRequestService } from './testing';
 
 describe('testing', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('createMockRequestService', () => {
+		it('is exported', () => {
+			expect(createMockRequestService).toBeDefined();
+		});
+	});
 });

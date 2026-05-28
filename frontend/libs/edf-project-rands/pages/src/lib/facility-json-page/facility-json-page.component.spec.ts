@@ -1,7 +1,9 @@
-import * as SUT from './facility-json-page.component';
+import { FacilityJsonPageComponent } from './facility-json-page.component';
 
 describe('facility-json-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FacilityJsonPageComponent', () => {
+		it('is exported', () => {
+			expect(FacilityJsonPageComponent).toBeDefined();
+		});
+	});
 });

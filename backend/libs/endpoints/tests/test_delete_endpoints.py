@@ -32,17 +32,13 @@ def test_delete_endpoint(mock_deps, mock_db):
     )
 
     with patch.object(EndpointResource, "in_db", return_value=True):
-        # Patch add_acl_filters to return the query unmodified, simplifying the chain
-        with patch("libs.endpoints.endpoints.add_acl_filters", side_effect=lambda u, s, q, **kwargs: q):
-            # Mock the query chain used by get_resource_if_READ_allowed
-            # query().filter().join().filter().filter().group_by().first()
+        with patch(
+            "libs.endpoints.endpoints.apply_operation_access_filter",
+            side_effect=lambda **kwargs: kwargs["query"],
+        ):
             mock_query = mock_db.query.return_value
-            mock_filter = mock_query.filter.return_value
-            mock_join = mock_filter.join.return_value
-            # filter().filter()
-            mock_filter_3 = mock_join.filter.return_value.filter.return_value
-            # group_by().first()
-            mock_filter_3.group_by.return_value.first.return_value = mock_res
+            mock_query.filter.return_value = mock_query
+            mock_query.first.return_value = mock_res
 
             with patch.object(EndpointResource, "delete") as mock_delete:
                 mock_delete.return_value = mock_res

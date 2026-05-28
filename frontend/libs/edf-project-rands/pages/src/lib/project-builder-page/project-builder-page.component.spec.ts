@@ -1,7 +1,9 @@
-import * as SUT from './project-builder-page.component';
+import { ProjectsBuilderPageComponent } from './project-builder-page.component';
 
 describe('project-builder-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ProjectsBuilderPageComponent', () => {
+		it('is exported', () => {
+			expect(ProjectsBuilderPageComponent).toBeDefined();
+		});
+	});
 });

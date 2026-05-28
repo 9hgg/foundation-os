@@ -1,7 +1,9 @@
-import * as SUT from './autofocus.directive';
+import { AutofocusDirective } from './autofocus.directive';
 
 describe('autofocus.directive', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('AutofocusDirective', () => {
+		it('is exported', () => {
+			expect(AutofocusDirective).toBeDefined();
+		});
+	});
 });

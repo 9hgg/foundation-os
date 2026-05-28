@@ -1,7 +1,9 @@
-import * as SUT from './activity-create-modal.component';
+import { ActivityCreateModalComponent } from './activity-create-modal.component';
 
 describe('activity-create-modal.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ActivityCreateModalComponent', () => {
+		it('is exported', () => {
+			expect(ActivityCreateModalComponent).toBeDefined();
+		});
+	});
 });

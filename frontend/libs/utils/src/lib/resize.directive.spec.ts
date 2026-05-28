@@ -1,7 +1,9 @@
-import * as SUT from './resize.directive';
+import { AutoResizeHeightDirective } from './resize.directive';
 
 describe('resize.directive', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('AutoResizeHeightDirective', () => {
+		it('is exported', () => {
+			expect(AutoResizeHeightDirective).toBeDefined();
+		});
+	});
 });

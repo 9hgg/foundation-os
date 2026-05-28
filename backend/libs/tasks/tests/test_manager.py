@@ -53,6 +53,11 @@ def test_execute_task(mock_task_db):
     task.id = task_id
     task.method_name = "test_method"
     task.arguments = {"args": [1], "kwargs": {}}
+    task.artifacts = {}
+    task.processor_id = "local-processor"
+    task.processor_kind = "local"
+    task.completed = False
+    task.failed = False
     mock_task_db.by_id.return_value = task
 
     # Mock the task method

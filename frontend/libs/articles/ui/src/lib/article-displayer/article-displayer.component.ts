@@ -67,7 +67,7 @@ export class ArticleDisplayerComponent implements AfterViewInit {
 	public articleSlug = input<string | null>(null);
 
 	article$$$ = new BehaviorSubjectReplayedProxied<string | null, Article | null>((id: string | null) => {
-		return id ? this._articlesRepository.store.getObjectById$$$(id, true).$ : of(null);
+		return id ? this._articlesRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	private _translationService = inject(TranslationService);
@@ -75,6 +75,7 @@ export class ArticleDisplayerComponent implements AfterViewInit {
 	private _i18n_supportChat = this._translationService.prep('Support chat');
 	private _i18n_backlog = this._translationService.prep('Feature request');
 	private _i18n_comments = this._translationService.prep('Comments');
+	private _i18n_assistantConversation = this._translationService.prep('Conversation');
 
 	constructor() {
 		// react if the reference is the articleId
@@ -123,6 +124,9 @@ export class ArticleDisplayerComponent implements AfterViewInit {
 								break;
 							case 'default':
 								this.commentTitle.set(this._i18n_comments());
+								break;
+							case 'assistant':
+								this.commentTitle.set(this._i18n_assistantConversation());
 								break;
 							default:
 								console.warn('Unsupported article kind:', article.kind);

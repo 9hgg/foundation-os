@@ -1,7 +1,9 @@
-import * as SUT from './file.modals';
+import { FileModals } from './file.modals';
 
 describe('file.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FileModals', () => {
+		it('is exported', () => {
+			expect(FileModals).toBeDefined();
+		});
+	});
 });

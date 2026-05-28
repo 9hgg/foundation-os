@@ -5,6 +5,7 @@ import sqlmodel
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field
 
+from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import (
     ResourceWithConfig,
 )
@@ -24,6 +25,13 @@ class Message(ResourceWithConfig, table=True):
     __title__ = "Message"
     __description__ = "A message object for chat support, comments on articles, backlog, etc..."
     __config_type__ = MessageConfig
+    __mcp_display__ = ResourceDisplayProfile(
+        kind="message",
+        title_fields=("title", "content", "id"),
+        subtitle_fields=("content",),
+        date_fields=("time_updated", "time_created"),
+        metadata_fields=("kind",),
+    )
 
     conversation_id: uuid.UUID = Field(foreign_key="conversations.id")
     author_id: Optional[uuid.UUID] = Field(foreign_key="users.id", nullable=True)

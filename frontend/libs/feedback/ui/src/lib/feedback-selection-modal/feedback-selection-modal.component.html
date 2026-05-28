@@ -1,0 +1,54 @@
+<div class="bg-base-100 flex h-full w-full max-w-5xl flex-col justify-between p-3">
+	<h3 class="border-base-200 h-16 border-b px-6 py-4 text-lg font-bold" [translate]>
+		Feedback selection
+	</h3>
+
+	<div class="border-base-200 flex items-center gap-3 border-b px-6 py-3">
+		<label class="input input-bordered flex-1">
+			<span class="label" [translate]>Search</span>
+			<input
+				type="text"
+				[ngModel]="searchTerm()"
+				(ngModelChange)="searchTerm.set($event)"
+				placeholder="slug or key"
+			/>
+		</label>
+		<button class="btn btn-sm" (click)="selectAllFiltered()" [translate]>Select filtered</button>
+		<button class="btn btn-sm btn-ghost" (click)="clearAll()" [translate]>Clear</button>
+	</div>
+
+	<div class="h-[calc(90vh-220px)] overflow-auto px-6 py-3">
+		<div class="overflow-x-auto">
+			<table class="table table-sm">
+				<thead>
+					<tr>
+						<th></th>
+						<th [translate]>Slug</th>
+						<th [translate]>Seen</th>
+						<th [translate]>Answered</th>
+					</tr>
+				</thead>
+				<tbody>
+					@for (item of filteredItems(); track item.slug) {
+						<tr>
+							<td>
+								<input class="checkbox checkbox-sm" type="checkbox" [checked]="isSelected(item.slug)" (change)="toggleSelection(item.slug)" />
+							</td>
+							<td>
+								<div class="font-medium">{{ item.slug }}</div>
+								<div class="text-base-content/50 text-xs">{{ item.key }}</div>
+							</td>
+							<td>{{ item.seenCount }}</td>
+							<td>{{ item.answeredCount }}</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<div class="modal-action border-base-200 bg-base-100 m-0 h-16 border-t px-6 py-4">
+		<button class="btn" (click)="cancel()" [translate]>Cancel</button>
+		<button class="btn btn-primary" (click)="save()" [translate]>Apply</button>
+	</div>
+</div>

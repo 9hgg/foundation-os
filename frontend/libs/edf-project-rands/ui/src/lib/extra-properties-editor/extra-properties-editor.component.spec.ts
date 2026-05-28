@@ -1,7 +1,9 @@
-import * as SUT from './extra-properties-editor.component';
+import { ExtraPropertiesEditorComponent } from './extra-properties-editor.component';
 
 describe('extra-properties-editor.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ExtraPropertiesEditorComponent', () => {
+		it('is exported', () => {
+			expect(ExtraPropertiesEditorComponent).toBeDefined();
+		});
+	});
 });

@@ -1,0 +1,187 @@
+@reference "tailwindcss";
+
+:host {
+	display: block;
+}
+
+.mcp-assistant-panel {
+	position: relative;
+	overflow: hidden;
+	border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--color-base-content) 6%);
+	border-radius: 1.75rem;
+	background:
+		radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--color-primary) 14%, transparent), transparent 34%),
+		radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--color-secondary) 14%, transparent), transparent 38%),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--color-base-100) 88%, var(--color-primary) 12%),
+			color-mix(in srgb, var(--color-base-200) 82%, var(--color-secondary) 18%)
+		);
+	box-shadow:
+		0 10px 24px -22px color-mix(in srgb, var(--color-primary) 22%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--color-base-100) 60%, transparent);
+}
+
+.mcp-assistant-panel__halo {
+	position: absolute;
+	inset: auto -7rem -7rem auto;
+	height: 11rem;
+	width: 11rem;
+	border-radius: 9999px;
+	background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 65%);
+	pointer-events: none;
+}
+
+.mcp-assistant-panel__content {
+	position: relative;
+	padding: 2rem 1.35rem 1.4rem;
+}
+
+.mcp-assistant-panel__eyebrow {
+	margin: 0 0 0.5rem;
+	text-align: center;
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+	color: color-mix(in srgb, var(--color-primary) 48%, var(--color-base-content) 52%);
+}
+
+.mcp-assistant-panel__title {
+	margin: 0 auto;
+	max-width: 20ch;
+	text-align: center;
+	font-size: clamp(1.55rem, 2.7vw, 2.55rem);
+	line-height: 1.14;
+	font-weight: 450;
+	color: var(--color-base-content);
+}
+
+.mcp-assistant-panel__prompt {
+	margin: 1.35rem auto 0;
+	display: flex;
+	min-height: 4.2rem;
+	width: 100%;
+	max-width: 56rem;
+	align-items: flex-end;
+	gap: 0.55rem;
+	border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-base-content) 8%);
+	border-radius: 9999px;
+	background: color-mix(in srgb, var(--color-base-100) 90%, var(--color-primary) 10%);
+	padding: 0.55rem 0.7rem 0.6rem;
+	box-shadow:
+		0 12px 28px -28px color-mix(in srgb, var(--color-primary) 24%, transparent),
+		0 1px 4px color-mix(in srgb, var(--color-base-content) 6%, transparent);
+}
+
+.mcp-assistant-panel__icon-button,
+.mcp-assistant-panel__submit,
+.mcp-assistant-panel__input {
+	border: 0;
+	background: transparent;
+}
+
+.mcp-assistant-panel__icon-button {
+	display: inline-flex;
+	height: 2.75rem;
+	width: 2.75rem;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px;
+	color: color-mix(in srgb, var(--color-primary) 52%, var(--color-base-content) 48%);
+	transition:
+		transform 180ms ease,
+		background-color 180ms ease,
+		color 180ms ease;
+}
+
+.mcp-assistant-panel__icon-button:hover {
+	background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+	color: var(--color-primary);
+	transform: translateY(-1px);
+}
+
+.mcp-assistant-panel__input {
+	flex: 1;
+	min-height: 2.75rem;
+	max-height: 10rem;
+	resize: none;
+	overflow-y: auto;
+	padding: 0.6rem 0.15rem 0.35rem 0;
+	text-align: left;
+	font-size: 1.1rem;
+	font-weight: 400;
+	line-height: 1.45;
+	color: var(--color-base-content);
+	outline: none;
+}
+
+.mcp-assistant-panel__input::placeholder {
+	color: color-mix(in srgb, var(--color-primary) 26%, var(--color-base-content) 74%);
+}
+
+.mcp-assistant-panel__actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.mcp-assistant-panel__submit {
+	display: inline-flex;
+	min-width: 5.75rem;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px;
+	background: var(--color-primary);
+	padding: 0.8rem 1rem;
+	font-size: 0.9rem;
+	font-weight: 700;
+	color: var(--color-primary-content, var(--color-base-100));
+	box-shadow: 0 10px 18px -14px color-mix(in srgb, var(--color-primary) 55%, transparent);
+	transition:
+		transform 180ms ease,
+		opacity 180ms ease;
+}
+
+.mcp-assistant-panel__submit:hover {
+	transform: translateY(-1px);
+	opacity: 0.92;
+}
+
+.mcp-assistant-panel__icon-button:focus-visible,
+.mcp-assistant-panel__submit:focus-visible,
+.mcp-assistant-panel__input:focus-visible {
+	outline: 2px solid color-mix(in srgb, var(--color-primary) 72%, white 28%);
+	outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+	.mcp-assistant-panel__content {
+		padding: 1.5rem 0.95rem 1rem;
+	}
+
+	.mcp-assistant-panel__prompt {
+		flex-wrap: wrap;
+		border-radius: 1.35rem;
+		padding: 0.7rem;
+	}
+
+	.mcp-assistant-panel__input {
+		order: 3;
+		width: 100%;
+		padding-top: 0.2rem;
+	}
+
+	.mcp-assistant-panel__input::placeholder {
+		font-size: 1rem;
+	}
+
+	.mcp-assistant-panel__actions {
+		margin-left: auto;
+	}
+
+	.mcp-assistant-panel__submit {
+		min-width: auto;
+		padding-inline: 1rem;
+	}
+}

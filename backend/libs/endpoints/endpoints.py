@@ -5,11 +5,12 @@ from enum import Enum
 from urllib.parse import unquote
 
 import fastapi
+import sqlalchemy as sa
 from fastapi import APIRouter, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Query as QuerySQLAlchemy
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.expression import and_, or_
 
 from libs.acl.methods import create_default_acls
@@ -17,7 +18,13 @@ from libs.acl.models import Acl, Operation, Who
 from libs.db import context_db
 from libs.folders.models import FolderToResource
 from libs.logger import print, print_color
-from libs.resource import Resource, ResourceManager, getattr_by_alias_or_name
+from libs.resource import (
+    CanReadIfReadOver,
+    Resource,
+    ResourceManager,
+    SameAccessAs,
+    getattr_by_alias_or_name,
+)
 from libs.resource.resource_errors import ResourceWithKindUndefinedError
 from libs.sessions.models import AppSession
 from libs.users.models import User
@@ -151,58 +158,379 @@ def add_acl_filters(
     Optionally, it can ignore resources accessible to anonymous users.
     """
 
+    membership_model = _get_membership_model()
+    principal_filter = build_acl_principal_filter(
+        Acl,
+        current_user_db=current_user_db,
+        session=session,
+        ignore_anonymous=ignore_anonymous,
+        ignore_session=ignore_session,
+        include_admin=include_admin,
+        team_ids_subquery_factory=(
+            lambda: query.session.query(membership_model.team_id).filter(
+                membership_model.user_id == current_user_db.id
+            )
+        )
+        if current_user_db is not None and membership_model is not None
+        else None,
+    )
+
+    if principal_filter is not None:
+        query = query.filter(principal_filter)
+
+    # print_color("yellow", "🛑 ACL filters applied:", query.statement.compile())
+
+    return query
+
+
+def build_acl_principal_filter(
+    acl_model: Acl,
+    *,
+    current_user_db: User | None,
+    session: AppSession | None,
+    ignore_anonymous: bool = False,
+    ignore_session: bool = True,
+    include_admin: bool = True,
+    team_ids_subquery_factory: typing.Callable[[], typing.Any] | None = None,
+):
+    """
+    Build the ACL principal filter over an ACL table or alias.
+
+    Produces an OR clause covering all the principal identities that should
+    grant access (anonymous, connected, specific user, team membership, admin,
+    session).  Returns ``None`` when no condition applies (i.e. the caller
+    should treat access as denied).
+    """
+
     # Build a list of conditions that grant access
     or_access_conditions = []
 
     # Anonymous access (if not ignored)
     if not ignore_anonymous:
-        or_access_conditions.append(Acl.who == Who.anonymous.value)
+        or_access_conditions.append(acl_model.who == Who.anonymous.value)
 
     # Connected user access (any authenticated user)
     if current_user_db is not None:
-        or_access_conditions.append(Acl.who == Who.connected.value)
+        or_access_conditions.append(acl_model.who == Who.connected.value)
 
         # Specific user access
         or_access_conditions.append(
             and_(
-                Acl.who == Who.user.value,
-                Acl.who_id == current_user_db.id,
+                acl_model.who == Who.user.value,
+                acl_model.who_id == current_user_db.id,
             )
         )
-        USING_TEAMS = ResourceManager.is_resource_registered("team")
-        if USING_TEAMS:
-            # Team access - check if user is member of any team that has access
-            # This creates a subquery to find all team IDs the user belongs to
-            from libs.teams.models import Membership
 
-            user_teams_subquery = query.session.query(Membership.team_id).filter(
-                Membership.user_id == current_user_db.id
-            )
-
-            or_access_conditions.append(
-                and_(Acl.who == Who.team.value, Acl.who_id.in_(user_teams_subquery))
-            )
+        if team_ids_subquery_factory is not None:
+            # Team access – check if user is member of any team that has access.
+            # The subquery is lazily evaluated so that calling code can control
+            # which session / alias to use.
+            user_teams_subquery = team_ids_subquery_factory()
+            if user_teams_subquery is not None:
+                or_access_conditions.append(
+                    and_(
+                        acl_model.who == Who.team.value,
+                        acl_model.who_id.in_(user_teams_subquery),
+                    )
+                )
 
         # Admin access (if user is admin and admin access via ACL is included)
         if include_admin and current_user_db.is_admin():
-            or_access_conditions.append(Acl.who == Who.admin.value)
+            or_access_conditions.append(acl_model.who == Who.admin.value)
 
     # Session access (if session exists and not ignored)
     if session is not None and not ignore_session:
         or_access_conditions.append(
             and_(
-                Acl.who == Who.session.value,
-                Acl.who_id == session.id,
+                acl_model.who == Who.session.value,
+                acl_model.who_id == session.id,
             )
         )
 
-    # Apply the combined filter (only if we have any conditions)
-    if or_access_conditions:
-        query = query.filter(or_(*or_access_conditions))
+    # Return the combined filter (only if we have any conditions)
+    if not or_access_conditions:
+        return None
 
-    # print_color("yellow", "🛑 ACL filters applied:", query.statement.compile())
+    return or_(*or_access_conditions)
 
-    return query
+
+def _get_membership_model():
+    if not ResourceManager.is_resource_registered("team"):
+        return None
+
+    from libs.teams.models import Membership
+
+    return Membership
+
+
+def _build_direct_acl_cte(
+    *,
+    current_user_db: User | None,
+    session: AppSession | None,
+    operation: Operation,
+    ignore_anonymous: bool = False,
+    ignore_session: bool = True,
+    include_admin: bool = True,
+):
+    """
+    Build the ``eligible_acls`` CTE that collects every ACL row the current
+    principal (user / session) is entitled to for the given *operation*.
+
+    This is the **direct** step of the two-step CTE approach: it does not yet
+    consider any parent-resource inheritance rules – it simply selects all
+    ``(resource_kind, resource_id)`` pairs from the ``acls`` table that match
+    the principal's identity and the requested operation.
+
+    The resulting CTE is later consumed by :func:`_build_readable_ids_via_access_rules_cte`
+    which expands it through ``SameAccessAs`` / ``CanReadIfReadOver`` chains.
+    """
+
+    # Optionally build a CTE for the user's team memberships so that the
+    # team-id look-up is evaluated only once even when the eligible_acls CTE
+    # is referenced multiple times in a larger query.
+    membership_model = _get_membership_model()
+    team_ids_cte = None
+    if current_user_db is not None and membership_model is not None:
+        team_ids_cte = (
+            sa.select(membership_model.team_id.label("team_id"))
+            .where(membership_model.user_id == current_user_db.id)
+            .cte("principal_team_ids")
+        )
+
+    principal_filter = build_acl_principal_filter(
+        Acl,
+        current_user_db=current_user_db,
+        session=session,
+        ignore_anonymous=ignore_anonymous,
+        ignore_session=ignore_session,
+        include_admin=include_admin,
+        team_ids_subquery_factory=(
+            lambda: sa.select(team_ids_cte.c.team_id)
+            if team_ids_cte is not None
+            else None
+        ),
+    )
+
+    # Select all distinct (resource_kind, resource_id) pairs the principal has
+    # direct access to for the requested operation.
+    acl_query = (
+        sa.select(
+            Acl.resource_kind.label("resource_kind"),
+            Acl.resource_id.label("resource_id"),
+        )
+        .distinct()
+        .where(Acl.operation == operation.value)
+    )
+    if principal_filter is not None:
+        acl_query = acl_query.where(principal_filter)
+    else:
+        # No principal condition matched at all – deny everything.
+        acl_query = acl_query.where(sa.false())
+
+    return acl_query.cte("eligible_acls")
+
+
+def _build_readable_ids_via_access_rules_cte(
+    *,
+    ResourceClass: type[Resource],
+    eligible_acls_cte,
+    operation: Operation,
+    visited: frozenset[tuple[str, str]] | None = None,
+    cache: dict[tuple[str, str], typing.Any] | None = None,
+    nesting_level: int = 0,
+):
+    """
+    Build a CTE that collects every *id* for *ResourceClass* that is readable
+    (or writable / deletable) by the current principal, taking **access-rule
+    inheritance** into account.
+
+    The logic is:
+
+    1. **Direct access** – IDs that appear in *eligible_acls_cte* for this
+       resource kind are immediately readable.
+    2. **Inherited access** – for each ``SameAccessAs`` / ``CanReadIfReadOver``
+       rule attached to *ResourceClass*, we recursively build the readable-ids
+       CTE for the *target* (parent) resource, then JOIN the current resource
+       table against that CTE to find children whose parent is accessible.
+
+    Both branches are combined with a SQL ``UNION``, so the final CTE is a
+    flat set of IDs without duplicates.
+
+    The *cache* parameter avoids re-generating the same CTE when multiple
+    resources share a common ancestor (e.g. both Activity and Batch point to
+    Project).  The *visited* set detects and rejects circular inheritance chains.
+    """
+    if visited is None:
+        visited = frozenset()
+    if cache is None:
+        cache = {}
+
+    key = (ResourceClass.__kind__, operation.value)
+    # Return cached CTE if this resource/operation pair was already built.
+    if key in cache:
+        return cache[key]
+    # Guard against infinite recursion caused by circular access rules.
+    if key in visited:
+        raise NotImplementedError(
+            f"Cyclic SameAccessAs inheritance is not supported for {ResourceClass.__kind__}"
+        )
+
+    indent = "  " * nesting_level
+    # print_color(
+    #     "cyan",
+    #     f"{indent}[effective-acl] resource={ResourceClass.__kind__} operation={operation.value} level={nesting_level}",
+    # )
+
+    # --- Step 1: direct access via eligible_acls_cte ---
+    selects = [
+        sa.select(eligible_acls_cte.c.resource_id.label("id")).where(
+            eligible_acls_cte.c.resource_kind == ResourceClass.__kind__
+        )
+    ]
+
+    next_visited = visited | {key}
+    for rule in getattr(ResourceClass, "__access_rules__", ()) or ():
+        if not isinstance(rule, (SameAccessAs, CanReadIfReadOver)):
+            raise NotImplementedError(
+                f"Unsupported access rule {type(rule).__name__} on {ResourceClass.__kind__}"
+            )
+        # Skip rules that do not apply to the requested operation
+        # (e.g. CanReadIfReadOver only applies to READ).
+        if not rule.supports_operation(operation):
+            # print_color(
+            #     "yellow",
+            #     f"{indent}[effective-acl] skip rule={type(rule).__name__} target={rule.target_resource.__kind__} reason=operation-not-enabled op={operation.value}",
+            # )
+            continue
+
+        target_resource = rule.target_resource
+        # print_color(
+        #     "cyan",
+        #     f"{indent}[effective-acl] traverse rule={type(rule).__name__} from={ResourceClass.__kind__} to={target_resource.__kind__} on={rule.local_field}=={rule.remote_field}",
+        # )
+
+        # --- Step 2: inherited access through a parent resource ---
+        # Recursively build the readable-ids CTE for the parent resource,
+        # then JOIN the current resource against it.
+        readable_parent_ids_cte = _build_readable_ids_via_access_rules_cte(
+            ResourceClass=target_resource,
+            eligible_acls_cte=eligible_acls_cte,
+            operation=operation,
+            visited=next_visited,
+            cache=cache,
+            nesting_level=nesting_level + 1,
+        )
+        target_resource_alias = aliased(target_resource)
+        selects.append(
+            sa.select(ResourceClass.id.label("id"))
+            .select_from(ResourceClass)
+            .join(
+                target_resource_alias,
+                getattr(ResourceClass, rule.local_field)
+                == getattr(target_resource_alias, rule.remote_field),
+            )
+            .join(
+                readable_parent_ids_cte,
+                readable_parent_ids_cte.c.id == target_resource_alias.id,
+            )
+        )
+
+    # Combine direct + all inherited branches into a single flat set of IDs.
+    readable_ids_union = sa.union(*selects) if len(selects) > 1 else selects[0]
+    readable_ids_cte = readable_ids_union.cte(
+        f"readable_{ResourceClass.__kind__}_{operation.value}"
+    )
+    cache[key] = readable_ids_cte
+    return readable_ids_cte
+
+
+def build_effective_acl_clause(
+    *,
+    ResourceClass: type[Resource],
+    resource_expr,
+    current_user_db: User | None,
+    session: AppSession | None,
+    operation: Operation,
+    ignore_anonymous: bool = False,
+    ignore_session: bool = True,
+    include_admin: bool = True,
+    visited: frozenset[tuple[str, str]] | None = None,
+    nesting_level: int = 0,
+):
+    """
+    Build the SQL WHERE clause that restricts a query to rows accessible by
+    the current principal for *operation*.
+
+    Combines the two CTE-building helpers:
+
+    1. :func:`_build_direct_acl_cte` – collects all ACL rows the principal is
+       directly entitled to (``eligible_acls`` CTE).
+    2. :func:`_build_readable_ids_via_access_rules_cte` – expands the direct
+       grants through ``SameAccessAs`` / ``CanReadIfReadOver`` chains to
+       produce a flat set of readable IDs.
+
+    The final clause is ``resource_expr.id IN (SELECT id FROM readable_<kind>_<op>)``.
+    """
+    # Step 1 – build the eligible_acls CTE (direct grants for this principal)
+    eligible_acls_cte = _build_direct_acl_cte(
+        current_user_db=current_user_db,
+        session=session,
+        operation=operation,
+        ignore_anonymous=ignore_anonymous,
+        ignore_session=ignore_session,
+        include_admin=include_admin,
+    )
+    # Step 2 – expand through access rules to get the full set of readable IDs
+    readable_ids_cte = _build_readable_ids_via_access_rules_cte(
+        ResourceClass=ResourceClass,
+        eligible_acls_cte=eligible_acls_cte,
+        operation=operation,
+        visited=visited,
+        nesting_level=nesting_level,
+    )
+    return getattr(resource_expr, "id").in_(sa.select(readable_ids_cte.c.id))
+
+
+def apply_operation_access_filter(
+    *,
+    query: QuerySQLAlchemy,
+    ResourceClass: type[Resource],
+    current_user_db: User | None,
+    session: AppSession | None,
+    operation: Operation,
+    resource_expr=None,
+    ignore_anonymous: bool = False,
+    ignore_session: bool = True,
+    include_admin: bool = True,
+):
+    if resource_expr is None:
+        resource_expr = ResourceClass
+
+    filtered_query = query.filter(
+        build_effective_acl_clause(
+            ResourceClass=ResourceClass,
+            resource_expr=resource_expr,
+            current_user_db=current_user_db,
+            session=session,
+            operation=operation,
+            ignore_anonymous=ignore_anonymous,
+            ignore_session=ignore_session,
+            include_admin=include_admin,
+        )
+    )
+
+    # try:
+    #     compiled_query = filtered_query.statement.compile(
+    #         compile_kwargs={"literal_binds": True}
+    #     )
+    # except Exception:
+    #     compiled_query = filtered_query.statement.compile()
+    # print_color(
+    #     "magenta",
+    #     f"[effective-acl-sql] resource={ResourceClass.__kind__} operation={operation.value}\n{compiled_query}",
+    # )
+
+    return filtered_query
 
 
 def get_resource_if_READ_allowed(
@@ -224,21 +552,15 @@ def get_resource_if_READ_allowed(
             return None
 
     with context_db() as db:
-        query = (
-            db.query(resource_type)
-            .filter(resource_type.id == resource_id)
-            .join(Acl, Acl.resource_id == resource_id)
-            .filter(Acl.operation == Operation.READ.value)
-            .filter(Acl.resource_kind == resource_kind)
+        query = db.query(resource_type).filter(resource_type.id == resource_id)
+        query = apply_operation_access_filter(
+            query=query,
+            ResourceClass=resource_type,
+            current_user_db=current_user_db,
+            session=session_db,
+            operation=Operation.READ,
+            ignore_anonymous=False,
         )
-
-        # explicitly keep anonymous access
-        query = add_acl_filters(
-            current_user_db, session_db, query, ignore_anonymous=False
-        )
-
-        # group by resource_id to avoid duplicates
-        query = query.group_by(resource_type.id)
 
     return query.first()
 
@@ -262,20 +584,15 @@ def get_resource_if_WRITE_allowed(
             return None
 
     with context_db() as db:
-        query = (
-            db.query(resource_type)
-            .filter(resource_type.id == resource_id)
-            .join(Acl, Acl.resource_id == resource_id)
-            .filter(Acl.operation == Operation.WRITE.value)
-            .filter(Acl.resource_kind == resource_kind)
+        query = db.query(resource_type).filter(resource_type.id == resource_id)
+        query = apply_operation_access_filter(
+            query=query,
+            ResourceClass=resource_type,
+            current_user_db=current_user_db,
+            session=session_db,
+            operation=Operation.WRITE,
+            ignore_anonymous=True,
         )
-
-        query = add_acl_filters(
-            current_user_db, session_db, query, ignore_anonymous=True
-        )
-
-        # group by resource_id to avoid duplicates
-        query = query.group_by(resource_type.id)
 
     return query.first()
 
@@ -294,19 +611,13 @@ def read_all_resources(
 
     with context_db(_db) as db:
         query = db.query(ResourceClass)
-
-        query = (
-            query.join(Acl, Acl.resource_id == ResourceClass.id)
-            .filter(Acl.operation == Operation.READ.value)
-            .filter(Acl.resource_kind == ResourceClass.__kind__)
-        )
-
-        query = add_acl_filters(user, session, query)
-
-        # group by resource_id to avoid duplicates
-        query = query.group_by(ResourceClass.id).order_by(
-            ResourceClass.time_created.asc()
-        )
+        query = apply_operation_access_filter(
+            query=query,
+            ResourceClass=ResourceClass,
+            current_user_db=user,
+            session=session,
+            operation=Operation.READ,
+        ).order_by(ResourceClass.time_created.asc())
         result = query.all()
 
     return EndpointOutput(
@@ -530,72 +841,62 @@ def create_crud_endpoints(
                             == proxy_resource.id,
                         )
                         .filter(proxy_resource.id == proxy_value_uuid)
-                        .join(
-                            Acl,
-                            and_(
-                                Acl.resource_id == proxy_resource.id,
-                                Acl.resource_kind == proxy_resource_kind,
-                                Acl.operation == Operation.READ.value,
-                            ),
-                        )
                     )
-
-                    query = add_acl_filters(
-                        current_user_db,
-                        session,
-                        query,
+                    query = apply_operation_access_filter(
+                        query=query,
+                        ResourceClass=proxy_resource,
+                        resource_expr=proxy_resource,
+                        current_user_db=current_user_db,
+                        session=session,
+                        operation=Operation.READ,
                         ignore_anonymous=ignore_anonymous,
                     )
 
                 else:
                     # we list all ACLs that allow READ on the resource
-                    query = (
-                        query.join(Acl, Acl.resource_id == ResourceClass.id)
-                        .filter(Acl.operation == Operation.READ.value)
-                        .filter(Acl.resource_kind == ResourceClass.__kind__)
-                    )
-
-                    query = add_acl_filters(
-                        current_user_db,
-                        session,
-                        query,
+                    query = apply_operation_access_filter(
+                        query=query,
+                        ResourceClass=ResourceClass,
+                        current_user_db=current_user_db,
+                        session=session,
+                        operation=Operation.READ,
                         ignore_anonymous=ignore_anonymous,
                     )
 
-                for filter in filter_objs:
-                    if not hasattr(ResourceClass, filter.field_name):
+                for filter_ in filter_objs:
+                    if not hasattr(ResourceClass, filter_.field_name):
                         raise fastapi.HTTPException(
                             status_code=400,
-                            detail=f"Invalid filter field: {filter.field_name}",
+                            detail=f"Invalid filter field: {filter_.field_name}",
                         )
 
-                    field = getattr(ResourceClass, filter.field_name)
-                    if filter.comparison:
-                        if filter.comparison == "<":
-                            query = query.filter(field < filter.value)
-                        elif filter.comparison == ">":
-                            query = query.filter(field > filter.value)
-                        elif filter.comparison == "<=":
-                            query = query.filter(field <= filter.value)
-                        elif filter.comparison == ">=":
-                            query = query.filter(field >= filter.value)
-                        elif filter.comparison == "<>":
+                    field = getattr(ResourceClass, filter_.field_name)
+                    if filter_.comparison:
+                        if filter_.comparison == "<":
+                            query = query.filter(field < filter_.value)
+                        elif filter_.comparison == ">":
+                            query = query.filter(field > filter_.value)
+                        elif filter_.comparison == "<=":
+                            query = query.filter(field <= filter_.value)
+                        elif filter_.comparison == ">=":
+                            query = query.filter(field >= filter_.value)
+                        elif filter_.comparison == "<>":
                             # Special handling for booleans: IS NOT TRUE/FALSE matches NULL too
-                            if filter.value is None:
+                            if filter_.value is None:
                                 query = query.filter(field.isnot(None))
-                            elif isinstance(filter.value, bool):
-                                query = query.filter(field.isnot(filter.value))
+                            elif isinstance(filter_.value, bool):
+                                query = query.filter(field.isnot(filter_.value))
                             else:
-                                query = query.filter(field != filter.value)
+                                query = query.filter(field != filter_.value)
                     else:
-                        if filter.match_type == "exact":
-                            query = query.filter(field == filter.value)
-                        elif filter.match_type == "partial":
-                            query = query.filter(field.ilike(f"%{filter.value}%"))
+                        if filter_.match_type == "exact":
+                            query = query.filter(field == filter_.value)
+                        elif filter_.match_type == "partial":
+                            query = query.filter(field.ilike(f"%{filter_.value}%"))
                         else:
                             raise fastapi.HTTPException(
                                 status_code=400,
-                                detail=f"Invalid match type: {filter.match_type}",
+                                detail=f"Invalid match type: {filter_.match_type}",
                             )
 
                 # group by resource_id to avoid duplicates
@@ -669,13 +970,13 @@ def create_crud_endpoints(
                 query = db.query(ResourceClass)
 
                 # Apply ACL filters
-                query = (
-                    query.join(Acl, Acl.resource_id == ResourceClass.id)
-                    .filter(Acl.operation == Operation.READ.value)
-                    .filter(Acl.resource_kind == ResourceClass.__kind__)
+                query = apply_operation_access_filter(
+                    query=query,
+                    ResourceClass=ResourceClass,
+                    current_user_db=current_user_db,
+                    session=session,
+                    operation=Operation.READ,
                 )
-
-                query = add_acl_filters(current_user_db, session, query)
 
                 # Apply additional filters
                 for filter in filter_objs:
@@ -845,18 +1146,14 @@ def create_crud_endpoints(
                 )
 
             with context_db() as db:
-                query = (
-                    db.query(ResourceClass)
-                    .filter(ResourceClass.id == resource_id)
-                    .join(Acl, Acl.resource_id == ResourceClass.id)
-                    .filter(Acl.operation == Operation.READ.value)
-                    .filter(Acl.resource_kind == ResourceClass.__kind__)
+                query = db.query(ResourceClass).filter(ResourceClass.id == resource_id)
+                query = apply_operation_access_filter(
+                    query=query,
+                    ResourceClass=ResourceClass,
+                    current_user_db=current_user_db,
+                    session=session,
+                    operation=Operation.READ,
                 )
-
-                query = add_acl_filters(current_user_db, session, query)
-
-                # group by resource_id to avoid duplicates
-                query = query.group_by(ResourceClass.id)
 
                 result = query.first()
             if result is None:
@@ -895,18 +1192,16 @@ def create_crud_endpoints(
             current_user_db, session, translator = classic_deps
 
             with context_db() as db:
-                query = (
-                    db.query(ResourceClass)
-                    .filter(getattr(ResourceClass, resource_key) == resource_value)
-                    .join(Acl, Acl.resource_id == ResourceClass.id)
-                    .filter(Acl.operation == Operation.READ.value)
-                    .filter(Acl.resource_kind == ResourceClass.__kind__)
+                query = db.query(ResourceClass).filter(
+                    getattr(ResourceClass, resource_key) == resource_value
                 )
-
-                query = add_acl_filters(current_user_db, session, query)
-
-                # group by resource_id to avoid duplicates
-                query = query.group_by(ResourceClass.id)
+                query = apply_operation_access_filter(
+                    query=query,
+                    ResourceClass=ResourceClass,
+                    current_user_db=current_user_db,
+                    session=session,
+                    operation=Operation.READ,
+                )
 
                 print("Query:", query)
 
@@ -1003,6 +1298,19 @@ def create_crud_endpoints(
             """
             current_user_db, session, _ = classic_deps
 
+
+
+            try:
+                uuid.UUID(resource_id)
+            except ValueError:
+                return EndpointOutput(
+                    error=EndpointError(
+                        title="Invalid resource ID",
+                        description="The resource ID is not a valid UUID.",
+                        details={"resourceId": resource_id},
+                    )
+                )
+
             # Extract time_updated from the resource data for concurrency control
             time_updated = None
             if hasattr(resource_in, "time_updated"):
@@ -1019,17 +1327,16 @@ def create_crud_endpoints(
 
             resource_through_acl_db: typing.Optional[Resource] = None
             with context_db() as db:
-                query = (
-                    db.query(ResourceClass)
-                    .filter(ResourceClass.id == resource_id)
-                    .join(Acl, Acl.resource_id == ResourceClass.id)
-                    .filter(Acl.operation == Operation.WRITE.value)
-                    .filter(Acl.resource_kind == ResourceClass.__kind__)
-                )
-                query = add_acl_filters(current_user_db, session, query)
-
-                # group by resource_id to avoid duplicates
-                query = query.group_by(ResourceClass.id)
+                query = db.query(ResourceClass).filter(ResourceClass.id == resource_id)
+                if not (include_bypass and current_user_db and current_user_db.is_admin()):
+                    query = apply_operation_access_filter(
+                        query=query,
+                        ResourceClass=ResourceClass,
+                        current_user_db=current_user_db,
+                        session=session,
+                        operation=Operation.WRITE,
+                        ignore_anonymous=True,
+                    )
 
                 resource_through_acl_db = query.first()
 
@@ -1151,18 +1458,28 @@ def create_crud_endpoints(
 
             current_user_db, session, _ = classic_deps
 
-            with context_db() as db:
-                query = (
-                    db.query(ResourceClass)
-                    .filter(ResourceClass.id == resource_id)
-                    .join(Acl, Acl.resource_id == ResourceClass.id)
-                    .filter(Acl.operation == Operation.WRITE.value)
-                    .filter(Acl.resource_kind == ResourceClass.__kind__)
+            try:
+                uuid.UUID(resource_id)
+            except ValueError:
+                return EndpointOutput(
+                    error=EndpointError(
+                        title="Invalid resource ID",
+                        description="The resource ID is not a valid UUID.",
+                        details={"resourceId": resource_id},
+                    )
                 )
-                query = add_acl_filters(current_user_db, session, query)
 
-                # group by resource_id to avoid duplicates
-                query = query.group_by(ResourceClass.id)
+            with context_db() as db:
+                query = db.query(ResourceClass).filter(ResourceClass.id == resource_id)
+                if not (include_bypass and current_user_db and current_user_db.is_admin()):
+                    query = apply_operation_access_filter(
+                        query=query,
+                        ResourceClass=ResourceClass,
+                        current_user_db=current_user_db,
+                        session=session,
+                        operation=Operation.WRITE,
+                        ignore_anonymous=True,
+                    )
 
                 resource_db: Resource = query.first()
 
@@ -1237,19 +1554,33 @@ def create_crud_endpoints(
             Delete a resource by ID.
             """
             current_user_db, session, translator = classic_deps
+
+
+
+            try:
+                uuid.UUID(resource_id)
+            except ValueError:
+                return EndpointOutput(
+                    error=EndpointError(
+                        title="Invalid resource ID",
+                        description="The resource ID is not a valid UUID.",
+                        details={"resourceId": resource_id},
+                    )
+                )
+
+
             # check ACLs
             with context_db() as db:
-                query = (
-                    db.query(ResourceClass)
-                    .filter(ResourceClass.id == resource_id)
-                    .join(Acl, Acl.resource_id == ResourceClass.id)
-                    .filter(Acl.operation == Operation.DELETE.value)
-                    .filter(Acl.resource_kind == ResourceClass.__kind__)
-                )
-                query = add_acl_filters(current_user_db, session, query)
-
-                # group by resource_id to avoid duplicates
-                query = query.group_by(ResourceClass.id)
+                query = db.query(ResourceClass).filter(ResourceClass.id == resource_id)
+                if not (include_bypass and current_user_db and current_user_db.is_admin()):
+                    query = apply_operation_access_filter(
+                        query=query,
+                        ResourceClass=ResourceClass,
+                        current_user_db=current_user_db,
+                        session=session,
+                        operation=Operation.DELETE,
+                        ignore_anonymous=True,
+                    )
 
                 resource_db: Resource = query.first()
 

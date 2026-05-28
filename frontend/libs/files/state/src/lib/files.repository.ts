@@ -6,7 +6,7 @@ import { HttpClient, HttpEventType, HttpHeaders } from '@angular/common/http';
 import { ElementRef, inject, Injectable, Renderer2, RendererFactory2 } from '@angular/core';
 import { combineLatest, EMPTY, filter, finalize, interval, NEVER, Observable, of, shareReplay, skipUntil, switchMap, take, tap } from 'rxjs';
 
-interface TaskProgressResponse {
+export interface TaskProgressResponse {
 	id: string;
 	progress: number;
 	pollingCount: number;

@@ -23,6 +23,9 @@ export interface UserConfig {
 	language?: string;
 	// History of previous email addresses
 	formerEmails?: { email: string; changedAt: string; wasVerified: boolean }[];
+
+	// App-specific user details — each app defines its own typed interface for this field
+	appDetails?: Record<string, unknown>;
 }
 
 export interface ThemeConfig {

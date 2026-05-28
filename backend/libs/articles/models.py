@@ -8,6 +8,7 @@ from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlmodel import Field
 
+from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import ResourceWithConfig
 from libs.utils.types import BaseModelWithConfig
 
@@ -30,6 +31,14 @@ class Article(ResourceWithConfig, table=True):
     __title__ = "Article"
     __description__ = "An article object for blog support, knowledge management, tutorials, backlog items... "
     __config_type__ = ArticleConfig
+    __mcp_display__ = ResourceDisplayProfile(
+        kind="article",
+        title_fields=("title", "slug", "id"),
+        subtitle_fields=("summary",),
+        status_fields=("draft", "featured"),
+        date_fields=("time_published", "time_updated", "time_created"),
+        metadata_fields=("slug", "kind", "featured", "time_published"),
+    )
 
     title: str | None = Field(index=True, default=None)
     slug: Optional[str] = Field(index=True, unique=True, default_factory=lambda: str(uuid.uuid4()))
@@ -38,7 +47,7 @@ class Article(ResourceWithConfig, table=True):
 
     author_id: Optional[uuid.UUID] = Field(foreign_key="users.id", default=None)
 
-    kind: str = "default" # can also be 'support'
+    kind: str = "default"  # can also be 'support', 'backlog', 'assistant'
     draft: bool = True
     featured: bool = Field(default=False)
     time_published: Optional[datetime.datetime] = sqlmodel.Field(
@@ -58,3 +67,7 @@ class Article(ResourceWithConfig, table=True):
         super().model_post_init(__context)
         if isinstance(self.time_published, str):
             self.time_published = datetime.datetime.fromisoformat(self.time_published)
+
+
+class AdminArticleFolderAssignment(BaseModelWithConfig):
+    folder_id: uuid.UUID

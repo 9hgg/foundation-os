@@ -238,6 +238,10 @@ class VideoProcessor(GenericProcessor):
 
         model_folder = FILES_SETTINGS.WHISPER_PATH
 
+        if not model_folder or not self.local_path:
+            print("Whisper model path or local video file path is not set.")
+            return None
+
         try:
             from faster_whisper import WhisperModel
             model = WhisperModel(model_folder, device="cpu", compute_type="int8", local_files_only=False)

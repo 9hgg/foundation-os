@@ -1,7 +1,9 @@
-import * as SUT from './javascript.service';
+import { JavascriptService } from './javascript.service';
 
 describe('javascript.service', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('JavascriptService', () => {
+		it('is exported', () => {
+			expect(JavascriptService).toBeDefined();
+		});
+	});
 });

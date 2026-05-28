@@ -2,7 +2,7 @@
 	@if (isRawHtmlMode()) {
 		<textarea class="raw-html-textarea textarea textarea-bordered w-full" [ngModel]="html()" (ngModelChange)="html.set($event)"></textarea>
 	} @else {
-		<div #quillContainer class="quill-container border-base-300 rounded-box border"></div>
+		<div #quillContainer class="quill-container"></div>
 	}
 
 	@if (isToggleVisible()) {

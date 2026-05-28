@@ -1,7 +1,9 @@
-import * as SUT from './annual-contributions.modals';
+import { AnnualContributionsModals } from './annual-contributions.modals';
 
 describe('annual-contributions.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('AnnualContributionsModals', () => {
+		it('is exported', () => {
+			expect(AnnualContributionsModals).toBeDefined();
+		});
+	});
 });

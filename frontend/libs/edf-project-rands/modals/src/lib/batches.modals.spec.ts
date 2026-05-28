@@ -1,7 +1,9 @@
-import * as SUT from './batches.modals';
+import { BatchesModals } from './batches.modals';
 
 describe('batches.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('BatchesModals', () => {
+		it('is exported', () => {
+			expect(BatchesModals).toBeDefined();
+		});
+	});
 });

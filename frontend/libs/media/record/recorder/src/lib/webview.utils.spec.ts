@@ -1,7 +1,9 @@
-import * as SUT from './webview.utils';
+import { isWebview } from './webview.utils';
 
 describe('webview.utils', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('isWebview', () => {
+		it('is exported', () => {
+			expect(isWebview).toBeDefined();
+		});
+	});
 });

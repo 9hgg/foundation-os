@@ -1,7 +1,15 @@
-import * as SUT from './default.theme.quill';
+import { DefaultTheme, Font } from './default.theme.quill';
 
 describe('default.theme.quill', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('DefaultTheme', () => {
+		it('is exported', () => {
+			expect(DefaultTheme).toBeDefined();
+		});
+	});
+
+	describe('Font', () => {
+		it('is exported', () => {
+			expect(Font).toBeDefined();
+		});
+	});
 });

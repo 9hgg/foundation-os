@@ -24,7 +24,7 @@ export class PurchaseBuilderPageComponent {
 	public purchaseId = model<string | null>(null);
 
 	purchase$$$ = new BehaviorSubjectReplayedProxied<string | null, Purchase | null>((id: string | null) => {
-		return id ? this._purchasesRepository.store.getObjectById$$$(id, true).$ : of(null);
+		return id ? this._purchasesRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	constructor() {

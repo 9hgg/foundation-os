@@ -169,4 +169,107 @@ describe('FloatingChatComponent', () => {
 			expect(styles.height).toBe('384px');
 		});
 	});
+
+	describe('createNewSupportTicket', () => {
+		it('creates an article and conversation on success', () => {
+			component.createNewSupportTicket();
+
+			expect(notificationMock.prompt).toHaveBeenCalled();
+			expect(articlesRepoMock.store.postObject$).toHaveBeenCalledWith(
+				expect.objectContaining({ kind: 'support', title: 'test ticket' })
+			);
+			expect(conversationsRepoMock.createConversationFor$).toHaveBeenCalled();
+			expect(component.isCreatingTicket()).toBe(false);
+		});
+
+		it('does nothing when prompt is cancelled', () => {
+			notificationMock.prompt.mockReturnValue({ closed: of(null) });
+
+			component.createNewSupportTicket();
+
+			expect(articlesRepoMock.store.postObject$).not.toHaveBeenCalled();
+		});
+
+		it('stops loading when article creation returns no result', () => {
+			articlesRepoMock.store.postObject$.mockReturnValue(of({}));
+
+			component.createNewSupportTicket();
+
+			expect(component.isCreatingTicket()).toBe(false);
+		});
+	});
+
+	describe('drag handlers', () => {
+		beforeEach(() => {
+			(HTMLElement.prototype as any).setPointerCapture = vi.fn();
+			(HTMLElement.prototype as any).releasePointerCapture = vi.fn();
+		});
+
+		function makePointerEvent(type: string, clientX: number, clientY: number, button = 0): PointerEvent {
+			return new PointerEvent(type, { clientX, clientY, button, bubbles: true, pointerId: 1 });
+		}
+
+		it('starts dragging on left pointer down', () => {
+			component.onPointerDown(makePointerEvent('pointerdown', 100, 200));
+			expect(component.isDragging()).toBe(true);
+		});
+
+		it('ignores non-left button pointer down', () => {
+			const event = makePointerEvent('pointerdown', 100, 200, 2);
+			component.onPointerDown(event);
+			expect(component.isDragging()).toBe(false);
+		});
+
+		it('moves position on pointer move while dragging', () => {
+			component.isDragging.set(true);
+			component.startPosition.set({ x: 100, y: 200 });
+			component.initialButtonPosition.set({ x: 50, y: 60 });
+
+			component.onPointerMove(makePointerEvent('pointermove', 110, 215));
+
+			expect(component.position().x).toBe(60);
+			expect(component.position().y).toBe(75);
+		});
+
+		it('ignores pointer move when not dragging', () => {
+			const initial = component.position();
+			component.onPointerMove(makePointerEvent('pointermove', 999, 999));
+			expect(component.position()).toEqual(initial);
+		});
+
+		it('ends dragging on pointer up', () => {
+			component.isDragging.set(true);
+			component.startPosition.set({ x: 100, y: 200 });
+			component.onPointerUp(makePointerEvent('pointerup', 101, 201));
+			expect(component.isDragging()).toBe(false);
+		});
+
+		it('sets isDraggedRecently when dragged more than 5px', () => {
+			vi.useFakeTimers();
+			component.isDragging.set(true);
+			component.startPosition.set({ x: 100, y: 200 });
+			component.onPointerUp(makePointerEvent('pointerup', 110, 210));
+			expect(component.isDraggedRecently()).toBe(true);
+			vi.advanceTimersByTime(300);
+			expect(component.isDraggedRecently()).toBe(false);
+			vi.useRealTimers();
+		});
+
+		it('closes panel during drag when moved more than 3px', () => {
+			component.isPanelOpen.set(true);
+			// Go through onPointerDown so _wasPanelOpenBeforeDrag is set
+			component.onPointerDown(makePointerEvent('pointerdown', 100, 200));
+			component.onPointerMove(makePointerEvent('pointermove', 110, 210));
+
+			expect(component.isPanelOpen()).toBe(false);
+		});
+	});
+
+	describe('ngOnDestroy', () => {
+		it('removes the resize event listener', () => {
+			const removeSpy = vi.spyOn(window, 'removeEventListener');
+			component.ngOnDestroy();
+			expect(removeSpy).toHaveBeenCalledWith('resize', expect.any(Function));
+		});
+	});
 });

@@ -1,7 +1,9 @@
-import * as SUT from './batch-table.component';
+import { BatchTableComponent } from './batch-table.component';
 
 describe('batch-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('BatchTableComponent', () => {
+		it('is exported', () => {
+			expect(BatchTableComponent).toBeDefined();
+		});
+	});
 });

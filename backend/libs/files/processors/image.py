@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 import cv2
 import numpy as np
@@ -6,6 +7,7 @@ from PIL import Image
 
 from libs.logger import print, print_warning
 from libs.logger.customLogger import print_color
+from libs.svg import extract_text_from_svg
 
 from ..models import FileAlternative
 from ..storage import GenericStorage
@@ -23,9 +25,19 @@ class ImageProcessor(GenericProcessor):
         - thumbnail
         - square
         - different sizes (respecting aspect ratio)
+        For SVG files, also generates a plain-text alternative with extracted labels.
         """
 
         alternative_files = []
+
+        ext = os.path.splitext(self.local_path or "")[1].lower() if self.local_path else ""
+
+        # SVG files: extract visible text labels instead of rasterizing
+        if ext == ".svg":
+            alternative__text = self.__generate_svg_text_alternative(force=force)
+            if alternative__text is not None:
+                alternative_files.append(alternative__text)
+            return alternative_files
 
         # alternative: "squared" (cropped and centered and compressed)
         alternative__squared = self.__generate_square_centered_image(force=force)
@@ -43,6 +55,74 @@ class ImageProcessor(GenericProcessor):
             alternative_files.append(alternative__thumbnail)
 
         return alternative_files
+
+    # SVG TEXT
+
+    def __generate_svg_text_alternative(self, force: bool = False) -> FileAlternative | None:
+        """
+        Extract all visible text labels from an SVG and upload them as a
+        plain-text alternative (storage suffix ``text``).
+        """
+        if not self.storage:
+            print_warning("No storage available, cannot generate SVG text alternative")
+            raise NoStorageAvailableError()
+        if not self.storage_folder_path:
+            print_warning("No storage folder path, cannot generate SVG text alternative")
+            raise NoStorageFolderPathError()
+        if not self.local_path:
+            print_warning("No local path, cannot generate SVG text alternative")
+            raise NoLocalPathError()
+
+        storage_suffix = "text"
+
+        if not force and self.storage.exists_in_storage(
+            storage_folder_path=self.storage_folder_path,
+            alternative=storage_suffix,
+        ):
+            print_color("green", "(__generate_svg_text_alternative): text alternative already exists", self.storage_folder_path)
+            return None
+
+        try:
+            with open(self.local_path, encoding="utf-8", errors="replace") as svg_file:
+                svg_content = svg_file.read()
+        except OSError as error:
+            print_warning("(__generate_svg_text_alternative): could not read SVG file:", error)
+            return None
+
+        texts = extract_text_from_svg(svg_content)
+        if not texts:
+            print_warning("(__generate_svg_text_alternative): no text found in SVG", self.local_path)
+            return None
+
+        plain_text = "\n".join(texts)
+
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".txt")
+        try:
+            with os.fdopen(tmp_fd, "w", encoding="utf-8") as fp:
+                fp.write(plain_text)
+
+            self.storage.upload(
+                local_path=tmp_path,
+                storage_folder_path=self.storage_folder_path,
+                alternative=storage_suffix,
+                force=True,
+            )
+            file_stats = os.stat(tmp_path)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+        print("(__generate_svg_text_alternative): generated text alternative with", len(texts), "strings")
+
+        return FileAlternative(
+            alternative_filename="extracted_text.txt",
+            storage_suffix=storage_suffix,
+            description="Plain text extracted from SVG visible labels",
+            size=file_stats.st_size,
+            kind="text",
+            mime="text/plain",
+            extension=".txt",
+        )
 
     # SQUARED
     def __generate_square_centered_image(

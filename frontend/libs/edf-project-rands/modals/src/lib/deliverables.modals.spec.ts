@@ -1,7 +1,9 @@
-import * as SUT from './deliverables.modals';
+import { DeliverablesModals } from './deliverables.modals';
 
 describe('deliverables.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('DeliverablesModals', () => {
+		it('is exported', () => {
+			expect(DeliverablesModals).toBeDefined();
+		});
+	});
 });

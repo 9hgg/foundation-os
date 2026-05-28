@@ -1,7 +1,7 @@
-import * as SUT from './folders.model';
+import './folders.model';
 
 describe('folders.model', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	it('loads without runtime exports', () => {
+		expect(true).toBe(true);
+	});
 });

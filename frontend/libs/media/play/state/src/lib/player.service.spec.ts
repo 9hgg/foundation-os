@@ -1,7 +1,9 @@
-import * as SUT from './player.service';
+import { PlayerService } from './player.service';
 
 describe('player.service', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('PlayerService', () => {
+		it('is exported', () => {
+			expect(PlayerService).toBeDefined();
+		});
+	});
 });

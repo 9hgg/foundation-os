@@ -1,7 +1,7 @@
 @let article_ = article();
 
 @if (article_) {
-	<div class="bg-base-200 min-h-screen px-4 py-8">
+	<div class="min-h-screen px-4 py-8">
 		<main class="mx-auto max-w-4xl space-y-6">
 			<!-- Article Card -->
 			<article class="card bg-base-100 overflow-hidden shadow-xl">
@@ -112,12 +112,15 @@
 			@if (article_.config.commentsEnabled) {
 				<section class="card bg-base-100 shadow-xl">
 					<div class="card-body p-0 sm:p-6">
-						@if (article_.kind == 'support') {
+						@if (article_.kind === 'support' || article_.kind === 'assistant') {
 							<lib-chat-displayer
 								[resourceId]="article_.id"
 								[resourceKind]="'article'"
 								[conversationKey]="'default'"
 								[commentTitle]="commentTitle()"
+								[resourceTitle]="article_.title"
+								[resourceAuthorId]="article_.authorId"
+								[assistantEnabled]="article_.kind === 'assistant'"
 							/>
 						} @else {
 							<lib-conversation-displayer
@@ -125,6 +128,8 @@
 								[resourceKind]="'article'"
 								[conversationKey]="'default'"
 								[commentTitle]="commentTitle()"
+								[resourceTitle]="article_.title"
+								[resourceAuthorId]="article_.authorId"
 							/>
 						}
 					</div>

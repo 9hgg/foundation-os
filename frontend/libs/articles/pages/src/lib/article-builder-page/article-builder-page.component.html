@@ -173,6 +173,17 @@
 							<input
 								type="checkbox"
 								class="checkbox checkbox-sm checkbox-primary"
+								[checked]="!article.draft"
+								(click)="$event.preventDefault(); toggleDraft()"
+							/>
+							<span class="text-base-content text-sm" [translate]>Published</span>
+							<lib-question-mark-helper [message]="'Draft articles are not shown in public article folders.'" />
+						</label>
+
+						<label class="flex cursor-pointer items-center gap-3">
+							<input
+								type="checkbox"
+								class="checkbox checkbox-sm checkbox-primary"
 								[checked]="article.featured"
 								(change)="updateFeatured($any($event.target).checked)"
 							/>

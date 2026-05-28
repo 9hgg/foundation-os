@@ -1,7 +1,15 @@
-import * as SUT from './files-selection-modal.component';
+import { DEFAULT_FILE_SELECTION_MODAL_DATA, FilesSelectionModalComponent } from './files-selection-modal.component';
 
 describe('files-selection-modal.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('DEFAULT_FILE_SELECTION_MODAL_DATA', () => {
+		it('is exported', () => {
+			expect(DEFAULT_FILE_SELECTION_MODAL_DATA).toBeDefined();
+		});
+	});
+
+	describe('FilesSelectionModalComponent', () => {
+		it('is exported', () => {
+			expect(FilesSelectionModalComponent).toBeDefined();
+		});
+	});
 });

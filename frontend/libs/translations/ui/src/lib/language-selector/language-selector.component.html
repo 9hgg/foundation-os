@@ -2,7 +2,7 @@
 	<div
 		tabindex="0"
 		role="button"
-		class="btn btn-ghost btn-xs flex items-center gap-1 opacity-90 hover:opacity-100"
+		class="btn btn-ghost btn-xs flex items-center gap-1 text-current opacity-90 hover:opacity-100"
 	>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -24,14 +24,14 @@
 	</div>
 	<ul
 		tabindex="0"
-		class="dropdown-content menu bg-base-100 rounded-box z-[1] w-40 p-2 shadow-2xl"
+		class="language-selector-menu dropdown-content menu bg-base-100 text-base-content rounded-box z-[1] w-40 border border-base-300/60 p-2 shadow-2xl"
 	>
 		@for (lang of languages; track lang.code) {
 			<li>
 				<button
 					(click)="setLanguage(lang.code)"
 					[class.active]="(translationService.currentLangCode$$$ | async) === lang.code"
-					class="flex items-center justify-between"
+					class="language-selector-item flex items-center justify-between rounded-md"
 				>
 					<div class="flex items-center gap-2">
 						<span class="text-lg">{{ lang.flag }}</span>

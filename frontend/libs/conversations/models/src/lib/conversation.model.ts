@@ -1,7 +1,13 @@
 import { Resource } from '@foundation/utils';
 
 export interface Conversation extends Resource {
-	/** key can be used to have multiple conversations on the same resource */
+	/** key can be used to have multiple conversations on the same resource.
+	 * This can be useful for having different conversation threads for the same article, support ticket, etc.
+	 * For example :
+	 * - "default" for the main conversation thread related to a resource (e.g., an article or support ticket).
+	 * - "admin" for internal discussions among administrators or support staff that should not be visible to end-users.
+	 * - "ai" for comments made by ai tools for specific resources, allowing us to separate human and AI interactions while still associating them with the same underlying resource.
+	 */
 	key: string; // unique and indexed (e.g., "article-<UUID>-default", "default")
 	/**
 	 * This can be used to categorize conversations into different types.

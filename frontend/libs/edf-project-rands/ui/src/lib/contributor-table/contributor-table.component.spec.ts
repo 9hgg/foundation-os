@@ -1,7 +1,9 @@
-import * as SUT from './contributor-table.component';
+import { ContributorTableComponent } from './contributor-table.component';
 
 describe('contributor-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ContributorTableComponent', () => {
+		it('is exported', () => {
+			expect(ContributorTableComponent).toBeDefined();
+		});
+	});
 });

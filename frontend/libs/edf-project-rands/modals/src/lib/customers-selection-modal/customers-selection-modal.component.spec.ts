@@ -1,7 +1,15 @@
-import * as SUT from './customers-selection-modal.component';
+import { CustomersSelectionModalComponent, DEFAULT_FILE_SELECTION_MODAL_DATA } from './customers-selection-modal.component';
 
 describe('customers-selection-modal.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('CustomersSelectionModalComponent', () => {
+		it('is exported', () => {
+			expect(CustomersSelectionModalComponent).toBeDefined();
+		});
+	});
+
+	describe('DEFAULT_FILE_SELECTION_MODAL_DATA', () => {
+		it('is exported', () => {
+			expect(DEFAULT_FILE_SELECTION_MODAL_DATA).toBeDefined();
+		});
+	});
 });

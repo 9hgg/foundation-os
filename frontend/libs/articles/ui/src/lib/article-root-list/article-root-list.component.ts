@@ -15,6 +15,10 @@ import { ArticleDisplayerComponent } from '../article-displayer/article-displaye
 const NUMBER_OF_ALL_ARTICLES = 10;
 const NUMBER_OF_FEATURED_ARTICLES = 3;
 
+export function filterPublishedFolderArticles<TArticle extends Pick<Article, 'draft'>>(articles: TArticle[]): TArticle[] {
+	return articles.filter((article) => !article.draft);
+}
+
 @Component({
 	selector: 'lib-article-root-list',
 	standalone: true,
@@ -177,11 +181,12 @@ export class ArticleRootListComponent {
 							console.log('response', response);
 
 							if (response.result?.filteredResources?.article) {
+								const publishedArticles = filterPublishedFolderArticles(response.result.filteredResources.article);
 								// 2 - set the explicit articles
-								this.explicitAllArticles.set(response.result.filteredResources.article);
+								this.explicitAllArticles.set(publishedArticles);
 								// 3 - set the featured articles
 								this.explicitFeaturedArticles.set(
-									response.result.filteredResources.article.filter((article) => {
+									publishedArticles.filter((article) => {
 										return article.featured;
 									})
 								);

@@ -5,6 +5,7 @@ import sqlmodel
 from pydantic import Field
 from sqlalchemy.dialects.postgresql import JSONB
 
+from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import ResourceWithConfig
 from libs.utils.types import BaseModelWithConfig
 
@@ -47,6 +48,12 @@ class DesignSystem(ResourceWithConfig, table=True):
     __title__ = "Design system"
     __description__ = "A design system is a collection of reusable components, fonts, palettes, UI rules, etc."
     __config_type__ = DesignSystemConfig
+    __mcp_display__ = ResourceDisplayProfile(
+        kind="design_system",
+        title_fields=("name", "title", "id"),
+        subtitle_fields=("description",),
+        date_fields=("time_updated", "time_created"),
+    )
 
     name: str
     description: str | None

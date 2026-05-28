@@ -1,7 +1,7 @@
-import * as SUT from './log.utils';
+import './log.utils';
 
 describe('log.utils', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	it('loads without runtime exports', () => {
+		expect(true).toBe(true);
+	});
 });

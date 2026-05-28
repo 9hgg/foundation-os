@@ -1,7 +1,9 @@
-import * as SUT from './facility-table.component';
+import { FacilityTableComponent } from './facility-table.component';
 
 describe('facility-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FacilityTableComponent', () => {
+		it('is exported', () => {
+			expect(FacilityTableComponent).toBeDefined();
+		});
+	});
 });

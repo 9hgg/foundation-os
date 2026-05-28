@@ -18,7 +18,7 @@ class ProcessTimeHeader(BaseHTTPMiddleware):
         start_time: float = time.time()
         response = await call_next(request)
         process_time: float = round(time.time() - start_time, 2)
-        response.headers["X-BA-Process-Time"] = str(process_time)
+        response.headers["X-Process-Time"] = str(process_time)
         # print("base_url", request.url, process_time)
         return response
 

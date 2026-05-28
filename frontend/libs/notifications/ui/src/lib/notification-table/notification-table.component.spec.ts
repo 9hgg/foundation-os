@@ -1,7 +1,9 @@
-import * as SUT from './notification-table.component';
+import { NotificationTableComponent } from './notification-table.component';
 
 describe('notification-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('NotificationTableComponent', () => {
+		it('is exported', () => {
+			expect(NotificationTableComponent).toBeDefined();
+		});
+	});
 });

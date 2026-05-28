@@ -4,6 +4,7 @@ from typing import Optional
 import sqlmodel
 from sqlalchemy.dialects.postgresql import JSONB
 
+from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import ResourceWithConfig
 from libs.utils.types import BaseModelWithConfig
 
@@ -30,6 +31,13 @@ class Conversation(ResourceWithConfig, table=True):
     __title__ = "Conversation"
     __description__ = "A conversation object for chat support, comments on articles, backlog, etc..."
     __config_type__ = ConversationConfig
+    __mcp_display__ = ResourceDisplayProfile(
+        kind="conversation",
+        title_fields=("title", "key", "id"),
+        status_fields=("status",),
+        date_fields=("time_updated", "time_created"),
+        metadata_fields=("resource_kind",),
+    )
 
     # key (unique and indexed)
     key: str = sqlmodel.Field(

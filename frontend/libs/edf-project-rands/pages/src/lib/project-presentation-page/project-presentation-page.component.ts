@@ -84,6 +84,14 @@ export class ProjectPresentationPageComponent {
 	private _scrollContainer = viewChild<ElementRef<HTMLElement>>('scrollContainer');
 
 	constructor() {
+		// Initialize budgetYear from catalogSelectedYears once the snapshot loads.
+		effect(() => {
+			const years = this.catalogSelectedYears();
+			if (!years || years.length === 0) return;
+			const currentYear = new Date().getFullYear();
+			this.budgetYear.set(years.includes(currentYear) ? currentYear : years[years.length - 1]);
+		});
+
 		// The presentation tab's chart effects use queueMicrotask, causing layout shifts
 		// after the initial render. We reset the scroll position once the snapshot has loaded,
 		// after all microtasks have settled, so the user always starts at the top.
@@ -260,7 +268,7 @@ export class ProjectPresentationPageComponent {
 		return [...allDetailedActivities].sort((a, b) => this._compareDetailedActivitiesByPrefix(a, b));
 	});
 
-	// Project years (startDate → endDate)
+	// Full project years range (startDate → endDate)
 	projectYears = computed((): number[] => {
 		const project = this._snapshot()?.project;
 		if (!project?.startDate || !project?.endDate) return [];
@@ -270,6 +278,13 @@ export class ProjectPresentationPageComponent {
 		const years: number[] = [];
 		for (let year = startYear; year <= endYear; year++) years.push(year);
 		return years;
+	});
+
+	// Years used for the overview slides: the catalog's selected years when set, otherwise all project years.
+	// Mirrors resolvedPresentationYears() in project-presentations-tab.
+	resolvedDisplayYears = computed((): number[] => {
+		const selectedYears = this.catalogSelectedYears();
+		return selectedYears && selectedYears.length > 0 ? selectedYears : this.projectYears();
 	});
 
 	// Catalog-specific inputs for the presentation tab
@@ -294,6 +309,8 @@ export class ProjectPresentationPageComponent {
 
 	selectedYear = signal<number | null>(null);
 	focusMode = signal(false);
+
+	budgetYear = signal<number | null>(new Date().getFullYear());
 
 	// ------- Helpers -------
 

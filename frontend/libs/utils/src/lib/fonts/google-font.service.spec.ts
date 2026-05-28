@@ -1,7 +1,9 @@
-import * as SUT from './google-font.service';
+import { GoogleFontService } from './google-font.service';
 
 describe('google-font.service', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('GoogleFontService', () => {
+		it('is exported', () => {
+			expect(GoogleFontService).toBeDefined();
+		});
+	});
 });

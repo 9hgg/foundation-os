@@ -8,8 +8,10 @@ from libs.logger.customLogger import print_color, print_warning
 from libs.users.deps import CurrentUser__dep
 from libs.utils.types import EndpointError, EndpointOutput
 
-from .methods import process_tasks, retry_failed_tasks
-from .models import Task
+from .methods import launch_tasks_processing, process_tasks, retry_failed_tasks
+from .models import Task, TaskSlot
+from .runtime_state import is_task_effectively_running, is_task_stale
+from .tasks_manager import TasksManager
 
 
 def create_crud_task_router(prefix: str = "/api/tasks"):
@@ -17,10 +19,41 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
         Task, prefix=prefix, tags=["tasks"], include_bypass=True
     )
 
+    @crud_task_router.get("/enlisted-methods")
+    async def list_enlisted_task_methods(
+        current_user_db: CurrentUser__dep,
+        translator: Translator__dep,
+    ):
+        if not current_user_db or not current_user_db.email_verified:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Unauthorized"),
+                    description=translator.translate(
+                        "You must be logged in as a verified admin to list enlisted task methods (email not verified)."
+                    ),
+                    code="Unauthorized",
+                )
+            )
+
+        if not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Unauthorized"),
+                    description=translator.translate(
+                        "You must be logged in as a verified admin to list enlisted task methods (not an admin)."
+                    ),
+                    code="Unauthorized",
+                )
+            )
+
+        return EndpointOutput(
+            result={"methodNames": sorted(TasksManager.tasks_methods.keys())}
+        )
+
     @crud_task_router.get("/processing/{taskId}/progress")
     async def get_task_progress(taskId: str):
         task_db = Task.by_id(obj_id=taskId)
-        print_color("blue", f"Get task progress for {taskId}", task_db)
+        # print_color("blue", f"Get task progress for {taskId}", task_db)
         if not task_db:
             return EndpointOutput(
                 error=EndpointError(
@@ -36,6 +69,8 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
             "completed": task_db.completed,
             "ended": task_db.ended,
             "failed": task_db.failed,
+            "actually_running": is_task_effectively_running(task_db),
+            "stale": is_task_stale(task_db),
         }
 
         # If artifacts has a 'taskId' key, return it
@@ -112,6 +147,105 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
         await retry_failed_tasks()
         return EndpointOutput(
             message=translator.translate("Failed tasks retry launched")
+        )
+
+    @crud_task_router.get("/{task_id}/recreate")
+    async def recreate_task(
+        task_id: str,
+        background_tasks: BackgroundTasks,
+        current_user_db: CurrentUser__dep,
+        translator: Translator__dep,
+    ):
+        if not current_user_db or not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Unauthorized"),
+                    description=translator.translate(
+                        "You must be logged in as a verified admin to recreate tasks."
+                    ),
+                    code="Unauthorized",
+                )
+            )
+
+        task_db = Task.by_id(obj_id=task_id)
+        if not task_db:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Not found"),
+                    description=translator.translate(f"Task {task_id} not found"),
+                    code="ItemNotFound",
+                )
+            )
+
+        if is_task_effectively_running(task_db):
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Task already running"),
+                    description=translator.translate(
+                        "Running tasks cannot be recreated."
+                    ),
+                    code="TaskAlreadyRunning",
+                )
+            )
+
+        recreated_task = TasksManager.recreate_task(task_db, priority=0)
+
+        background_tasks.add_task(launch_tasks_processing)
+
+        return EndpointOutput(
+            message=translator.translate("Task recreated"),
+            result={
+                "taskId": str(recreated_task.id),
+                "sourceTaskId": str(task_db.id),
+            },
+        )
+
+    @crud_task_router.delete("/{task_id}")
+    async def delete_task(
+        task_id: str,
+        current_user_db: CurrentUser__dep,
+        translator: Translator__dep,
+    ):
+        if not current_user_db or not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Unauthorized"),
+                    description=translator.translate(
+                        "You must be logged in as a verified admin to delete tasks."
+                    ),
+                    code="Unauthorized",
+                )
+            )
+
+        task_db = Task.by_id(obj_id=task_id)
+        if not task_db:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Not found"),
+                    description=translator.translate(f"Task {task_id} not found"),
+                    code="ItemNotFound",
+                )
+            )
+
+        if is_task_effectively_running(task_db):
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Task already running"),
+                    description=translator.translate(
+                        "Running tasks cannot be deleted."
+                    ),
+                    code="TaskAlreadyRunning",
+                )
+            )
+
+        with context_db() as db:
+            db.query(TaskSlot).filter(TaskSlot.task_id == task_db.id).delete()
+            db.query(Task).filter(Task.id == task_db.id).delete()
+            db.commit()
+
+        return EndpointOutput(
+            message=translator.translate("Task deleted"),
+            result={"taskId": str(task_db.id)},
         )
 
     @crud_task_router.get("/processing/create-dummy-tasks")

@@ -1,0 +1,20 @@
+{
+	"name": "mcp-ui",
+	"$schema": "../../../node_modules/nx/schemas/project-schema.json",
+	"sourceRoot": "libs/mcp/ui/src",
+	"prefix": "lib",
+	"projectType": "library",
+	"tags": [],
+	"targets": {
+		"lint": {
+			"executor": "@nx/eslint:lint"
+		},
+		"test": {
+			"executor": "@nx/vitest:test",
+			"outputs": ["{options.reportsDirectory}"],
+			"options": {
+				"reportsDirectory": "../../../coverage/libs/mcp/ui"
+			}
+		}
+	}
+}

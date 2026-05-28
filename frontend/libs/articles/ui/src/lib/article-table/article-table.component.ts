@@ -1,6 +1,6 @@
 /* eslint-disable @angular-eslint/prefer-inject */ import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
-import { Attribute, ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Attribute, ChangeDetectionStrategy, Component, contentChild, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Article } from '@foundation/articles/models';
 import { ArticlesRepository } from '@foundation/articles/state';
@@ -10,6 +10,7 @@ import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { DateAsAgoPipe } from '@foundation/utils';
 import { switchMap } from 'rxjs';
+import { ArticleTableExpandedDirective } from './article-table-expanded.directive';
 
 @Component({
 	selector: 'lib-article-table',
@@ -35,35 +36,43 @@ export class ArticleTableComponent extends RepositoryTableComponent<Article, Art
 	private _accessService = inject(AccessService);
 
 	articleKind: Article['kind'] | null;
+	adminMode = false;
+	readonly articleKinds: Article['kind'][] = ['default', 'support', 'backlog', 'assistant'];
+	expandedItemTemplate = contentChild(ArticleTableExpandedDirective);
 
 	constructor(
 		private _repository: ArticlesRepository,
 		@Attribute('article-kind') articleKind: Article['kind'] | null,
 		@Attribute('click-behavior') clickBehavior: BehaviorType,
-		@Attribute('include-anonymous') includeAnonymous: boolean | null
+		@Attribute('include-anonymous') includeAnonymous: boolean | null,
+		@Attribute('admin-mode') adminMode: string | null
 	) {
+		const isAdminMode = adminMode !== null;
+		const effectiveArticleKind = articleKind ?? (isAdminMode ? null : 'default');
 		super(
 			_repository,
 			{
 				orderingBy: { fieldName: 'timeUpdated', direction: 'desc' },
-				alwaysOnFilters: [
-					{
-						fieldName: 'kind',
-						value: articleKind ?? 'default',
-						matchType: 'exact',
-					},
-				],
+				alwaysOnFilters: effectiveArticleKind
+					? [
+							{
+								fieldName: 'kind',
+								value: effectiveArticleKind,
+								matchType: 'exact',
+							},
+						]
+					: [],
 				requestFn: (page, pageSize, filters, orderingBy, forceRequest) => {
-					return _repository.store.getObjects$(page, pageSize, filters, orderingBy, forceRequest, includeAnonymous ? false : undefined);
+					return _repository.store.getObjects$(page, pageSize, filters, orderingBy, forceRequest, includeAnonymous ? false : undefined, isAdminMode);
 				},
 			},
 			clickBehavior
 		);
 
-		// Set the article kind for the table
-		this.articleKind = articleKind;
+		this.articleKind = effectiveArticleKind;
+		this.adminMode = isAdminMode;
 		// check if article kind is supported
-		if (!this.articleKind || !['support', 'backlog', 'default'].includes(this.articleKind)) {
+		if (this.articleKind && !['support', 'backlog', 'assistant', 'default'].includes(this.articleKind)) {
 			console.warn(`Unsupported article kind: ${this.articleKind}`);
 		}
 	}
@@ -99,6 +108,10 @@ export class ArticleTableComponent extends RepositoryTableComponent<Article, Art
 			console.log('The folders selection dialog was closed with this result:', result);
 			if (result && result.folders.length > 0) {
 				const folder = result.folders[0];
+				if (this.adminMode) {
+					this._requestService.post$('/api/articles/admin/' + article.id + '/folder', { folderId: folder.id }).subscribe();
+					return;
+				}
 				this._requestService.getBasic$('/api/folders/' + folder.id + '/add/article/' + article.id).subscribe();
 			}
 		});
@@ -110,5 +123,34 @@ export class ArticleTableComponent extends RepositoryTableComponent<Article, Art
 
 	public shareArticleWithTeam(article: Article) {
 		this._accessService.shareWithTeam(article.id, 'article');
+	}
+
+	public updateKind(article: Article, kind: Article['kind']): void {
+		if (article.kind === kind) return;
+		this._repository.store
+			.applyPatch(article.id, { kind })
+			.pipe(switchMap(() => this.paginator.refresh()))
+			.subscribe();
+	}
+
+	public toggleDraft(article: Article): void {
+		this._repository.store
+			.applyPatch(article.id, { draft: !article.draft })
+			.pipe(switchMap(() => this.paginator.refresh()))
+			.subscribe();
+	}
+
+	public toggleFeatured(article: Article): void {
+		this._repository.store
+			.applyPatch(article.id, { featured: !article.featured })
+			.pipe(switchMap(() => this.paginator.refresh()))
+			.subscribe();
+	}
+
+	public togglePublic(article: Article): void {
+		this._repository.store
+			.toggleAnonymousReadForObject$(article.id)
+			.pipe(switchMap(() => this.paginator.refresh()))
+			.subscribe();
 	}
 }

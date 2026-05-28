@@ -1,7 +1,9 @@
-import * as SUT from './support-page.component';
+import { SupportPageComponent } from './support-page.component';
 
 describe('support-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('SupportPageComponent', () => {
+		it('is exported', () => {
+			expect(SupportPageComponent).toBeDefined();
+		});
+	});
 });

@@ -32,7 +32,7 @@ export class TeamBuilderPageComponent {
 	public teamId = input<string | null>(null);
 	public convertToUrl = convertToUrl;
 	team$$$ = new BehaviorSubjectReplayedProxied<string | null, Team | null>((id: string | null) => {
-		return id ? this._teamsRepository.store.getObjectById$$$(id, true).$ : of(null);
+		return id ? this._teamsRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	// Team members management

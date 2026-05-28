@@ -10,12 +10,19 @@ from libs.utils.methods import deep_update
 from libs.utils.types import serialize
 
 from .models import ExtraDetailsFile, File, FileAlternative
+from .methods.simulation import infer_simulation_file_details
 from .processors import PROCESSOR_MAPPING
 from .processors.magic_bytes.ffprobe_parser import get_possible_type_via_ffprobe
 from .processors.magic_bytes.parser import get_possible_types
 from .storage import get_file_storage
 
 magika = Magika()
+
+
+def _set_task_progress(task, task_manager, progress: float) -> None:
+    if task is None or task_manager is None:
+        return
+    task_manager.update_task(task.id, {"progress": progress})
 
 
 @TasksManager.enlist_task()
@@ -26,6 +33,10 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
     - extension
     - etc...
     """
+    task = kwargs.get("task")
+    task_manager = kwargs.get("task_manager")
+
+    _set_task_progress(task, task_manager, 5.0)
     file_db = File.by_id(obj_id=file_id)
     if file_db is None:
         print("File not found")
@@ -35,6 +46,7 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
         return
     storage = get_file_storage(file_db.storage_id)
 
+    _set_task_progress(task, task_manager, 20.0)
     original_alternative = storage.get_original_alternative(storage_folder_path=file_db.storage_folder_path)
     if original_alternative is None:
         print_warning("No original file to process (original | original-stream)")
@@ -52,6 +64,33 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
         print("File has no first bytes")
         return
 
+    inferred_simulation_details = infer_simulation_file_details(
+        extension_client=file_db.extension_client,
+        extension=file_db.extension,
+    )
+    if inferred_simulation_details is not None:
+        File.patch(
+            obj_id=file_db.id,
+            update_dict=inferred_simulation_details,
+        )
+        generate_file_alternatives_task = TasksManager.create_task(
+            title="Generate alternatives",
+            method_name="generate_file_alternatives",
+            description="Generate file alternatives for "
+            + (
+                file_db.original_filename
+                if file_db.original_filename
+                else file_db.id.hex[:8]
+            ),
+            args=[file_id],
+            kwargs={
+                "force": force,
+            },
+        )
+        _set_task_progress(task, task_manager, 100.0)
+        return {"task_id": generate_file_alternatives_task.id}
+
+    _set_task_progress(task, task_manager, 40.0)
     # NAIVE dict of first bytes approach
     possible_types = get_possible_types(first_bytes=first_bytes)
 
@@ -80,6 +119,7 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
             },
         )
     else:
+        _set_task_progress(task, task_manager, 60.0)
         print_color(
             "red",
             "Possible types",
@@ -151,6 +191,7 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
                 },
             )
 
+    _set_task_progress(task, task_manager, 85.0)
     # # create the generate_file_alternatives task
     generate_file_alternatives_task = TasksManager.create_task(
         title="Generate alternatives",
@@ -163,11 +204,16 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
         },
     )
 
+    _set_task_progress(task, task_manager, 100.0)
     return {"task_id": generate_file_alternatives_task.id}
 
 
 @TasksManager.enlist_task()
 def generate_file_alternatives(file_id: uuid.UUID, force=False, **kwargs):
+    task = kwargs.get("task")
+    task_manager = kwargs.get("task_manager")
+
+    _set_task_progress(task, task_manager, 5.0)
     file_db = File.by_id(obj_id=file_id)
 
     if file_db is None:
@@ -186,19 +232,23 @@ def generate_file_alternatives(file_id: uuid.UUID, force=False, **kwargs):
         print("File has no storage folder path")
         return
 
+    _set_task_progress(task, task_manager, 20.0)
     ProcessorClass = PROCESSOR_MAPPING[file_db.kind]
     processor = ProcessorClass(file_db=file_db)
     # print("Processor:", processor)
 
+    _set_task_progress(task, task_manager, 45.0)
     new_alternatives = processor.generate_alternatives(force=force)
     # print("Alternatives:", new_alternatives)
 
+    _set_task_progress(task, task_manager, 70.0)
     new_extra_data: ExtraDetailsFile = processor.generate_extra_data(force=force) or ExtraDetailsFile()
     # print("Extra data:", new_extra_data)
 
     # delete local copy of the original
     processor.clear_local_file()
 
+    _set_task_progress(task, task_manager, 85.0)
     # concat the new alternatives with the old ones
     all_alternatives_as_list: list[FileAlternative] = []
     all_alternatives_as_dict: dict[str, FileAlternative] = {}
@@ -221,6 +271,8 @@ def generate_file_alternatives(file_id: uuid.UUID, force=False, **kwargs):
             "extra": new_extra_data_dict,
         },
     )
+
+    _set_task_progress(task, task_manager, 100.0)
 
 
 def _download_and_sort_chunks(

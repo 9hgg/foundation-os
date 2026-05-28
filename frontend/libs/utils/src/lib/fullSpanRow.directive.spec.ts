@@ -1,7 +1,9 @@
-import * as SUT from './fullSpanRow.directive';
+import { FullSpanRowDirective } from './fullSpanRow.directive';
 
 describe('fullSpanRow.directive', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FullSpanRowDirective', () => {
+		it('is exported', () => {
+			expect(FullSpanRowDirective).toBeDefined();
+		});
+	});
 });

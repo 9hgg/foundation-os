@@ -1,7 +1,9 @@
-import * as SUT from './activity-json-page.component';
+import { ActivityJsonPageComponent } from './activity-json-page.component';
 
 describe('activity-json-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ActivityJsonPageComponent', () => {
+		it('is exported', () => {
+			expect(ActivityJsonPageComponent).toBeDefined();
+		});
+	});
 });

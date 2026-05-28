@@ -46,7 +46,11 @@ const accessServiceMock = {
 	checkAdmin$: vi.fn().mockReturnValue(of(false)),
 };
 
-const routerMock = { navigate: vi.fn() };
+const routerMock = {
+	events: of(),
+	navigate: vi.fn(),
+	url: '/',
+};
 const translationMock = {
 	prep: vi.fn().mockReturnValue(() => 'translated'),
 	instant: vi.fn().mockReturnValue('translated'),

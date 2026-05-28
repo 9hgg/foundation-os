@@ -1,7 +1,9 @@
-import * as SUT from './interaction-table.component';
+import { InteractionTableComponent } from './interaction-table.component';
 
 describe('interaction-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('InteractionTableComponent', () => {
+		it('is exported', () => {
+			expect(InteractionTableComponent).toBeDefined();
+		});
+	});
 });

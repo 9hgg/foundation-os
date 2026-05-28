@@ -1,7 +1,7 @@
 export const environment = {
 	title: 'Leopar',
 	production: false,
-	availableThemes: ['light', 'dark', 'cupcake', 'bumblebee', 'emerald', 'corporate', 'synthwave', 'retro', 'cyberpunk', 'valentine', 'luxury', 'coffee'],
+	availableThemes: ['light', 'dark', 'accessible', 'cupcake', 'bumblebee', 'emerald', 'corporate', 'synthwave', 'retro', 'cyberpunk', 'valentine', 'luxury', 'coffee'],
 	api: {
 		port: 8050,
 	},

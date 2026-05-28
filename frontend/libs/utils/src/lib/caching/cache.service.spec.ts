@@ -1,7 +1,9 @@
-import * as SUT from './cache.service';
+import { CacheService } from './cache.service';
 
 describe('cache.service', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('CacheService', () => {
+		it('is exported', () => {
+			expect(CacheService).toBeDefined();
+		});
+	});
 });

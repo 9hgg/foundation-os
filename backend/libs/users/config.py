@@ -3,8 +3,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class UsersSettings(BaseSettings):
     APP_SECRET: str
+    APP_NAME: str | None = None
     APP_ROOT_DOMAIN: str | None = None
-    FRONTEND_URL: str | None = None
+    FRONTEND_URL: str # REQUIRED FOR SENDING EMAILS
     BACKEND_URL: str | None = None
     ADMIN_EMAILS: list[str] = []
     SENDER_EMAIL: str  # REQUIRED: Must be set via environment variable

@@ -1,14 +1,14 @@
-import pytest
-from unittest.mock import MagicMock, patch
 import uuid
+from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from libs.messages.api import create_crud_message_router
 from libs.messages.models import Message
-from libs.conversations.models import Conversation
 from libs.users.models import User
 from libs.utils.deps import get_deps
-from libs.acl.models import Acl, Operation, Who
 
 # Setup app
 app = FastAPI()
@@ -22,6 +22,7 @@ def mock_deps():
     mock_user = MagicMock(spec=User)
     mock_user.id = uuid.uuid4()
     mock_user.email = "test@example.com"
+    mock_user.is_admin.return_value = False
     mock_session = MagicMock()
     mock_translator = MagicMock()
     mock_translator.translate.side_effect = lambda x: x
@@ -53,6 +54,36 @@ def test_read_messages_invalid_conversation_id(mock_deps):
     assert "error" in data
     assert "Invalid conversation ID" in data["error"]["title"]
 
+    app.dependency_overrides = {}
+
+
+@patch("libs.messages.api.purge_acls_for_resource")
+def test_admin_can_delete_message(mock_purge_acls, mock_deps):
+    mock_user, mock_session, mock_translator = mock_deps
+    mock_user.email = "admin@example.com"
+    mock_user.email_verified = True
+    mock_user.is_admin.return_value = True
+    app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
+    message_id = uuid.uuid4()
+    message = Message(
+        id=message_id,
+        conversation_id=uuid.uuid4(),
+        author_id=mock_user.id,
+        content="Remove this",
+        kind="default",
+        config={},
+    )
+
+    with (
+        patch.object(Message, "by_id", return_value=message),
+        patch.object(Message, "delete") as mock_delete,
+    ):
+        response = client.delete(f"/api/messages/admin/{message_id}")
+
+    assert response.status_code == 200
+    assert response.json()["result"]["data"]["id"] == str(message_id)
+    mock_delete.assert_called_once_with(obj_id=message_id)
+    mock_purge_acls.assert_called_once_with(resource_kind=Message.__kind__, resource_id=message_id)
     app.dependency_overrides = {}
 
 
@@ -144,7 +175,8 @@ def test_read_messages_success(mock_context_db, mock_get_resource, mock_conversa
 @patch("libs.messages.api.ResourceManager")
 @patch("libs.messages.api.get_user_writers")
 @patch("libs.messages.api.notify")
-def test_toggle_reaction_success(mock_notify, mock_writers, mock_rm, mock_conversation, mock_message, mock_deps):
+@patch("libs.messages.api.User")
+def test_toggle_reaction_success(mock_user_model, mock_notify, mock_writers, mock_rm, mock_conversation, mock_message, mock_deps):
     mock_user, mock_session, mock_translator = mock_deps
     app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
 
@@ -156,6 +188,7 @@ def test_toggle_reaction_success(mock_notify, mock_writers, mock_rm, mock_conver
     mock_msg.config.reactions = []
     mock_message.by_id.return_value = mock_msg
     mock_message.update.return_value = mock_msg
+    mock_user_model.by_id.return_value = MagicMock()
 
     # Mock Conversation
     mock_conv = MagicMock()

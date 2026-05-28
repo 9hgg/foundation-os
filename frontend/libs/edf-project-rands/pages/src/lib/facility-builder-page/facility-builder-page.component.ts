@@ -24,7 +24,7 @@ export class FacilityBuilderPageComponent {
 	public facilityId = model<string | null>(null);
 
 	facility$$$ = new BehaviorSubjectReplayedProxied<string | null, Facility | null>((id: string | null) => {
-		return id ? this._facilitiesRepository.store.getObjectById$$$(id, true).$ : of(null);
+		return id ? this._facilitiesRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	constructor() {

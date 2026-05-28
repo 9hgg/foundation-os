@@ -1,7 +1,9 @@
-import * as SUT from './interaction.modals';
+import { InteractionModals } from './interaction.modals';
 
 describe('interaction.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('InteractionModals', () => {
+		it('is exported', () => {
+			expect(InteractionModals).toBeDefined();
+		});
+	});
 });

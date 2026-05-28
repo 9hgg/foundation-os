@@ -1,0 +1,52 @@
+<!-- Support Tickets Column -->
+<section class="bg-base-100 border-base-200 rounded-2xl border">
+	<div class="border-base-200 flex items-center justify-between border-b px-6 py-4">
+		<div class="flex items-center gap-3">
+			<div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg text-lg">🔒</div>
+			<div>
+				<h2
+					class="text-base-content font-semibold"
+					[translate]
+				>
+					Assistant Requests
+				</h2>
+				<p
+					class="text-base-content/60 text-xs"
+					[translate]
+				>
+					Conversations with the assistant
+				</p>
+			</div>
+		</div>
+		<button
+			class="btn btn-primary btn-sm"
+			(click)="createNewArticle()"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke-width="2"
+				stroke="currentColor"
+				class="h-4 w-4"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M12 4.5v15m7.5-7.5h-15"
+				/>
+			</svg>
+			<span [translate]>New Ticket</span>
+		</button>
+	</div>
+	<div class="p-4">
+		<lib-article-table
+			#articleTable
+			click-behavior="emit"
+			[queryForSearchPatternInUrl]="'articles'"
+			article-kind="assistant"
+			(rowClicked)="goToArticle($event.id)"
+			class="min-h-64"
+		></lib-article-table>
+	</div>
+</section>

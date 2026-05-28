@@ -668,6 +668,18 @@
 													></lib-quill-textarea>
 												</div>
 
+												<div class="mt-3">
+													<label class="flex cursor-pointer items-center gap-3">
+														<input
+															type="checkbox"
+															class="checkbox checkbox-sm checkbox-success"
+															[checked]="proposal.answered"
+															(change)="updateActivityProposalField(proposal.id, 'answered', $any($event.target).checked)"
+														/>
+														<span class="label-text font-medium">Répondu — masquer l'éditeur dans la présentation</span>
+													</label>
+												</div>
+
 												<div class="mt-4 space-y-3">
 													<div class="flex items-center justify-between gap-3">
 														<label class="label px-0 pt-0"><span class="label-text font-medium">Fichiers</span></label>

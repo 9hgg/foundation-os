@@ -1,7 +1,9 @@
-import * as SUT from './purchase-create-modal.component';
+import { PurchaseCreateModalComponent } from './purchase-create-modal.component';
 
 describe('purchase-create-modal.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('PurchaseCreateModalComponent', () => {
+		it('is exported', () => {
+			expect(PurchaseCreateModalComponent).toBeDefined();
+		});
+	});
 });

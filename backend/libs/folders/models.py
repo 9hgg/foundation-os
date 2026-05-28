@@ -5,6 +5,7 @@ import sqlalchemy as sa
 import sqlmodel
 from sqlalchemy import Index
 
+from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import ResourceWithConfig
 from libs.utils.types import SQLMODEL_BASE_CONFIG_DICT, BaseModelWithConfig
 
@@ -25,6 +26,12 @@ class Folder(ResourceWithConfig, table=True):
     __title__ = "Folder"
     __private__ = False
     __config_type__ = FolderConfig
+    __mcp_display__ = ResourceDisplayProfile(
+        kind="folder",
+        title_fields=("name", "title", "id"),
+        metadata_fields=("for_kind",),
+        date_fields=("time_updated", "time_created"),
+    )
 
     name: str | None
 

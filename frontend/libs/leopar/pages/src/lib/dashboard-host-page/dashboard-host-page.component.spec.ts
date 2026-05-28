@@ -1,7 +1,9 @@
-import * as SUT from './dashboard-host-page.component';
+import { LeoparDashboardHostPageComponent } from './dashboard-host-page.component';
 
 describe('dashboard-host-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('LeoparDashboardHostPageComponent', () => {
+		it('is exported', () => {
+			expect(LeoparDashboardHostPageComponent).toBeDefined();
+		});
+	});
 });

@@ -1,7 +1,9 @@
-import * as SUT from './contributor-builder-page.component';
+import { ContributorsBuilderPageComponent } from './contributor-builder-page.component';
 
 describe('contributor-builder-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ContributorsBuilderPageComponent', () => {
+		it('is exported', () => {
+			expect(ContributorsBuilderPageComponent).toBeDefined();
+		});
+	});
 });

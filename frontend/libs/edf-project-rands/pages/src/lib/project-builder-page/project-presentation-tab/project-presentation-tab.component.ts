@@ -76,6 +76,7 @@ interface PresentationActivityTableRow {
 	title: string;
 	hasPrincipalDeliverable: boolean;
 	yearlyCostsKeur: Record<number, number>;
+	yearlyCostTrends: Record<number, 'up' | 'down' | 'stable' | null>;
 	totalCostKeur: number;
 	overviewTrend: 'up' | 'down' | 'stable' | null;
 }
@@ -126,6 +127,7 @@ interface PresentationSlide {
 	monthLabels?: string[];
 	actualSeries?: (number | null)[];
 	projectedSeries?: (number | null)[];
+	recentProjectedSeries?: (number | null)[];
 	theoreticalSeries?: number[];
 	showEvolution?: boolean;
 	batchBudgetYears?: number[];
@@ -274,6 +276,7 @@ const PRESENTATION_SAFETY_DIAGRAM_STEPS = [
 	templateUrl: './project-presentation-tab.component.html',
 	styleUrl: './project-presentation-tab.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,
+	host: { '[class.presentation-readonly]': 'readOnly()' },
 })
 export class ProjectPresentationTabComponent {
 	private _activitiesRepository = inject(ActivitiesRepository);
@@ -314,7 +317,11 @@ export class ProjectPresentationTabComponent {
 	includedActivityIds = input<string[] | null>(null);
 	preloadedCostTrackingData = input<ProjectCostTrackingData | null>(null);
 	showFocusModeButton = input<boolean>(true);
+	showYearFilter = input<boolean>(true);
+	showBudgetYearFilter = input<boolean>(false);
 	alwaysFilterHidden = input<boolean>(false);
+	readOnly = input<boolean>(false);
+	budgetYear = model<number | null>(null);
 	tocItemsChange = output<PresentationTocItem[]>();
 
 	selectedYear = model<number | null>(null);
@@ -589,6 +596,17 @@ export class ProjectPresentationTabComponent {
 			if (!hasActualData || monthIndex <= lastObservedMonthIndex) return Number.NaN;
 			return roundTo1(actualDaysToDate + averageDaysPerObservedMonth * (monthIndex - lastObservedMonthIndex));
 		});
+
+		const lastTwoObservedIndexes = observedMonthIndexes.slice(-2);
+		const recentRatePerMonth =
+			lastTwoObservedIndexes.length > 0
+				? lastTwoObservedIndexes.reduce((sum, i) => sum + monthlyActualDays[i], 0) / lastTwoObservedIndexes.length
+				: 0;
+		const recentProjectedCumulativeDays = Array.from({ length: 12 }, (_, monthIndex) => {
+			if (!hasActualData || monthIndex <= lastObservedMonthIndex) return Number.NaN;
+			return roundTo1(actualDaysToDate + recentRatePerMonth * (monthIndex - lastObservedMonthIndex));
+		});
+
 		const theoreticalCumulativeDays = Array.from({ length: 12 }, (_, monthIndex) => roundTo1((plannedTotalDays * (monthIndex + 1)) / 12));
 
 		return {
@@ -611,6 +629,7 @@ export class ProjectPresentationTabComponent {
 			monthLabels,
 			actualSeries: actualCumulativeDays.map((value) => (Number.isFinite(value) ? roundTo1(value) : null)),
 			projectedSeries: projectedCumulativeDays.map((value) => (Number.isFinite(value) ? roundTo1(value) : null)),
+			recentProjectedSeries: recentProjectedCumulativeDays.map((value) => (Number.isFinite(value) ? roundTo1(value) : null)),
 			theoreticalSeries: theoreticalCumulativeDays.map((value) => roundTo1(value)),
 		};
 	});
@@ -678,6 +697,7 @@ export class ProjectPresentationTabComponent {
 
 	activityTableRows = computed<PresentationActivityTableRow[]>(() => {
 		const comparison = this.overviewComparisonYear();
+		const displayYears = this.overviewDisplayYears();
 		return this.cards().map((card) => {
 			const overviewTrend =
 				comparison === null
@@ -694,6 +714,7 @@ export class ProjectPresentationTabComponent {
 				title: card.title,
 				hasPrincipalDeliverable: card.hasPrincipalDeliverable,
 				yearlyCostsKeur: card.yearlyCostsKeur,
+				yearlyCostTrends: this._computeYearlyCostTrends(card.yearlyCostsKeur, displayYears),
 				totalCostKeur: card.totalCostKeur,
 				overviewTrend,
 			};
@@ -702,7 +723,8 @@ export class ProjectPresentationTabComponent {
 
 	activityTableTotals = computed(() => {
 		const comparison = this.overviewComparisonYear();
-		const yearlyCostsKeur = this.overviewDisplayYears().reduce<Record<number, number>>((acc: Record<number, number>, year: number) => {
+		const displayYears = this.overviewDisplayYears();
+		const yearlyCostsKeur = displayYears.reduce<Record<number, number>>((acc: Record<number, number>, year: number) => {
 			acc[year] = 0;
 			return acc;
 		}, {});
@@ -710,13 +732,14 @@ export class ProjectPresentationTabComponent {
 		let totalCostKeur = 0;
 		for (const row of this.activityTableRows()) {
 			totalCostKeur += row.totalCostKeur;
-			for (const year of this.overviewDisplayYears()) {
+			for (const year of displayYears) {
 				yearlyCostsKeur[year] += row.yearlyCostsKeur[year] ?? 0;
 			}
 		}
 
 		return {
 			yearlyCostsKeur,
+			yearlyCostTrends: this._computeYearlyCostTrends(yearlyCostsKeur, displayYears),
 			totalCostKeur,
 			overviewTrend:
 				comparison === null
@@ -1372,7 +1395,7 @@ export class ProjectPresentationTabComponent {
 			.subscribe();
 	}
 
-	updateActivityProposalField(activityId: string, proposalId: string, field: keyof ActivityProposal, value: string) {
+	updateActivityProposalField(activityId: string, proposalId: string, field: keyof ActivityProposal, value: string | boolean) {
 		const detailedActivity = this.detailedActivities().find((item) => item.activity.id === activityId);
 		if (!detailedActivity) return;
 		const proposals = (detailedActivity.activity.config?.proposals ?? []).map((proposal) => {
@@ -1408,19 +1431,19 @@ export class ProjectPresentationTabComponent {
 		this._activitiesRepository.goToActivity(activityId, { proposalId });
 	}
 
-	formatKeur(value: number) {
-		return `${value.toFixed(1)} k€`;
+	formatKeur(value: number | null | undefined) {
+		return `${(value ?? 0).toFixed(1)} k€`;
 	}
 
 	getActivitySummaryCostLabel() {
-		const selectedYear = this.selectedYear();
-		return selectedYear === null ? 'Budget activité' : `Budget ${selectedYear}`;
+		const year = this.selectedYear() ?? this.budgetYear();
+		return year === null ? 'Budget activité' : `Budget ${year}`;
 	}
 
 	getActivitySummaryCostKeur(slide: PresentationSlide) {
-		const selectedYear = this.selectedYear();
-		if (selectedYear === null) return slide.totalCostKeur ?? 0;
-		return slide.yearlyCostsKeur?.[selectedYear] ?? 0;
+		const year = this.selectedYear() ?? this.budgetYear();
+		if (year === null) return slide.totalCostKeur ?? 0;
+		return slide.yearlyCostsKeur?.[year] ?? 0;
 	}
 
 	getSlideDomId(slideId: string) {
@@ -1625,6 +1648,22 @@ export class ProjectPresentationTabComponent {
 					},
 					itemStyle: {
 						color: '#7dd3fc',
+					},
+				},
+				{
+					name: 'Projection récente (2 mois)',
+					type: 'line',
+					data: effortTrackingSlide.recentProjectedSeries,
+					connectNulls: false,
+					showSymbol: true,
+					symbolSize: 7,
+					lineStyle: {
+						width: 3,
+						type: 'dotted',
+						color: '#a78bfa',
+					},
+					itemStyle: {
+						color: '#a78bfa',
 					},
 				},
 				{

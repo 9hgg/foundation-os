@@ -2,6 +2,7 @@ import logging
 import sys
 import traceback
 from pprint import pformat
+from textwrap import wrap
 
 from loguru import logger
 
@@ -65,7 +66,7 @@ def format_record(record: dict) -> str:
     )
     # format_string = "{level: <8} {time:YYYY-MM-DD HH:mm:ss.SSS} [{name}]({function}:{line}) {message}"
     if record["extra"].get("payload", None) is not None:
-        record["extra"]["payload"] = pformat(record["extra"]["payload"], indent=4, compact=False, width=255)
+        record["extra"]["payload"] = pformat(record["extra"]["payload"], indent=4, compact=False, width=100)
         format_string += "\n<level>{extra[payload]}</level>"
 
     if record["extra"].get("request_log_uuid", None) is not None:
@@ -130,7 +131,7 @@ def print_warning(*tup, payload=None, request_log_uuid=None):
 print_ = print
 
 
-def print(*tup, payload: dict | None = None, request_log_uuid: str | None = None):
+def print(*tup, payload: dict | None = None, request_log_uuid: str | None = None):  # noqa: A001
     logger.opt(depth=1).bind(
         payload=payload,
         request_log_uuid=request_log_uuid,
@@ -177,3 +178,71 @@ def print_color(
         payload=payload,
         request_log_uuid=request_log_uuid,
     ).debug(color_char_opening + str(" ".join([str(x) for x in tup])) + color_char_closing)
+
+
+def print_rule(
+    color: str,
+    title: str,
+    *,
+    char: str = "=",
+    width: int = 88,
+    request_log_uuid: str | None = None,
+) -> None:
+    """Print a visually distinct rule line with a centered title."""
+
+    inner = f" {title} "
+    if len(inner) >= width:
+        print_color(color, inner, request_log_uuid=request_log_uuid)
+        return
+    side = char * ((width - len(inner)) // 2)
+    line = f"{side}{inner}{side}"
+    if len(line) < width:
+        line += char * (width - len(line))
+    print_color(color, line, request_log_uuid=request_log_uuid)
+
+
+def print_block(
+    color: str,
+    title: str,
+    *lines: object,
+    payload: dict | None = None,
+    request_log_uuid: str | None = None,
+    width: int = 88,
+) -> None:
+    """Print a titled multiline block with wrapped content."""
+
+    print_rule(color, title, width=width, request_log_uuid=request_log_uuid)
+    for line in lines:
+        text = str(line)
+        raw_lines = text.splitlines() or [""]
+        emitted = False
+        for raw_line in raw_lines:
+            wrapped = wrap(
+                raw_line,
+                width=max(20, width - 4),
+                replace_whitespace=False,
+                drop_whitespace=False,
+            )
+            if not wrapped:
+                print_color(color, "", request_log_uuid=request_log_uuid)
+                continue
+            emitted = True
+            for chunk in wrapped:
+                print_color(color, f"  {chunk}", request_log_uuid=request_log_uuid)
+        if not emitted and text == "":
+            print_color(color, "", request_log_uuid=request_log_uuid)
+    if payload is not None:
+        payload_text = pformat(payload, indent=2, compact=False, width=max(20, width - 4))
+        for raw_line in payload_text.splitlines():
+            wrapped = wrap(
+                raw_line,
+                width=max(20, width - 4),
+                replace_whitespace=False,
+                drop_whitespace=False,
+            )
+            if not wrapped:
+                print_color(color, "", request_log_uuid=request_log_uuid)
+                continue
+            for chunk in wrapped:
+                print_color(color, f"  {chunk}", request_log_uuid=request_log_uuid)
+    print_rule(color, f"END {title}", char="-", width=width, request_log_uuid=request_log_uuid)

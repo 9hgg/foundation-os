@@ -1,7 +1,15 @@
-import * as SUT from './dialog-font.service';
+import { FontDialogComponent, FontDialogService } from './dialog-font.service';
 
 describe('dialog-font.service', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FontDialogComponent', () => {
+		it('is exported', () => {
+			expect(FontDialogComponent).toBeDefined();
+		});
+	});
+
+	describe('FontDialogService', () => {
+		it('is exported', () => {
+			expect(FontDialogService).toBeDefined();
+		});
+	});
 });

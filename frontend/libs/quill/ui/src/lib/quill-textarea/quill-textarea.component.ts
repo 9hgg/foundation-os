@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, inject, input, model, OnDestroy, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { QuillService } from '@foundation/quill/utils';
+import { QuillService, extractSemanticAndContent } from '@foundation/quill/utils';
 import { FormsModule } from '@angular/forms';
 import Quill from 'quill';
 import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
@@ -97,11 +97,7 @@ export class QuillTextareaComponent implements OnDestroy {
 	}
 
 	private getCleanHtml(quill: Quill): string {
-		// Helper to try matching what loadQuill callback provides if possible,
-		// but since we don't have direct access to extractSemanticAndContent here without importing it from utils which might be private to the lib or not exported.
-		// We can approximate or just rely on the check above.
-		// Actually, standard quill root innerHTML often contains extra classes or attributes.
-		return quill.root.innerHTML;
+		return extractSemanticAndContent(quill).semanticHTML;
 	}
 
 	ngOnDestroy() {

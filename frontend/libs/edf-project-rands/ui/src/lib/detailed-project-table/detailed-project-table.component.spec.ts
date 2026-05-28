@@ -1,7 +1,15 @@
-import * as SUT from './detailed-project-table.component';
+import { DetailedProjectTableComponent, EMPTY_ACTIVITY } from './detailed-project-table.component';
 
 describe('detailed-project-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('DetailedProjectTableComponent', () => {
+		it('is exported', () => {
+			expect(DetailedProjectTableComponent).toBeDefined();
+		});
+	});
+
+	describe('EMPTY_ACTIVITY', () => {
+		it('is exported', () => {
+			expect(EMPTY_ACTIVITY).toBeDefined();
+		});
+	});
 });

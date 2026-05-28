@@ -5,47 +5,53 @@ help:
 
 .DEFAULT_GOAL := help
 
+APP_EXTRA := leopar
+APP_VENV := .venv-leopar
+UV_APP_RUN := UV_PROJECT_ENVIRONMENT=$(APP_VENV) uv run --no-default-groups --extra $(APP_EXTRA)
+UV_APP_DEV_RUN := UV_PROJECT_ENVIRONMENT=$(APP_VENV) uv run --extra $(APP_EXTRA)
+UV_APP_SYNC := UV_PROJECT_ENVIRONMENT=$(APP_VENV) uv sync --no-default-groups --extra $(APP_EXTRA)
+
 .PHONY: install
 install: ## Install the virtual environment with uv
 	@echo "🚀 Creating virtual environment using uv"
-	@uv sync
+	@$(UV_APP_SYNC)
 
 
 
 .PHONY: run
 run: ## Run the server with uvicorn with 1 worker and reload
 	@echo "🚀 Running server (color,reload)"
-	@clear; reset; uv run uvicorn apps.leopar.app:asgi_app --reload --port 8050
+	@clear; reset; $(UV_APP_RUN) uvicorn apps.leopar.app:asgi_app --reload --port 8050
 
 
 .PHONY: run-worker
 run-worker: ## Run the worker
 	@echo "🚀 Running worker (color)"
-	@clear; reset; uv run uvicorn apps.leopar.worker:asgi_app --reload --port 8150
+	@clear; reset; $(UV_APP_RUN) uvicorn apps.leopar.worker:asgi_app --reload --port 8150
 
 .PHONY: run-worker-once
 run-worker-once: ## Run the worker once
 	@echo "🚀 Running worker (color)"
-	@clear; reset; uv run python -m libs.tasks.methods
+	@clear; reset; $(UV_APP_RUN) python -m libs.tasks.methods
 
 
 
 .PHONY: run-with-8-workers
 run-with-8-workers: ## Run the server with uvicorn with 8 workers and no reload
 	@echo "🚀 Running server"
-	@clear; reset; uv run uvicorn apps.leopar.app:asgi_app --port 8150 --workers 8
+	@clear; reset; $(UV_APP_RUN) uvicorn apps.leopar.app:asgi_app --port 8150 --workers 8
 
 
 .PHONY: checkuv 
 check: ## Run code quality tools.
 	@echo "🚀 Checking lock file consistency with 'pyproject.toml'"
-	@uv sync --locked
+	@$(UV_APP_SYNC) --locked
 	@echo "🚀 Linting code: Running pre-commit"
-	@uv run pre-commit run -a
+	@$(UV_APP_DEV_RUN) pre-commit run -a
 	@echo "🚀 Static type checking: Running mypy"
-	@uv run mypy
+	@$(UV_APP_DEV_RUN) mypy
 	@echo "🚀 Checking for obsolete dependencies: Running deptry"
-	@uv run deptry .
+	@$(UV_APP_DEV_RUN) deptry .
 
 .PHONY: db-set
 db-set: ## Set the podman image for the db
@@ -66,13 +72,13 @@ redis-start: ## start or restart the podman container with the redis server
 .PHONY: test
 test: ## Test the code with pytest
 	@echo "🚀 Testing code: Running pytest"
-	@uv run python -m pytest --cov --cov-config=pyproject.toml --cov-report=xml
+	@$(UV_APP_DEV_RUN) python -m pytest --cov --cov-config=pyproject.toml --cov-report=xml
 
 .PHONY: alembic-check
 alembic-check: ## Check the current database state compared to the alembic migrations
 	@echo "🚀 Running alembic check"
 	@echo "🔧 Using postgres/alembic.ini"
-	@uv run alembic -c apps/leopar/alembic/postgres/alembic.ini check
+	@$(UV_APP_RUN) alembic -c apps/leopar/alembic/postgres/alembic.ini check
 
 .PHONY: alembic-autogenerate
 alembic-autogenerate: ## Generate a migration script
@@ -82,20 +88,20 @@ alembic-autogenerate: ## Generate a migration script
 		exit 1; \
 	fi
 	@echo "🔧 Using postgres/alembic.ini"
-	@uv run alembic -c apps/leopar/alembic/postgres/alembic.ini revision --autogenerate -m "$(message)"
+	@$(UV_APP_RUN) alembic -c apps/leopar/alembic/postgres/alembic.ini revision --autogenerate -m "$(message)"
 
 .PHONY: alembic-upgrade
 alembic-upgrade: ## Upgrade the database to the latest version
 	@echo "🚀 Running alembic upgrade head"
 	@echo "🔧 Using postgres/alembic.ini"
-	@uv run alembic -c apps/leopar/alembic/postgres/alembic.ini upgrade head
+	@$(UV_APP_RUN) alembic -c apps/leopar/alembic/postgres/alembic.ini upgrade head
 	
 
 .PHONY: alembic-current
 alembic-current: ## Show the current database version
 	@echo "🚀 Running alembic current"
 	@echo "🔧 Using postgres/alembic.ini"
-	@uv run alembic -c apps/leopar/alembic/postgres/alembic.ini current
+	@$(UV_APP_RUN) alembic -c apps/leopar/alembic/postgres/alembic.ini current
 	
 
 .PHONY: docker-leopar-app-production-build
@@ -213,8 +219,8 @@ mail-local: ## Start a local SMTP debug client (Mailpit) that logs all received 
 
 .PHONY: translations-db-to-json
 translations-db-to-json: ## Export and merge DB translations into app JSON seed file
-	@uv run python -m libs.i18n.tools.sync_translation db-to-json --file apps/leopar/i18n/translations.seed.json
+	@$(UV_APP_RUN) python -m libs.i18n.tools.sync_translation db-to-json --file apps/leopar/i18n/translations.seed.json
 
 .PHONY: translations-json-to-db
 translations-json-to-db: ## Import and merge app JSON translations into DB
-	@uv run python -m libs.i18n.tools.sync_translation json-to-db --file apps/leopar/i18n/translations.seed.json
+	@$(UV_APP_RUN) python -m libs.i18n.tools.sync_translation json-to-db --file apps/leopar/i18n/translations.seed.json

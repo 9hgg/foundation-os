@@ -1,7 +1,9 @@
-import * as SUT from './purchase-table.component';
+import { PurchaseTableComponent } from './purchase-table.component';
 
 describe('purchase-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('PurchaseTableComponent', () => {
+		it('is exported', () => {
+			expect(PurchaseTableComponent).toBeDefined();
+		});
+	});
 });

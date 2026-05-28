@@ -42,6 +42,7 @@ def _tmp_file_factory(tmp_path, suffix, content=b"data"):
 def test_generate_alternatives_collects_all_outputs(mock_storage, mock_file, sample_audio_path, tmp_path):
     with (
         patch.object(AudioProcessor, "get_storage_details", return_value=(mock_storage, sample_audio_path, "audio/1")),
+        patch.object(AudioProcessor, "_AudioProcessor__generate_audio_thumbnail", return_value=None),
         patch("libs.files.processors.audio.GenericStorage.get_temporary_local_path", side_effect=lambda suffix: _tmp_file_factory(tmp_path, suffix)),
         patch("libs.files.processors.audio.ffmpegio.transcode"),
         patch("libs.files.processors.audio.FILES_SETTINGS", new=SimpleNamespace(WHISPER_PATH="/models")),
@@ -95,6 +96,7 @@ def test_generate_alternatives_skips_existing_files_when_not_forced(mock_storage
 def test_generate_alternatives_without_whisper_path_only_creates_audio(mock_storage, mock_file, sample_audio_path, tmp_path):
     with (
         patch.object(AudioProcessor, "get_storage_details", return_value=(mock_storage, sample_audio_path, "audio/1")),
+        patch.object(AudioProcessor, "_AudioProcessor__generate_audio_thumbnail", return_value=None),
         patch("libs.files.processors.audio.GenericStorage.get_temporary_local_path", side_effect=lambda suffix: _tmp_file_factory(tmp_path, suffix)),
         patch("libs.files.processors.audio.ffmpegio.transcode"),
         patch("libs.files.processors.audio.FILES_SETTINGS", new=SimpleNamespace(WHISPER_PATH=None)),
@@ -108,6 +110,7 @@ def test_generate_alternatives_without_whisper_path_only_creates_audio(mock_stor
 def test_generate_alternatives_returns_empty_when_generation_fails(mock_storage, mock_file, sample_audio_path, tmp_path):
     with (
         patch.object(AudioProcessor, "get_storage_details", return_value=(mock_storage, sample_audio_path, "audio/1")),
+        patch.object(AudioProcessor, "_AudioProcessor__generate_audio_thumbnail", return_value=None),
         patch("libs.files.processors.audio.GenericStorage.get_temporary_local_path", side_effect=lambda suffix: _tmp_file_factory(tmp_path, suffix)),
         patch("libs.files.processors.audio.ffmpegio.transcode", side_effect=RuntimeError("boom")),
         patch("libs.files.processors.audio.FILES_SETTINGS", new=SimpleNamespace(WHISPER_PATH="/models")),

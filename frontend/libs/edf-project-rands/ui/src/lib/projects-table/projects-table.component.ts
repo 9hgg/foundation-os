@@ -77,10 +77,10 @@ export class ProjectTableComponent extends RepositoryTableComponent<Project, Pro
 	}
 
 	public shareWithTeam(project: Project) {
-		this._accessService.shareWithTeam(project.id, 'edf_project_rand');
+		this._accessService.shareWithTeam(project.id, 'project');
 	}
 
 	public openSharingDetails(project: Project) {
-		this._accessService.openSharingDetails(project.id, 'edf_project_rand');
+		this._accessService.openSharingDetails(project.id, 'project');
 	}
 }

@@ -1,7 +1,9 @@
-import * as SUT from './subtitle-loader.component';
+import { SubtitleLoaderComponent } from './subtitle-loader.component';
 
 describe('subtitle-loader.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('SubtitleLoaderComponent', () => {
+		it('is exported', () => {
+			expect(SubtitleLoaderComponent).toBeDefined();
+		});
+	});
 });

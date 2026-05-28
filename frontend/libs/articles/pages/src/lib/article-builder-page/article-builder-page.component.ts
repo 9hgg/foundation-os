@@ -50,7 +50,7 @@ export class ArticleBuilderPageComponent {
 
 	public articleId = model<string | null>(null);
 	article$$$ = new BehaviorSubjectReplayedProxied<string | null, Article | null>((id: string | null) => {
-		return id ? this._articlesRepository.store.getObjectById$$$(id, true).$ : of(null);
+		return id ? this._articlesRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	editing = signal(true);
@@ -180,6 +180,14 @@ export class ArticleBuilderPageComponent {
 		this._articlesRepository.store.save(article);
 	}
 
+	toggleDraft() {
+		const article = this.article$$$.value;
+		if (!article) return;
+		article.draft = !article.draft;
+		article.timePublished = article.draft ? undefined : new Date();
+		this._articlesRepository.store.save(article);
+	}
+
 	addTag(tag: string) {
 		const article = this.article$$$.value;
 		if (!article || !tag.trim()) return;
@@ -214,18 +222,6 @@ export class ArticleBuilderPageComponent {
 				tap((result) => {
 					console.log('[ArticleBuilderPage](togglePublic) result', result);
 					this.updateAcls();
-
-					// if the article is public, update the published date
-					if (result.result?.length) {
-						article.timePublished = new Date();
-						article.draft = false;
-						this._articlesRepository.store.save(article);
-					} else {
-						// if the article is private, remove the published date
-						article.timePublished = undefined;
-						article.draft = true;
-						this._articlesRepository.store.save(article);
-					}
 				})
 			)
 			.subscribe();

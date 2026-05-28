@@ -879,7 +879,7 @@ export class ActivityBuilderPageComponent {
 		this.patchableActivity.updateField('config.proposals', proposals);
 	}
 
-	updateActivityProposalField(proposalId: string, field: keyof ActivityProposal, value: string) {
+	updateActivityProposalField(proposalId: string, field: keyof ActivityProposal, value: string | boolean) {
 		const proposals = this.activityProposals().map((proposal) => {
 			if (proposal.id !== proposalId) return proposal;
 			return {

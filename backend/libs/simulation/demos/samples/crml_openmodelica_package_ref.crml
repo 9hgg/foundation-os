@@ -1,0 +1,24 @@
+{
+  "kind": "crml-openmodelica-package-reference",
+  "title": "CRML package integration reference",
+  "description": "Template payload to map CRML constraints to OpenModelica package model selections.",
+  "openModelica": {
+    "packageName": "CRML",
+    "modelName": "CRML.Examples.ControlledPlant",
+    "parameterBindings": {
+      "Kp": 2.0,
+      "Ki": 0.5,
+      "setpoint": 1.0
+    }
+  },
+  "constraints": {
+    "objective": "minimize_overshoot",
+    "hardConstraints": [
+      "output <= 1.1 * setpoint",
+      "integrator_state >= -5"
+    ],
+    "softConstraints": [
+      "settling_time <= 30"
+    ]
+  }
+}

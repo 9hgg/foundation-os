@@ -1,0 +1,149 @@
+@if (available()) {
+	<section class="mcp-assistant-panel mx-auto mb-10 w-full max-w-6xl">
+		<div class="mcp-assistant-panel__halo"></div>
+		<div class="mcp-assistant-panel__content">
+			<p class="mcp-assistant-panel__eyebrow">{{ eyebrow() }}</p>
+			<h2 class="mcp-assistant-panel__title">{{ title() }}</h2>
+
+			<form
+				class="mcp-assistant-panel__prompt"
+				(ngSubmit)="runSearch()"
+			>
+				<button
+					type="button"
+					class="mcp-assistant-panel__icon-button"
+					(click)="iconAction.emit()"
+					[attr.aria-label]="iconActionLabel()"
+					[attr.title]="iconActionTitle()"
+				>
+					<tw-add class="h-6 w-6"></tw-add>
+				</button>
+
+				<textarea
+					#promptInput
+					class="mcp-assistant-panel__input"
+					name="mcpPrompt"
+					[ngModel]="promptText()"
+					(ngModelChange)="promptText.set($event)"
+					rows="1"
+					[placeholder]="placeholder()"
+					[attr.aria-label]="placeholder()"
+					(input)="autoResizePrompt(promptInput)"
+					(keydown)="handlePromptKeydown($event)"
+				></textarea>
+
+				<div class="mcp-assistant-panel__actions">
+					<button
+						type="button"
+						[class]="isListening
+							? 'btn btn-circle btn-ghost btn-active h-11 min-h-11 w-11 border-0 bg-primary/20 p-0 text-primary shadow-none transition-all duration-200 hover:-translate-y-px hover:bg-primary/25 hover:text-primary'
+							: 'btn btn-circle btn-ghost h-11 min-h-11 w-11 border-0 bg-transparent p-0 text-base-content/70 shadow-none transition-all duration-200 hover:-translate-y-px hover:bg-base-content/10 hover:text-base-content'"
+						(click)="toggleVoiceInput()"
+						[disabled]="!speechRecognitionSupported"
+						[attr.aria-label]="isListening ? 'Stop voice input' : 'Start voice input'"
+						[attr.title]="speechRecognitionSupported ? (isListening ? 'Arrêter la dictée' : 'Démarrer la dictée') : 'Dictée non disponible'"
+					>
+						<tw-mic class="h-5 w-5"></tw-mic>
+					</button>
+
+					<button
+						type="submit"
+						class="mcp-assistant-panel__submit"
+						[disabled]="isSearching()"
+						aria-label="Start search"
+					>
+						@if (isSearching()) {
+							<span class="loading loading-spinner loading-xs"></span>
+						} @else {
+							{{ submitLabel() }}
+						}
+					</button>
+				</div>
+			</form>
+		</div>
+	</section>
+}
+
+@if (hasReport()) {
+	<section class="mx-auto mb-8 w-full max-w-6xl">
+		<div class="mb-3 flex items-center gap-2">
+			<h2 class="text-base-content/70 text-base font-semibold">
+				{{ reportTitlePrefix() }} « {{ reportQuery() }} »
+			</h2>
+			<button
+				type="button"
+				class="btn btn-ghost btn-xs"
+				(click)="clearReport()"
+				aria-label="Clear report"
+			>
+				✕
+			</button>
+		</div>
+
+		<div role="tablist" class="tabs tabs-border mb-4">
+			<button role="tab" class="tab" [class.tab-active]="activeTab() === 'response'" (click)="activeTab.set('response')">Réponse</button>
+			<button role="tab" class="tab" [class.tab-active]="activeTab() === 'details'" (click)="activeTab.set('details')">Détails</button>
+		</div>
+
+		@if (activeTab() === 'response') {
+			<div class="bg-base-100 rounded-box p-6 shadow-sm">
+				@if (modelFinalMessage()) {
+					<div class="prose prose-sm max-w-none" [markdown-to-html]="modelFinalMessage()"></div>
+				} @else if (answer()) {
+					<div class="max-w-none" [innerHTML]="answer()"></div>
+				} @else {
+					<p class="text-base-content/50 italic text-sm">
+						L'agent n'a pas produit de réponse textuelle. Consultez l'onglet Détails pour voir les résultats bruts.
+					</p>
+				}
+			</div>
+		}
+
+		@if (activeTab() === 'details') {
+			<div class="space-y-3">
+				@for (run of toolRuns(); track $index) {
+					<article class="card card-border bg-base-100">
+						<div class="card-body gap-3 p-4">
+							<div class="flex items-center gap-2">
+								<h4 class="card-title text-base">{{ run.tool_name }}</h4>
+								<span class="badge badge-xs"
+									[class.badge-success]="run.status === 'ok'"
+									[class.badge-error]="run.status === 'error'"
+									[class.badge-warning]="run.status !== 'ok' && run.status !== 'error'"
+								>{{ run.status }}</span>
+							</div>
+
+							<div>
+								<p class="text-base-content/60 mb-1 text-xs font-semibold uppercase tracking-wide">Arguments</p>
+								<div class="relative">
+									<button
+										class="btn btn-ghost btn-xs absolute top-1.5 right-1.5 z-10"
+										(click)="copyToClipboard(stringify(run.args))"
+										title="Copy"
+									>
+										<tw-clipboard-document class="h-3.5 w-3.5"></tw-clipboard-document>
+									</button>
+									<pre class="bg-base-200 rounded-box overflow-x-auto p-3 pr-8 text-xs">{{ stringify(run.args) }}</pre>
+								</div>
+							</div>
+
+							<div>
+								<p class="text-base-content/60 mb-1 text-xs font-semibold uppercase tracking-wide">Résultat</p>
+								<div class="relative">
+									<button
+										class="btn btn-ghost btn-xs absolute top-1.5 right-1.5 z-10"
+										(click)="copyToClipboard(stringify(run.result))"
+										title="Copy"
+									>
+										<tw-clipboard-document class="h-3.5 w-3.5"></tw-clipboard-document>
+									</button>
+									<pre class="bg-base-200 rounded-box overflow-x-auto p-3 pr-8 text-xs">{{ stringify(run.result) }}</pre>
+								</div>
+							</div>
+						</div>
+					</article>
+				}
+			</div>
+		}
+	</section>
+}

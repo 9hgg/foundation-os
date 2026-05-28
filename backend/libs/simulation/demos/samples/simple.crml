@@ -1,0 +1,31 @@
+{
+  "kind": "crml-modelisation-constraints",
+  "title": "First-order thermal behavior constraints",
+  "description": "Constraint-oriented modeling input meant for CRML/OpenModelica workflows.",
+  "constraints": {
+    "stateVariables": ["temperature"],
+    "parameters": {
+      "ambient": {"min": 285, "max": 305},
+      "tau": {"min": 1, "max": 30}
+    },
+    "invariants": [
+      "temperature >= ambient - 30",
+      "temperature <= ambient + 60"
+    ],
+    "targets": [
+      {
+        "name": "step_response",
+        "description": "Reach 95% of steady-state in less than 5*tau"
+      }
+    ]
+  },
+  "simulationPlan": {
+    "startTime": 0,
+    "stopTime": 120,
+    "outputInterval": 0.5,
+    "inputParameters": {
+      "ambient": 293,
+      "tau": 10
+    }
+  }
+}

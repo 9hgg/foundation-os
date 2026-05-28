@@ -1,7 +1,9 @@
-import * as SUT from './shift-key.directive';
+import { ShiftKeyDirective } from './shift-key.directive';
 
 describe('shift-key.directive', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ShiftKeyDirective', () => {
+		it('is exported', () => {
+			expect(ShiftKeyDirective).toBeDefined();
+		});
+	});
 });

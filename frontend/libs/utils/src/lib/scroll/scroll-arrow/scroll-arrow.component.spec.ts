@@ -1,7 +1,9 @@
-import * as SUT from './scroll-arrow.component';
+import { ScrollArrowComponent } from './scroll-arrow.component';
 
 describe('scroll-arrow.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ScrollArrowComponent', () => {
+		it('is exported', () => {
+			expect(ScrollArrowComponent).toBeDefined();
+		});
+	});
 });

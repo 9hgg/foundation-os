@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
 		passWithNoTests: true,
 		coverage: {
 			provider: 'v8',
+      thresholds: { lines: 50 },
 			reportsDirectory: '../../../coverage/libs/edf-project-rands/utils',
 		},
 	},

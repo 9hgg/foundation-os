@@ -35,19 +35,29 @@ def _get_interactions_for(
 
         # the interaction.key property is
         # actually a string built like this : "item.<item_id>"
+        # Guard against other key formats (e.g. "feedback.<slug>") that can't be cast to UUID
 
         query = query.join(
             Interaction,
-            ResourceType.id == sa.func.split_part(Interaction.key, ".", 2).cast(sa.UUID),
+            sa.and_(
+                Interaction.key.like(f"{ResourceType.__kind__}.%"),
+                ResourceType.id == sa.func.split_part(Interaction.key, ".", 2).cast(sa.UUID),
+            ),
         )
         result = query.all()
 
     restructured_result = {}
+    seen_interaction_ids_by_item = {}
     # regroup by item id with the item as first property and interactions as a list
     for r in result:
         item_id = r[0].id
         if item_id not in restructured_result:
             restructured_result[item_id] = {"item": r[0], "interactions": []}
+            seen_interaction_ids_by_item[item_id] = set()
+        interaction_id = r[2].id
+        if interaction_id in seen_interaction_ids_by_item[item_id]:
+            continue
+        seen_interaction_ids_by_item[item_id].add(interaction_id)
         restructured_result[item_id]["interactions"].append(r[2])
 
 

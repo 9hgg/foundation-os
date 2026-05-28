@@ -1,7 +1,9 @@
-import * as SUT from './doubleTap.directive';
+import { DoubleTapDirective } from './doubleTap.directive';
 
 describe('doubleTap.directive', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('DoubleTapDirective', () => {
+		it('is exported', () => {
+			expect(DoubleTapDirective).toBeDefined();
+		});
+	});
 });

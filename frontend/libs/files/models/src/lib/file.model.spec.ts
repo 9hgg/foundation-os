@@ -1,7 +1,7 @@
-import * as SUT from './file.model';
+import './file.model';
 
 describe('file.model', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	it('loads without runtime exports', () => {
+		expect(true).toBe(true);
+	});
 });

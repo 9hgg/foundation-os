@@ -28,7 +28,7 @@ export class FolderTableComponent extends RepositoryTableComponent<Folder, Folde
 	folderId = model<string | null>(null);
 
 	rootFolder$$$ = new BehaviorSubjectReplayedProxied<string | null, Folder | null>((id: string | null) => {
-		return id ? this._repository.store.getObjectById$$$(id, true).$ : of(null);
+		return id ? this._repository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	parentFolder$ = this.rootFolder$$$.pipe(

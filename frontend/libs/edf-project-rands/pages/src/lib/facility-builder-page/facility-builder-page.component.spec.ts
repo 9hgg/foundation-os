@@ -1,7 +1,9 @@
-import * as SUT from './facility-builder-page.component';
+import { FacilityBuilderPageComponent } from './facility-builder-page.component';
 
 describe('facility-builder-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FacilityBuilderPageComponent', () => {
+		it('is exported', () => {
+			expect(FacilityBuilderPageComponent).toBeDefined();
+		});
+	});
 });

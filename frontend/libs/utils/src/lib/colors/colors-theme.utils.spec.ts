@@ -1,7 +1,9 @@
-import * as SUT from './colors-theme.utils';
+import { a } from './colors-theme.utils';
 
 describe('colors-theme.utils', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('a', () => {
+		it('is exported', () => {
+			expect(a).toBeDefined();
+		});
+	});
 });

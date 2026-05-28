@@ -6,6 +6,11 @@ export interface Interaction extends Resource {
 	 * Identifier of the interview/object/anything that is being interacted with.
 	 */
 	key?: string;
+	/**
+	 * User id when the interaction is tied to an authenticated user.
+	 * For anonymous interactions this is null/undefined.
+	 */
+	userId?: string | null;
 	config: Record<string, any>;
 }
 

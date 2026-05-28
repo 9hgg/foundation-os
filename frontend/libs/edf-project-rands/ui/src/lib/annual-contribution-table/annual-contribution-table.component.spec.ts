@@ -1,7 +1,9 @@
-import * as SUT from './annual-contribution-table.component';
+import { AnnualContributionTableComponent } from './annual-contribution-table.component';
 
 describe('annual-contribution-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('AnnualContributionTableComponent', () => {
+		it('is exported', () => {
+			expect(AnnualContributionTableComponent).toBeDefined();
+		});
+	});
 });

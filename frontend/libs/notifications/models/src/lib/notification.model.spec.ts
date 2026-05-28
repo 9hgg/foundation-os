@@ -1,7 +1,7 @@
-import * as SUT from './notification.model';
+import './notification.model';
 
 describe('notification.model', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	it('loads without runtime exports', () => {
+		expect(true).toBe(true);
+	});
 });

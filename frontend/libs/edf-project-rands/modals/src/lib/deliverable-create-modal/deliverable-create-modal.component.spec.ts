@@ -1,7 +1,9 @@
-import * as SUT from './deliverable-create-modal.component';
+import { DeliverableCreateModalComponent } from './deliverable-create-modal.component';
 
 describe('deliverable-create-modal.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('DeliverableCreateModalComponent', () => {
+		it('is exported', () => {
+			expect(DeliverableCreateModalComponent).toBeDefined();
+		});
+	});
 });

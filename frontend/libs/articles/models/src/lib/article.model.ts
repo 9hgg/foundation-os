@@ -15,7 +15,7 @@ export interface ArticleConfig {
 
 export interface Article extends Resource {
 	title?: string;
-	kind: 'default' | 'support' | 'backlog';
+	kind: 'default' | 'support' | 'backlog' | 'assistant';
 	slug?: string;
 	featured: boolean;
 	summary?: string;

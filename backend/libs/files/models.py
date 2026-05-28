@@ -5,6 +5,7 @@ import sqlalchemy as sa
 import sqlmodel
 from sqlalchemy.dialects.postgresql import JSONB
 
+from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import (
     ResourceWithConfig,
 )
@@ -87,33 +88,35 @@ class File(ResourceWithConfig, table=True):
     __description__ = "A file holds the data to retrieve a file from the server."
     __config_type__ = FileConfig
     __extra_type__ = ExtraDetailsFile
+    __mcp_display__ = ResourceDisplayProfile(
+        kind="file",
+        title_fields=("public_filename", "original_filename", "filename", "name", "id"),
+        subtitle_fields=("description", "mime"),
+        status_fields=("unprocessable", "in_storage"),
+        date_fields=("time_updated", "time_created"),
+        metadata_fields=("kind", "mime", "extension", "size", "size_client", "duration", "width", "height", "has_audio", "has_video"),
+    )
 
-    public_filename: Optional[str] = None
-    description: Optional[str] = None
+    public_filename: Optional[str] = sqlmodel.Field(default=None, description="Human-readable name shown to users. Use this field to search by file name.")
+    description: Optional[str] = sqlmodel.Field(default=None, description="Optional free-text description of the file.")
 
-    extension: Optional[str] = None
-    kind: Optional[str] = None  # audio, video, image, pdf, ...
+    extension: Optional[str] = sqlmodel.Field(default=None, description="File extension resolved after processing, e.g. '.mp4', '.jpg', '.pdf'.")
+    kind: Optional[str] = sqlmodel.Field(default=None, description="Media kind: 'audio', 'video', 'image', 'pdf', or other.")
 
     # FROM CLIENT
-    extension_client: Optional[str] = None  # to use as default until extension is available
-    # (=content_type) to use as default for mime until available
-    mime_client: Optional[str] = None
-    original_filename: Optional[str] = None
-    size_client: Optional[float] = None
+    extension_client: Optional[str] = sqlmodel.Field(default=None, description="Extension as reported by the client before server-side processing.")
+    mime_client: Optional[str] = sqlmodel.Field(default=None, description="MIME type as reported by the client, e.g. 'video/quicktime'.")
+    original_filename: Optional[str] = sqlmodel.Field(default=None, description="Original filename as uploaded by the client, before any renaming.")
+    size_client: Optional[float] = sqlmodel.Field(default=None, description="File size in bytes as reported by the client.")
 
-    unprocessable: Optional[bool] = None  # None until we have a way to check if a file is unprocessable
-    mime: Optional[str] = None
-    size: Optional[float] = None
+    unprocessable: Optional[bool] = sqlmodel.Field(default=None, description="True if the file could not be processed; None while status is unknown.")
+    mime: Optional[str] = sqlmodel.Field(default=None, description="Server-resolved MIME type, e.g. 'image/jpeg'.")
+    size: Optional[float] = sqlmodel.Field(default=None, description="File size in bytes resolved after upload.")
 
-    storage_id: Optional[uuid.UUID] = sqlmodel.Field(nullable=False, foreign_key="storage_settings.id")
-    # storage_db: Storage | None = sqlmodel.Relationship(back_populates="files")
-
-    # the path to the file in the storage
-    # (folder name, file name, ...): anything
-    # used by the StorageClass to retrieve the file
-    storage_folder_path: Optional[str] = None
-    in_storage: bool = sqlmodel.Field(sa_column=sa.Column(sa.Boolean, nullable=False, server_default="false"))
-    upload_url: Optional[str] = None
+    storage_id: Optional[uuid.UUID] = sqlmodel.Field(default=None, nullable=False, foreign_key="storage_settings.id", description="ID of the storage backend that holds this file.")
+    storage_folder_path: Optional[str] = sqlmodel.Field(default=None, description="Internal path within the storage backend.")
+    in_storage: bool = sqlmodel.Field(sa_column=sa.Column(sa.Boolean, nullable=False, server_default="false"), description="True once the file has been successfully uploaded to storage.")
+    upload_url: Optional[str] = sqlmodel.Field(default=None, description="Temporary pre-signed URL for the client to upload the file.")
 
     # extra data, can be used by the StorageClass
     # to store extra data like alternative formats, ...

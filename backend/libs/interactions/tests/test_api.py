@@ -56,12 +56,7 @@ def test_get_interaction_by_token(mock_get_int, client):
     assert response.json()["error"]["title"] == "Interaction not found"
 
     # Case 2: Found
-    interaction = MagicMock()
-    interaction.id = uuid.uuid4()
-    interaction.key = "test_key"
-    interaction.config = {}
-    # Ensure it behaves like a Pydantic model or dict as needed by EndpointOutput
-    interaction.model_dump.return_value = {"id": str(interaction.id), "key": "test_key", "config": {}}
+    interaction = Interaction(id=uuid.uuid4(), key="test_key", config={})
     mock_get_int.return_value = interaction
     response = client.get("/api/interactions/by-token/token")
     assert response.status_code == 200
@@ -80,11 +75,12 @@ def test_update_interaction_by_token(mock_rm, mock_get_int, client, mock_user, m
     assert response.json()["error"]["title"] == "Interaction not found"
 
     # Case 2: Item not found
-    interaction = MagicMock()
+    interaction = MagicMock(spec=Interaction)
     interaction.id = uuid.uuid4()
     interaction.key = "kind.id"
     interaction.config = {}
-    interaction.model_dump.return_value = {"id": str(interaction.id), "key": "kind.id", "config": {}}
+    interaction.user_id = None
+    interaction.userId = None
     mock_get_int.return_value = interaction
 
     resource_type = MagicMock()
@@ -101,11 +97,7 @@ def test_update_interaction_by_token(mock_rm, mock_get_int, client, mock_user, m
     resource_type.by_id.return_value = item
     resource_type.__notify_method__ = MagicMock()
 
-    updated_interaction = MagicMock()
-    updated_interaction.id = uuid.uuid4()
-    updated_interaction.key = "kind.id"
-    updated_interaction.config = {}
-    updated_interaction.model_dump.return_value = {"id": str(updated_interaction.id), "key": "kind.id", "config": {}}
+    updated_interaction = Interaction(id=uuid.uuid4(), key="kind.id", config={})
     interaction.update.return_value = updated_interaction
 
     response = client.put("/api/interactions/by-token/token", json={"key": "kind.id"})

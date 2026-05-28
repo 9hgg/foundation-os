@@ -1,7 +1,9 @@
-import * as SUT from './facilities.modals';
+import { FacilitiesModals } from './facilities.modals';
 
 describe('facilities.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FacilitiesModals', () => {
+		it('is exported', () => {
+			expect(FacilitiesModals).toBeDefined();
+		});
+	});
 });

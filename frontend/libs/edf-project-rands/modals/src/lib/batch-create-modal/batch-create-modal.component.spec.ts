@@ -1,7 +1,9 @@
-import * as SUT from './batch-create-modal.component';
+import { BatchCreateModalComponent } from './batch-create-modal.component';
 
 describe('batch-create-modal.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('BatchCreateModalComponent', () => {
+		it('is exported', () => {
+			expect(BatchCreateModalComponent).toBeDefined();
+		});
+	});
 });

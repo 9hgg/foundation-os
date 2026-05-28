@@ -1,7 +1,9 @@
-import * as SUT from './leopar-landing-page.component';
+import { LeoparLandingPageComponent } from './leopar-landing-page.component';
 
 describe('leopar-landing-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('LeoparLandingPageComponent', () => {
+		it('is exported', () => {
+			expect(LeoparLandingPageComponent).toBeDefined();
+		});
+	});
 });

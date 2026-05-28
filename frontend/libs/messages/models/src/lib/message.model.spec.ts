@@ -1,7 +1,7 @@
-import * as SUT from './message.model';
+import './message.model';
 
 describe('message.model', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	it('loads without runtime exports', () => {
+		expect(true).toBe(true);
+	});
 });

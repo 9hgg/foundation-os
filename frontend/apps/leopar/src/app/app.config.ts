@@ -1,4 +1,4 @@
-import { AuthTokenInterceptor } from '@foundation/auth/state';
+import { AUTH_STORAGE_KEY, AuthTokenInterceptor } from '@foundation/auth/state';
 import { OfflineInterceptor } from '@foundation/network/interceptors';
 import { CacheInterceptor } from '@foundation/utils';
 import { Dialog, DialogModule } from '@angular/cdk/dialog';
@@ -17,6 +17,7 @@ if (environment.api?.port) {
 
 export const appConfig: ApplicationConfig = {
 	providers: [
+		{ provide: AUTH_STORAGE_KEY, useValue: 'auth-leopar' },
 		provideZonelessChangeDetection(),
 		provideRouter(
 			//

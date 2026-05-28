@@ -1,6 +1,10 @@
 import { FileModals } from '@foundation/files/modals';
 import { EntityFile } from '@foundation/files/models';
-import { convertToUrl, FilesRepository } from '@foundation/files/state';
+import { FilesRepository } from '@foundation/files/state';
+
+function toRelativeFileUrl(file: EntityFile, alternative = 'original'): string {
+	return `/api/files/storage/read/${file.id}/${alternative}`;
+}
 import { inject, Injectable } from '@angular/core';
 import Quill, { Delta } from 'quill';
 import { map } from 'rxjs';
@@ -117,9 +121,9 @@ export class QuillService {
 					if (res.length && res[0]) {
 						const fileToUse = res[0];
 						if (fileToUse.kind === 'image' || fileToUse.mimeClient?.includes('image')) {
-							this._insertImage(quill, { alt: fileToUse.publicFilename, url: convertToUrl(fileToUse, 'original') });
+							this._insertImage(quill, { alt: fileToUse.publicFilename, url: toRelativeFileUrl(fileToUse) });
 						} else if (fileToUse.kind === 'video' || fileToUse.mimeClient?.includes('video')) {
-							this._insertVideo(quill, { alt: fileToUse.publicFilename, url: convertToUrl(fileToUse, 'original') });
+							this._insertVideo(quill, { alt: fileToUse.publicFilename, url: toRelativeFileUrl(fileToUse) });
 						} else {
 							this._insertFileAsLink(quill, fileToUse);
 						}
@@ -162,7 +166,7 @@ export class QuillService {
 			range?.index || 0,
 			' ' + file.publicFilename + ' ',
 			{
-				link: convertToUrl(file, 'original'),
+				link: toRelativeFileUrl(file),
 			},
 			Quill.sources.USER
 		);
@@ -184,9 +188,9 @@ export class QuillService {
 				if (result?.files?.length) {
 					const fileToUse = result.files[0];
 					if (fileToUse.kind === 'image' || fileToUse.mimeClient?.includes('image')) {
-						this._insertImage(quill, { alt: fileToUse.publicFilename, url: convertToUrl(fileToUse, 'original') });
+						this._insertImage(quill, { alt: fileToUse.publicFilename, url: toRelativeFileUrl(fileToUse) });
 					} else if (fileToUse.kind === 'video' || fileToUse.mimeClient?.includes('video')) {
-						this._insertVideo(quill, { alt: fileToUse.publicFilename, url: convertToUrl(fileToUse, 'original') });
+						this._insertVideo(quill, { alt: fileToUse.publicFilename, url: toRelativeFileUrl(fileToUse) });
 					} else {
 						this._insertFileAsLink(quill, fileToUse);
 					}

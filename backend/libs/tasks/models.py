@@ -6,6 +6,7 @@ import sqlalchemy as sa
 import sqlmodel
 from sqlalchemy.dialects.postgresql import JSONB
 
+from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import Resource
 from libs.utils.types import BaseModelWithConfig
 
@@ -13,6 +14,7 @@ from libs.utils.types import BaseModelWithConfig
 class TaskArtifacts(BaseModelWithConfig):
     return_value: typing.Any = None
     error_details: str | None = None
+    llm_token_usage: dict | None = None
 
 
 class TaskArguments(BaseModelWithConfig):
@@ -39,6 +41,14 @@ class Task(Resource, table=True):
     __description__ = "A Task is a model to represent a task to be executed"
     __title__ = "Task"
     __example__ = "Task"
+    __mcp_display__ = ResourceDisplayProfile(
+        kind="task",
+        title_fields=("title", "method_name", "custom_id", "id"),
+        subtitle_fields=("description",),
+        status_fields=("failed", "completed", "ended", "started"),
+        date_fields=("ended_at", "started_at", "last_heartbeat_at", "time_updated", "time_created"),
+        metadata_fields=("method_name", "priority", "progress", "processor_kind"),
+    )
 
     # custom id can be used to be sure to create
     # only one specific task (like email_id+attempt)
@@ -59,7 +69,7 @@ class Task(Resource, table=True):
     description: str | None = None
     # can be used to classify kind of task (mail, export, processing...)
     kind: str | None = None
-    priority: int = 0
+    priority: int = 100
 
     ## PROCESSING DETAILS
 
@@ -77,18 +87,18 @@ class Task(Resource, table=True):
     failed: bool = False
 
     started_at: datetime.datetime | None = sqlmodel.Field(
-        sa_column=sa.Column(
-            sa.DateTime,
-        ),
+        sa_type=sa.DateTime(timezone=True),
         default=None,
     )
     ended_at: datetime.datetime | None = sqlmodel.Field(
-        sa_column=sa.Column(
-            sa.DateTime,
-        ),
+        sa_type=sa.DateTime(timezone=True),
         default=None,
     )
     progress: float = 0.0  # between 0 and 100
+    last_heartbeat_at: datetime.datetime | None = sqlmodel.Field(
+        sa_type=sa.DateTime(timezone=True),
+        default=None,
+    )
 
     ## RESULTS
     # should be parsed as TaskArtifacts

@@ -6,6 +6,7 @@ import sqlmodel
 from pydantic import UUID4, BaseModel, Field
 from sqlalchemy.dialects.postgresql import JSONB
 
+from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import ResourceWithConfig
 from libs.users.config import USER_SETTINGS
 from libs.utils.types import BaseModelWithConfig
@@ -86,6 +87,9 @@ class UserConfig(BaseModelWithConfig):
     # Former emails (history of previous email addresses)
     former_emails: list["FormerEmail"] = Field(default_factory=list)
 
+    # App-specific user details — each app defines its own typed model for this field
+    app_details: Optional[dict] = None
+
     def model_post_init(self, __context):
         if isinstance(self.profile_picture_id, str):
             self.profile_picture_id = uuid.UUID(self.profile_picture_id)
@@ -97,6 +101,20 @@ class User(ResourceWithConfig, table=True):
     __title__ = "User"
     __description__ = "A user is a person that can access the application."
     __config_type__ = UserConfig
+    __mcp_display__ = ResourceDisplayProfile(
+        kind="user",
+        title_fields=("pseudo", "email", "first_name", "last_name", "id"),
+        subtitle_fields=("email",),
+        status_fields=("email_verified",),
+        metadata_fields=("email", "first_name", "last_name"),
+        hidden_fields=(
+            *ResourceDisplayProfile(kind="user").hidden_fields,
+            "password_hashed",
+            "reset_password_token",
+            "email_verification_token",
+            "change_email_token",
+        ),
+    )
 
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -155,6 +173,7 @@ EDITABLE_USER_CONFIG_FIELDS = [
     "newsletter_subscriptions",
     "theme",
     "language",
+    "app_details",
 ]
 EDITABLE_BY_ADMIN_USER_FIELDS = [*EDITABLE_USER_FIELDS, "email", "email_verified"]
 

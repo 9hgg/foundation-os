@@ -1,7 +1,9 @@
-import * as SUT from './activities.modals';
+import { ActivitiesModals } from './activities.modals';
 
 describe('activities.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ActivitiesModals', () => {
+		it('is exported', () => {
+			expect(ActivitiesModals).toBeDefined();
+		});
+	});
 });

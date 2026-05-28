@@ -1,7 +1,9 @@
-import * as SUT from './report-editor.component';
+import { ReportEditorComponent } from './report-editor.component';
 
 describe('report-editor.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ReportEditorComponent', () => {
+		it('is exported', () => {
+			expect(ReportEditorComponent).toBeDefined();
+		});
+	});
 });

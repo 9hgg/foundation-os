@@ -6,6 +6,7 @@ import sqlmodel
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field
 
+from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import ResourceWithConfig
 from libs.utils.types import SQLMODEL_BASE_CONFIG_DICT, BaseModelWithConfig
 
@@ -26,6 +27,12 @@ class Team(ResourceWithConfig, table=True):
     __title__ = "Team"
     __description__ = "A team object for collaboration and project management."
     __config_type__ = TeamConfig
+    __mcp_display__ = ResourceDisplayProfile(
+        kind="team",
+        title_fields=("name", "title", "id"),
+        metadata_fields=("owner_id",),
+        date_fields=("time_updated", "time_created"),
+    )
 
     owner_id: uuid.UUID = Field(
         sa_column=sa.Column(

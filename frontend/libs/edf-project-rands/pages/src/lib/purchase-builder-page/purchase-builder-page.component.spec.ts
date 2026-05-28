@@ -1,7 +1,9 @@
-import * as SUT from './purchase-builder-page.component';
+import { PurchaseBuilderPageComponent } from './purchase-builder-page.component';
 
 describe('purchase-builder-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('PurchaseBuilderPageComponent', () => {
+		it('is exported', () => {
+			expect(PurchaseBuilderPageComponent).toBeDefined();
+		});
+	});
 });

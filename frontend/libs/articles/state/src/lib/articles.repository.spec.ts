@@ -7,6 +7,8 @@ import { TranslationService } from '@foundation/translations/services';
 import { TabManagerService } from '@foundation/utils';
 import { ArticlesRepository } from './articles.repository';
 
+vi.mock('uuid', () => ({ v4: () => 'article-id' }));
+
 describe('ArticlesRepository', () => {
 	let repository: ArticlesRepository;
 	let requestServiceMock: {
@@ -29,6 +31,7 @@ describe('ArticlesRepository', () => {
 	let routerMock: {
 		navigate: ReturnType<typeof vi.fn>;
 	};
+	let windowOpenSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		requestServiceMock = {
@@ -67,6 +70,11 @@ describe('ArticlesRepository', () => {
 		});
 
 		repository = TestBed.inject(ArticlesRepository);
+		windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+	});
+
+	afterEach(() => {
+		windowOpenSpy.mockRestore();
 	});
 
 	it('should be created', () => {
@@ -132,6 +140,53 @@ describe('ArticlesRepository', () => {
 		});
 	});
 
+	describe('goToArticle()', () => {
+		it('navigates support articles to the support route with a message fragment', () => {
+			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of({ id: 'article-1', title: 'Support', kind: 'support', config: {} }));
+
+			repository.goToArticle('article-1', { messageId: 'message-1' });
+
+			expect(routerMock.navigate).toHaveBeenCalledWith(['/', 'host', 'dashboard', 'support', 'article-1'], {
+				fragment: 'message-message-1',
+			});
+		});
+
+		it('opens regular articles in a new tab when requested', () => {
+			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of({ id: 'article-1', title: 'Article', kind: 'default', config: {} }));
+
+			repository.goToArticle('article-1', { inNewTab: true, messageId: 'message-1' });
+
+			expect(windowOpenSpy).toHaveBeenCalledWith('/host/dashboard/articles/article-1#message-message-1', '_blank');
+		});
+
+		it('navigates regular articles to the editor when requested', () => {
+			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of({ id: 'article-1', title: 'Article', kind: 'default', config: {} }));
+
+			repository.goToArticle('article-1', { toEditor: true });
+
+			expect(routerMock.navigate).toHaveBeenCalledWith(['/', 'host', 'dashboard', 'articles', 'article-1', 'builder']);
+		});
+
+		it('navigates regular articles to the reader route by default', () => {
+			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of({ id: 'article-1', title: 'Article', kind: 'default', config: {} }));
+
+			repository.goToArticle('article-1', { messageId: 'message-1' });
+
+			expect(routerMock.navigate).toHaveBeenCalledWith(['/', 'host', 'dashboard', 'articles', 'article-1'], {
+				fragment: 'message-message-1',
+			});
+		});
+
+		it('does not navigate when the article is missing', () => {
+			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of(null));
+
+			repository.goToArticle('missing-article');
+
+			expect(routerMock.navigate).not.toHaveBeenCalled();
+			expect(windowOpenSpy).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('goToArticleSupport()', () => {
 		it('should navigate to the support route', () => {
 			repository.goToArticleSupport('article-id-2');
@@ -150,6 +205,63 @@ describe('ArticlesRepository', () => {
 		it('should call notificationService.snack with not-implemented message', () => {
 			repository.goToArticlePublicPage('article-id-3');
 			expect(notificationServiceMock.snack).toHaveBeenCalled();
+		});
+	});
+
+	describe('createNewArticle$()', () => {
+		it('creates an article with an available slug', async () => {
+			notificationServiceMock.prompt.mockReturnValue({ closed: of({ value: 'New Article' }) });
+			requestServiceMock.getBasic$.mockReturnValue(of({ result: { slugAvailable: true } }));
+			vi.spyOn(repository.store, 'postObject$').mockReturnValue(of({ result: { data: { id: 'article-id' } } }));
+
+			await new Promise((resolve) => repository.createNewArticle$().subscribe(resolve));
+
+			expect(repository.store.postObject$).toHaveBeenCalledWith({
+				id: 'article-id',
+				kind: 'default',
+				title: 'New Article',
+				slug: 'new-article',
+				featured: false,
+				draft: true,
+				tags: [],
+				config: {},
+			});
+		});
+
+		it('creates an article with a fallback slug when the first slug is taken', async () => {
+			notificationServiceMock.prompt.mockReturnValue({ closed: of({ value: 'New Article' }) });
+			requestServiceMock.getBasic$.mockReturnValue(of({ result: { slugAvailable: false } }));
+			vi.spyOn(Date, 'now').mockReturnValue(123);
+			vi.spyOn(repository.store, 'postObject$').mockReturnValue(of({ result: { data: { id: 'article-id' } } }));
+
+			await new Promise((resolve) => repository.createNewArticle$().subscribe(resolve));
+
+			expect(repository.store.postObject$).toHaveBeenCalledWith(
+				expect.objectContaining({
+					slug: 'new-article-123',
+				})
+			);
+		});
+
+		it('adds the created article to the target folder', async () => {
+			notificationServiceMock.prompt.mockReturnValue({ closed: of({ value: 'New Article' }) });
+			requestServiceMock.getBasic$
+				.mockReturnValueOnce(of({ result: { slugAvailable: true } }))
+				.mockReturnValueOnce(of({ result: {} }));
+			vi.spyOn(repository.store, 'postObject$').mockReturnValue(of({ result: { data: { id: 'article-id' } } }));
+
+			await new Promise((resolve) => repository.createNewArticle$('folder-1').subscribe(resolve));
+
+			expect(requestServiceMock.getBasic$).toHaveBeenLastCalledWith('/api/folders/folder-1/add/article/article-id');
+		});
+
+		it('does not create an article when the prompt is cancelled', async () => {
+			notificationServiceMock.prompt.mockReturnValue({ closed: of(null) });
+			const postSpy = vi.spyOn(repository.store, 'postObject$');
+
+			await new Promise((resolve) => repository.createNewArticle$().subscribe(resolve));
+
+			expect(postSpy).not.toHaveBeenCalled();
 		});
 	});
 });

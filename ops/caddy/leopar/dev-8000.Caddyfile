@@ -1,0 +1,23 @@
+:8000 {
+
+	# Proxy all /api requests to FastAPI
+	handle /api/* {
+		reverse_proxy {
+			header_up Host {upstream_hostport}
+			header_up X-Real-IP {http.reverse-proxy.upstream.address}
+			header_up forward-origin {scheme}://{host}{uri}
+			to localhost:8050
+		}
+	}
+	handle /api-docs {
+		reverse_proxy localhost:8050
+	}
+	handle /openapi.json {
+		reverse_proxy localhost:8050
+	}
+
+	# All other requests go to Angular's dev server on 4200
+	handle {
+		reverse_proxy localhost:4250
+	}
+}

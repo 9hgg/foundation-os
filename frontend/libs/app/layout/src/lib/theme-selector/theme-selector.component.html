@@ -138,9 +138,9 @@
 					</p>
 
 					<div class="dropdown dropdown-bottom w-full">
-						<div
+						<button
+							type="button"
 							tabindex="0"
-							role="button"
 							class="btn btn-outline w-full justify-between"
 						>
 							<div class="flex items-center gap-2">
@@ -163,7 +163,7 @@
 							>
 								<path d="m6 9 6 6 6-6" />
 							</svg>
-						</div>
+						</button>
 						<ul
 							tabindex="0"
 							class="dropdown-content menu bg-base-100 rounded-box z-1 block max-h-60 w-full overflow-y-auto p-2 shadow"
@@ -174,6 +174,7 @@
 										(click)="updateLightTheme(theme)"
 										class="bg-base-100 text-base-content hover:bg-base-200 flex justify-between rounded-md px-2 py-1.5 transition-all"
 										[class.active]="theme === layoutService.lightThemePref()"
+										[attr.aria-pressed]="theme === layoutService.lightThemePref()"
 										[attr.data-theme]="theme"
 									>
 										<span class="flex items-center gap-2">
@@ -231,9 +232,9 @@
 					</p>
 
 					<div class="dropdown dropdown-bottom w-full">
-						<div
+						<button
+							type="button"
 							tabindex="0"
-							role="button"
 							class="btn btn-outline w-full justify-between"
 						>
 							<div class="flex items-center gap-2">
@@ -256,7 +257,7 @@
 							>
 								<path d="m6 9 6 6 6-6" />
 							</svg>
-						</div>
+						</button>
 						<ul
 							tabindex="0"
 							class="dropdown-content menu bg-base-100 rounded-box z-1 block max-h-60 w-full overflow-y-auto p-2 shadow"
@@ -267,6 +268,7 @@
 										(click)="updateDarkTheme(theme)"
 										class="bg-base-100 text-base-content hover:bg-base-200 flex justify-between rounded-md px-2 py-1.5 transition-all"
 										[class.active]="theme === layoutService.darkThemePref()"
+										[attr.aria-pressed]="theme === layoutService.darkThemePref()"
 										[attr.data-theme]="theme"
 									>
 										<span class="flex items-center gap-2">

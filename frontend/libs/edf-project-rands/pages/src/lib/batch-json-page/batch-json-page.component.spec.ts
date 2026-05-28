@@ -1,7 +1,9 @@
-import * as SUT from './batch-json-page.component';
+import { BatchJsonPageComponent } from './batch-json-page.component';
 
 describe('batch-json-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('BatchJsonPageComponent', () => {
+		it('is exported', () => {
+			expect(BatchJsonPageComponent).toBeDefined();
+		});
+	});
 });

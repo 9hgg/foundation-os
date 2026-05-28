@@ -1,7 +1,9 @@
-import * as SUT from './merger.service';
+import { VideoStreamMerger } from './merger.service';
 
 describe('merger.service', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('VideoStreamMerger', () => {
+		it('is exported', () => {
+			expect(VideoStreamMerger).toBeDefined();
+		});
+	});
 });

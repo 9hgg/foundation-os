@@ -1,10 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ProjectPresentationSlideCatalogEntry } from '@edf/edf-project-rands/models';
 import { NotificationService } from '@foundation/notification';
 import { QuillTextareaComponent } from '@foundation/quill/ui';
 import { TranslationService } from '@foundation/translations/services';
+import { isEqual } from '@foundation/utils';
+import { v4 as uuidv4 } from 'uuid';
 
 @Component({
 	selector: 'lib-project-slides-tab',
@@ -29,9 +31,8 @@ export class ProjectSlidesTabComponent {
 	selectedSlide = computed<ProjectPresentationSlideCatalogEntry | null>(() => {
 		const slideCatalog = this.slideCatalog();
 		const selectedSlideId = this.selectedSlideId();
-		if (slideCatalog.length === 0) return null;
-		if (selectedSlideId === null) return slideCatalog[0];
-		return slideCatalog.find((slide) => slide.id === selectedSlideId) ?? slideCatalog[0];
+		if (!selectedSlideId) return null;
+		return slideCatalog.find((slide) => slide.id === selectedSlideId) ?? null;
 	});
 
 	selectedSlideLabel = computed(() => this.selectedSlide()?.label ?? '');
@@ -41,26 +42,13 @@ export class ProjectSlidesTabComponent {
 	selectedSlideIncludeInToc = computed(() => this.selectedSlide()?.includeInToc ?? true);
 	selectedSlideShowNumber = computed(() => this.selectedSlide()?.showNumber ?? true);
 
-	constructor() {
-		effect(() => {
-			const slideCatalog = this.slideCatalog();
-			const selectedSlideId = this.selectedSlideId();
-			if (slideCatalog.length === 0) {
-				this.selectedSlideId.set(null);
-				return;
-			}
-			if (selectedSlideId && slideCatalog.some((slide) => slide.id === selectedSlideId)) return;
-			this.selectedSlideId.set(slideCatalog[0].id);
-		});
-	}
-
 	selectSlide(slideId: string) {
 		this.selectedSlideId.set(slideId);
 	}
 
 	addSlide() {
 		const nextSlide: ProjectPresentationSlideCatalogEntry = {
-			id: crypto.randomUUID(),
+			id: uuidv4(),
 			label: 'Slide',
 			title: 'Nouveau slide',
 			subtitle: '',
@@ -69,7 +57,7 @@ export class ProjectSlidesTabComponent {
 			includeInToc: true,
 			showNumber: true,
 		};
-		this._commitSlideCatalog([...this.slideCatalog(), nextSlide], nextSlide.id);
+		this._commitSlideCatalog([...this.slideCatalog(), nextSlide]);
 	}
 
 	duplicateSelectedSlide() {
@@ -77,10 +65,10 @@ export class ProjectSlidesTabComponent {
 		if (!selectedSlide) return;
 		const duplicatedSlide: ProjectPresentationSlideCatalogEntry = {
 			...this._cloneSlide(selectedSlide),
-			id: crypto.randomUUID(),
+			id: uuidv4(),
 			title: `${selectedSlide.title} (copie)`,
 		};
-		this._commitSlideCatalog([...this.slideCatalog(), duplicatedSlide], duplicatedSlide.id);
+		this._commitSlideCatalog([...this.slideCatalog(), duplicatedSlide]);
 	}
 
 	deleteSelectedSlide() {
@@ -93,7 +81,7 @@ export class ProjectSlidesTabComponent {
 			.closed.subscribe((confirmed) => {
 				if (!confirmed) return;
 				const nextSlideCatalog = this.slideCatalog().filter((slide) => slide.id !== selectedSlide.id);
-				this._commitSlideCatalog(nextSlideCatalog, nextSlideCatalog[0]?.id ?? null);
+				this._commitSlideCatalog(nextSlideCatalog);
 			});
 	}
 
@@ -110,10 +98,8 @@ export class ProjectSlidesTabComponent {
 	}
 
 	updateSelectedSlideBodyHtml(bodyHtml: string) {
-		this._updateSelectedSlide((slide) => ({
-			...slide,
-			bodyHtml,
-		}));
+		if (bodyHtml === (this.selectedSlide()?.bodyHtml ?? '')) return;
+		this._updateSelectedSlide((slide) => ({ ...slide, bodyHtml }));
 	}
 
 	updateSelectedSlideIncludeInToc(includeInToc: boolean) {
@@ -127,14 +113,16 @@ export class ProjectSlidesTabComponent {
 	private _updateSelectedSlide(updater: (slide: ProjectPresentationSlideCatalogEntry) => ProjectPresentationSlideCatalogEntry) {
 		const selectedSlide = this.selectedSlide();
 		if (!selectedSlide) return;
+		const updatedSlide = updater(selectedSlide);
+		if (isEqual(updatedSlide, selectedSlide, true)) return;
 		const nextSlideCatalog = this.slideCatalog().map((slide) => (slide.id === selectedSlide.id ? updater(this._cloneSlide(slide)) : this._cloneSlide(slide)));
 		this._commitSlideCatalog(nextSlideCatalog, selectedSlide.id);
 	}
 
-	private _commitSlideCatalog(nextSlideCatalog: ProjectPresentationSlideCatalogEntry[], nextSelectedSlideId: string | null) {
+	private _commitSlideCatalog(nextSlideCatalog: ProjectPresentationSlideCatalogEntry[], nextSelectedSlideId?: string | null) {
 		const normalizedSlideCatalog = nextSlideCatalog.map((slide) => this._cloneSlide(slide));
 		this.slideCatalogChange.emit(normalizedSlideCatalog);
-		this.selectedSlideId.set(nextSelectedSlideId);
+		if (nextSelectedSlideId !== undefined) this.selectedSlideId.set(nextSelectedSlideId);
 	}
 
 	private _cloneSlide(slide: ProjectPresentationSlideCatalogEntry): ProjectPresentationSlideCatalogEntry {

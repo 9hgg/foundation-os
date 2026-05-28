@@ -1,7 +1,9 @@
-import * as SUT from './mobile.utils';
+import { PreventDeviceToSleep } from './mobile.utils';
 
 describe('mobile.utils', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('PreventDeviceToSleep', () => {
+		it('is exported', () => {
+			expect(PreventDeviceToSleep).toBeDefined();
+		});
+	});
 });

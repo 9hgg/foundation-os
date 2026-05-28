@@ -44,18 +44,47 @@ def parse_name(full_name: str) -> tuple[str, str]:
 
 
 def read_excel_bytes_to_dfs(path: str) -> dict:
-    """Read available sheets into a dict of DataFrames. Returns empty dict on failure."""
-    try:
-        import pandas as pd
+    """Read available sheets into a dict of DataFrames.
 
+    Fails fast on file-level errors (file missing, not an Excel file, corrupt,
+    encrypted, no openpyxl) so callers see the real cause instead of a silent
+    empty dict. Per-sheet read failures are logged and skipped so a single bad
+    sheet doesn't blank the whole file.
+    """
+    import logging
+    import os
+
+    import pandas as pd
+
+    logger = logging.getLogger(__name__)
+
+    if not path:
+        raise ValueError("read_excel_bytes_to_dfs: empty path")  # noqa: TRY003
+    if not os.path.exists(path):
+        raise FileNotFoundError(  # noqa: TRY003
+            f"read_excel_bytes_to_dfs: file does not exist at {path!r}"
+        )
+
+    try:
         xls = pd.ExcelFile(path)
-        dfs: dict[str, "pd.DataFrame"] = {}
-        for name in xls.sheet_names:
-            try:
-                dfs[name] = pd.read_excel(xls, sheet_name=name)
-            except Exception:
-                # keep going on per-sheet failure
-                continue
-        return dfs
-    except Exception:
-        return {}
+    except Exception as error:
+        size = os.path.getsize(path) if os.path.exists(path) else None
+        raise RuntimeError(  # noqa: TRY003
+            f"read_excel_bytes_to_dfs: pandas could not open {path!r} "
+            f"(size={size} bytes): {type(error).__name__}: {error}"
+        ) from error
+
+    dfs: dict[str, "pd.DataFrame"] = {}
+    for name in xls.sheet_names:
+        try:
+            dfs[name] = pd.read_excel(xls, sheet_name=name)
+        except Exception as error:
+            logger.warning(
+                "read_excel_bytes_to_dfs: failed to read sheet %r from %r: %s: %s",
+                name,
+                path,
+                type(error).__name__,
+                error,
+            )
+            continue
+    return dfs

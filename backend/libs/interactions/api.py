@@ -70,21 +70,28 @@ def create_crud_interaction_router(prefix: str = "/api/interactions"):
 
         item_kind = None
         item_id = None
-        if "." in interaction_update.key:
-            item_kind = interaction_update.key.split(".")[0]
-            item_id = interaction_update.key.split(".")[1]
+        if interaction_update.key and "." in interaction_update.key:
+            parts = interaction_update.key.split(".", 1)
+            item_kind = parts[0]
+            item_id = parts[1]
 
-        ResourceItemType = ResourceManager.get_resource_by_kind(item_kind)
+        ResourceItemType = None
+        item_db = None
 
-        item_db = ResourceItemType.by_id(item_id)  # Ensure the item exists
-        if not item_db:
-            return EndpointOutput(
-                error=EndpointError(title=f"{item_kind} ({item_id}) not found")
+        if item_kind and ResourceManager.is_resource_registered(item_kind):
+            ResourceItemType = ResourceManager.get_resource_by_kind(item_kind)
+            item_db = ResourceItemType.by_id(item_id)
+            if not item_db:
+                return EndpointOutput(
+                    error=EndpointError(title=f"{item_kind} ({item_id}) not found")
+                )
+            print(
+                f"[update_interaction_by_token_route] Found item: {item_db.id} of kind {item_kind}"
             )
-
-        print(
-            f"[update_interaction_by_token_route] Found item: {item_db.id} of kind {item_kind}"
-        )
+        elif item_kind:
+            print(
+                f"[update_interaction_by_token_route] Resource kind '{item_kind}' is not registered, skipping resource lookup"
+            )
 
         updated_interaction = interaction_db.update(
             obj_id=interaction_db.id, new_obj=interaction_update
@@ -94,7 +101,7 @@ def create_crud_interaction_router(prefix: str = "/api/interactions"):
             f"[update_interaction_by_token_route] Updated interaction: {updated_interaction.id}"
         )
 
-        if ResourceItemType.__notify_method__:
+        if ResourceItemType and item_db and ResourceItemType.__notify_method__:
             print(
                 f"[update_interaction_by_token_route] Notifying for item: {item_db.id} of kind {item_kind}"
             )
@@ -103,12 +110,98 @@ def create_crud_interaction_router(prefix: str = "/api/interactions"):
                 current_user_db=current_user_db,
                 interaction_db=updated_interaction,
             )
-        else:
+        elif ResourceItemType:
             print(
                 f"[update_interaction_by_token_route] No notify method defined for {item_kind}, skipping notification."
             )
 
         return EndpointOutput(result=updated_interaction)
+
+    @crud_interaction_router.get("/by-key/{key:path}")
+    async def get_interactions_by_key(
+        key: str,
+        classic_deps: ClassicDeps__dep,
+    ) -> EndpointOutput[list[Interaction]]:
+        current_user_db, session, translator = classic_deps
+
+        if not current_user_db or not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title="Not authorized",
+                    description="Admin access required",
+                    code="unauthorized",
+                )
+            )
+
+        with context_db() as db:
+            interactions = db.query(Interaction).filter(Interaction.key == key).all()
+        return EndpointOutput(result=interactions)
+
+    @crud_interaction_router.get("/by-key-prefix/{prefix:path}")
+    async def get_interactions_by_key_prefix(
+        prefix: str,
+        classic_deps: ClassicDeps__dep,
+    ) -> EndpointOutput[list[Interaction]]:
+        current_user_db, session, translator = classic_deps
+
+        if not current_user_db or not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title="Not authorized",
+                    description="Admin access required",
+                    code="unauthorized",
+                )
+            )
+
+        with context_db() as db:
+            # Escape LIKE pattern special characters to prevent injection via wildcards
+            safe_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            interactions = (
+                db.query(Interaction)
+                .filter(Interaction.key.like(f"{safe_prefix}%", escape="\\"))
+                .order_by(Interaction.time_created.desc())
+                .all()
+            )
+        return EndpointOutput(result=interactions)
+
+    @crud_interaction_router.post("/by-user/get-or-create")
+    async def get_or_create_interaction_for_user(
+        data: dict,
+        classic_deps: ClassicDeps__dep,
+    ) -> EndpointOutput[InteractionAndToken]:
+        current_user_db, _, _ = classic_deps
+
+        if not current_user_db:
+            return EndpointOutput(error=EndpointError(title="Authentication required"))
+
+        key = data.get("key")
+        if not key:
+            return EndpointOutput(error=EndpointError(title="key is required"))
+
+        with context_db() as db:
+            interaction_db = (
+                db.query(Interaction)
+                .filter(Interaction.key == key, Interaction.user_id == current_user_db.id)
+                .first()
+            )
+
+            if not interaction_db:
+                interaction_db = Interaction(key=key, user_id=current_user_db.id)
+                db.add(interaction_db)
+                db.commit()
+                db.refresh(interaction_db)
+
+            interaction_token = libs.utils.tokens.create_jwt_token(
+                token_context_key="interaction",  # noqa: S106
+                subject=interaction_db.id,
+                expires_delta=timedelta(days=365),
+            )
+            return EndpointOutput(
+                result={
+                    "interaction": interaction_db,
+                    "interactionToken": interaction_token,
+                }
+            )
 
     @crud_interaction_router.post("/by-token/create")
     async def create_interaction_by_token_route(

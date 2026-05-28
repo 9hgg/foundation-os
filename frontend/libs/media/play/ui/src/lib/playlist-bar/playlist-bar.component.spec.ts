@@ -1,7 +1,9 @@
-import * as SUT from './playlist-bar.component';
+import { PlaylistBarComponent } from './playlist-bar.component';
 
 describe('playlist-bar.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('PlaylistBarComponent', () => {
+		it('is exported', () => {
+			expect(PlaylistBarComponent).toBeDefined();
+		});
+	});
 });

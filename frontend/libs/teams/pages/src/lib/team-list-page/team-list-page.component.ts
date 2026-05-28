@@ -16,10 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 @Component({
 	selector: 'lib-team-list-page',
 	standalone: true,
-	imports: [
-    TranslateDirective,
-    TeamTableComponent
-],
+	imports: [TranslateDirective, TeamTableComponent],
 	templateUrl: './team-list-page.component.html',
 	styleUrl: './team-list-page.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,11 +36,9 @@ export class TeamListPageComponent {
 		return this._teamsRepository
 			.createNewTeam$()
 			.pipe(
-				tap((r: any) => {
+				tap((r) => {
 					if (r?.result?.team_id) {
 						this._router.navigateByUrl('/host/dashboard/teams/' + r.result.team_id + '/builder');
-					} else if (r?.team_id) {
-						this._router.navigateByUrl('/host/dashboard/teams/' + r.team_id + '/builder');
 					}
 				})
 			)

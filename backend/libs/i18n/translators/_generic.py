@@ -74,13 +74,13 @@ class Translator:
         translated_content: str,
         translation_context: str | None = None,
     ) -> Translation:
-        print(
-            "saving translation",
-            hash_string,
-            source_content,
-            language_target,
-            translated_content,
-        )
+        # print(
+        #     "saving translation",
+        #     hash_string,
+        #     source_content,
+        #     language_target,
+        #     translated_content,
+        # )
         # create a new translation
         new_translation_db = Translation(
             hash=hash_string,

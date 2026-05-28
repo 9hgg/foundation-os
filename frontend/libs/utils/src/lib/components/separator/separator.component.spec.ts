@@ -1,7 +1,9 @@
-import * as SUT from './separator.component';
+import { SeparatorComponent } from './separator.component';
 
 describe('separator.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('SeparatorComponent', () => {
+		it('is exported', () => {
+			expect(SeparatorComponent).toBeDefined();
+		});
+	});
 });

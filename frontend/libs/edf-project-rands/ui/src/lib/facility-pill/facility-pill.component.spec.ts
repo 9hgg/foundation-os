@@ -1,7 +1,9 @@
-import * as SUT from './facility-pill.component';
+import { FacilityPillComponent } from './facility-pill.component';
 
 describe('facility-pill.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FacilityPillComponent', () => {
+		it('is exported', () => {
+			expect(FacilityPillComponent).toBeDefined();
+		});
+	});
 });

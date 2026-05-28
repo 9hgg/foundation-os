@@ -15,7 +15,6 @@ from fastapi import (
     status,
 )
 from fastapi.responses import RedirectResponse
-from rich import print
 
 from libs.acl.methods import create_default_acls
 from libs.acl.models import Who
@@ -27,8 +26,7 @@ from libs.files.models import FileAlternative
 from libs.files.processors.magic_bytes.types import infer_type_from_extension
 from libs.folders.methods import add_to_folder
 from libs.folders.models import Folder
-from libs.logger import print_warning
-from libs.logger.customLogger import print_color
+from libs.logger.customLogger import print, print_color, print_warning
 from libs.tasks.methods import sync_launch_tasks_processing
 from libs.tasks.tasks_manager import TasksManager
 from libs.users.deps import CurrentUser__dep

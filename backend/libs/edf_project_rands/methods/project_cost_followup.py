@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 
 import pandas as pd
@@ -11,6 +12,8 @@ from ..models import (
     ProjectCostTrackingData,
 )
 from .contributors.utils import read_excel_bytes_to_dfs
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_str(value: object) -> str:
@@ -95,6 +98,7 @@ def _accumulate_sheet_rows(
     if df is None or df.empty:
         return
 
+    sheet_label = f"sheet({project_code_column!r})"
     required_columns = [
         project_code_column,
         contributor_name_column,
@@ -104,23 +108,42 @@ def _accumulate_sheet_rows(
     ]
     missing_columns = [column for column in required_columns if column not in df.columns]
     if missing_columns:
+        logger.warning(
+            "[cost-followup] %s missing required columns %s; sheet actually has: %s",
+            sheet_label,
+            missing_columns,
+            list(df.columns),
+        )
         return
 
+    seen_project_codes: set[str] = set()
+    rows_scanned = 0
+    rows_matched = 0
+    rows_dropped_no_name = 0
+    rows_dropped_no_hours = 0
+    rows_dropped_no_month = 0
+
     for _, row in df.iterrows():
+        rows_scanned += 1
         row_project_code = _normalize_project_code(row.get(project_code_column))
+        seen_project_codes.add(row_project_code)
         if row_project_code != normalized_project_code:
             continue
+        rows_matched += 1
 
         contributor_name = _normalize_contributor_name(row.get(contributor_name_column))
         if not contributor_name:
+            rows_dropped_no_name += 1
             continue
 
         hours = _normalize_hours(row.get(hours_column))
         if hours <= 0:
+            rows_dropped_no_hours += 1
             continue
 
         month_label = _build_month_label(row.get(year_column), row.get(month_column))
         if not month_label:
+            rows_dropped_no_month += 1
             continue
 
         nni = _normalize_nni(row.get(nni_column)) if nni_column and nni_column in df.columns else None
@@ -136,6 +159,21 @@ def _accumulate_sheet_rows(
             "contributor_id": str(matched_contributor.id) if matched_contributor else None,
         }
 
+    logger.info(
+        "[cost-followup] %s scanned=%d matched=%d "
+        "dropped(no_name=%d, no_hours=%d, no_month=%d). "
+        "Looking for project_code=%r. Codes seen in column %r: %s",
+        sheet_label,
+        rows_scanned,
+        rows_matched,
+        rows_dropped_no_name,
+        rows_dropped_no_hours,
+        rows_dropped_no_month,
+        normalized_project_code,
+        project_code_column,
+        sorted(code for code in seen_project_codes if code)[:20],
+    )
+
 
 def get_project_cost_followup_from_file(file_id: str, project_code: str) -> ProjectCostTrackingData:
     normalized_project_code = _normalize_project_code(project_code)
@@ -143,9 +181,21 @@ def get_project_cost_followup_from_file(file_id: str, project_code: str) -> Proj
         raise ValueError("project_code is required")
 
     dfs = _load_dataframes_from_file(file_id)
+    logger.info(
+        "[cost-followup] file_id=%s sheets=%s project_code=%r",
+        file_id,
+        list(dfs.keys()),
+        normalized_project_code,
+    )
     base_gta = dfs.get("Base GTA")
     gta_transverse = dfs.get("GTA_Transverse")
     if (base_gta is None or base_gta.empty) and (gta_transverse is None or gta_transverse.empty):
+        logger.warning(
+            "[cost-followup] neither 'Base GTA' nor 'GTA_Transverse' usable in file_id=%s; "
+            "available sheets: %s",
+            file_id,
+            list(dfs.keys()),
+        )
         return ProjectCostTrackingData(
             file_id=file_id,
             project_code=normalized_project_code,

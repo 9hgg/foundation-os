@@ -1,7 +1,9 @@
-import * as SUT from './contributors.modals';
+import { ContributorsModals } from './contributors.modals';
 
 describe('contributors.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ContributorsModals', () => {
+		it('is exported', () => {
+			expect(ContributorsModals).toBeDefined();
+		});
+	});
 });

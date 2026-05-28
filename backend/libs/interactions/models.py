@@ -1,5 +1,7 @@
+import uuid
 from typing import Any
 
+import sqlalchemy as sa
 import sqlmodel
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -16,6 +18,13 @@ class Interaction(ResourceWithConfig, table=True):
     __config_type__ = dict
 
     key: str = sqlmodel.Field(nullable=True)
+
+    user_id: uuid.UUID | None = sqlmodel.Field(
+        sa_column=sa.Column(
+            sa.ForeignKey("users.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
+    )
 
     config: dict[str, Any] = sqlmodel.Field(
         sa_type=JSONB,

@@ -11,7 +11,7 @@ from libs.utils.deps import ClassicDeps__dep
 from libs.utils.types import EndpointError, EndpointOutput
 
 from . import models
-from .methods import add_mail_to_db
+from .methods import add_mail_to_db, get_admin_mail_overview
 from .template_utils import render_transactional_email
 
 
@@ -153,6 +153,71 @@ def create_crud_mail_router(prefix: str = "/api/mails"):
         await launch_tasks_processing()
 
         return EndpointOutput(result="Processing emails")
+
+    @crud_mail_router.get("/admin/overview")
+    async def admin_get_mail_overview(
+        classic_deps: ClassicDeps__dep,
+    ) -> EndpointOutput[models.AdminMailOverview]:
+        current_user_db, _, translator = classic_deps
+
+        if not current_user_db or not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Not authorized"),
+                    code="not_authorized",
+                )
+            )
+
+        return EndpointOutput(result=get_admin_mail_overview())
+
+    @crud_mail_router.post("/admin/{mail_id}/resend")
+    async def admin_resend_mail(
+        mail_id: str,
+        classic_deps: ClassicDeps__dep,
+    ) -> EndpointOutput[dict[str, str]]:
+        current_user_db, _, translator = classic_deps
+
+        if not current_user_db or not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Not authorized"),
+                    code="not_authorized",
+                )
+            )
+
+        try:
+            mail_db = models.Mail.by_id(mail_id)
+        except ValueError:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Invalid mail ID"),
+                    code="invalid_mail_id",
+                )
+            )
+
+        if mail_db is None:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Mail not found"),
+                    code="mail_not_found",
+                )
+            )
+
+        models.Mail.patch(obj_id=mail_db.id, update_dict={"status": "pending"})
+        TasksManager.create_task(
+            method_name="send_email",
+            title="send_email",
+            description="Re-send email",
+            kwargs={
+                "mail_id": mail_db.id,
+            },
+        )
+
+        await launch_tasks_processing()
+
+        return EndpointOutput(
+            result={"message": translator.translate("Email resend launched")}
+        )
 
     # RETURN THE ROUTER
     return crud_mail_router

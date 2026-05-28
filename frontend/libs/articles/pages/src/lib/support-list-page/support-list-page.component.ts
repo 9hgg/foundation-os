@@ -10,7 +10,7 @@ import { slugify } from '@foundation/utils';
 
 import { ChangeDetectionStrategy, Component, effect, inject, model, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { of, switchMap, tap } from 'rxjs';
+import { map, of, switchMap, tap } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 const DEBUG = true;
 
@@ -86,6 +86,12 @@ export class SupportListPageComponent {
 						},
 					};
 					return this._articlesRepository.store.postObject$(article);
+				}),
+				switchMap((r) => {
+					if (r?.result?.data && kind === 'backlog') {
+						return this._articlesRepository.store.toggleAnonymousReadForObject$(articleId).pipe(map(() => r));
+					}
+					return of(r);
 				}),
 				switchMap((r) => {
 					if (r?.result?.data) {

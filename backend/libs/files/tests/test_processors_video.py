@@ -108,6 +108,23 @@ def test_generate_alternatives_returns_empty_when_generation_fails(mock_storage,
     assert alternatives == []
 
 
+def test_generate_alternatives_skips_whisper_when_model_path_missing(mock_storage, mock_file, sample_video_path, tmp_path):
+    with (
+        patch.object(VideoProcessor, "get_storage_details", return_value=(mock_storage, sample_video_path, "videos/1")),
+        patch("libs.files.processors.video.GenericStorage.get_temporary_local_path", side_effect=lambda suffix: _tmp_file_factory(tmp_path, suffix)),
+        patch("libs.files.processors.video.ffmpeg.input") as mock_input,
+        patch("libs.files.processors.video.ffmpegio.transcode"),
+        patch("libs.files.processors.video.FILES_SETTINGS", new=SimpleNamespace(WHISPER_PATH=None)),
+    ):
+        mock_input.return_value.output.return_value.run.return_value = None
+
+        processor = VideoProcessor(file_db=mock_file)
+        alternatives = processor.generate_alternatives(force=True)
+
+    assert [alt.storage_suffix for alt in alternatives] == ["thumbnail", "default"]
+    assert mock_storage.upload.call_count == 2
+
+
 def test_generate_extra_data_uses_ffprobe_values(mock_storage, mock_file, sample_video_path):
     with (
         patch.object(VideoProcessor, "get_storage_details", return_value=(mock_storage, sample_video_path, "videos/1")),

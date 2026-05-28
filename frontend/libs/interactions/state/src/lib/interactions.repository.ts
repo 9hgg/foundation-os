@@ -1,3 +1,4 @@
+import { AuthTokensRepository } from '@foundation/auth/state';
 import { Interaction } from '@foundation/interactions/models';
 import { SmartRestStore } from '@foundation/network/store';
 import { RequestService } from '@foundation/network/services';
@@ -12,6 +13,7 @@ const DEBUG = false;
 export class InteractionsRepository<T> {
 	store: SmartRestStore<Interaction> = new SmartRestStore<Interaction>('/api/interactions', 'interaction');
 	_requestService = inject(RequestService);
+	private _authTokensRepository = inject(AuthTokensRepository);
 
 	/** Map an interaction id to a token to be able to claim it to the backend */
 	interactionTokensAndKeys$_ = behaviorSubjectProxyStored<{ [interactionId: string]: { key?: string; token: string } }>('interactionTokens', {});
@@ -155,10 +157,13 @@ export class InteractionsRepository<T> {
 
 		if (DEBUG) console.log('[InteractionsRepository](getOrCreateInteraction$) no interaction token found for key', key, ': creating a new interaction');
 
-		// we don't have an interaction token for this key - create and cache the request
-		const createRequest$ = this.createNewInteraction$(key).pipe(
+		// If the user is authenticated, recover or create their interaction server-side
+		// so it survives logout/login cycles (localStorage is wiped on logout).
+		const isAuthenticated = !!this._authTokensRepository.getCurrentAuthToken();
+		const source$ = isAuthenticated ? this._getOrCreateInteractionForUser$(key) : this.createNewInteraction$(key);
+
+		const createRequest$ = source$.pipe(
 			finalize(() => {
-				// Remove from pending requests when completed
 				this.pendingInteractionRequests.delete(key);
 			}),
 			shareReplay(1)
@@ -176,6 +181,22 @@ export class InteractionsRepository<T> {
 	 */
 	private _getInteractionByToken$(token: string): Observable<Interaction | null> {
 		return this._requestService.getBasic$<Interaction>('/api/interactions/by-token/' + token).pipe(map((response) => response.result ?? null));
+	}
+
+	private _getOrCreateInteractionForUser$(key: string): Observable<Interaction> {
+		return this._requestService.post$<{ interaction: Interaction; interactionToken: string }, { key: string }>(
+			'/api/interactions/by-user/get-or-create',
+			{ key }
+		).pipe(
+			map((response) => {
+				if (response.result) {
+					const { interaction, interactionToken } = response.result;
+					this.interactionTokensAndKeys$_[interaction.id] = { key: interaction.key, token: interactionToken };
+					return interaction;
+				}
+				throw new Error('Failed to get or create interaction for user');
+			})
+		);
 	}
 
 	public saveInteractionByToken$(interaction: Interaction, _token?: string) {

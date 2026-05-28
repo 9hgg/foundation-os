@@ -1,7 +1,9 @@
-import * as SUT from './contributor-create-modal.component';
+import { ContributorCreateModalComponent } from './contributor-create-modal.component';
 
 describe('contributor-create-modal.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ContributorCreateModalComponent', () => {
+		it('is exported', () => {
+			expect(ContributorCreateModalComponent).toBeDefined();
+		});
+	});
 });

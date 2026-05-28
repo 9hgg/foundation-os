@@ -4,7 +4,6 @@ from fastapi import status
 
 from libs.acl.methods import cannot, create_default_acls
 from libs.acl.models import Acl, Operation, Who
-from libs.articles.models import Article
 from libs.db.methods import context_db
 from libs.endpoints import create_crud_endpoints
 from libs.endpoints.endpoints import add_acl_filters
@@ -110,33 +109,6 @@ def create_crud_conversation_router(prefix: str = "/api/conversations"):
             who_id=current_user_db.id,
         )
 
-        ResourceType = ResourceManager.get_resource_by_kind(conversation_db.resource_kind)
-        resource_db = ResourceType.by_id(resource_id) if resource_id else None
-        if resource_db and resource_db.__kind__ == Article.__kind__ and resource_db.kind == "support":
-            # it's a support article, we need to create ACLs for the support team
-            print("Creating default ACLs for support article")
-            create_default_acls(
-                resource=resource_db,
-                who=Who.admin,
-            )
-        elif resource_db and resource_db.__kind__ == Article.__kind__ and resource_db.kind == "backlog":
-            # it's a backlog article, we need to create ACLs for the support team
-            print("Creating default ACLs for support article")
-            create_default_acls(
-                resource=resource_db,
-                who=Who.admin,
-            )
-            # let anonymous users read the backlog article
-            create_default_acls(
-                resource=resource_db,
-                who=Who.anonymous,
-                create_write_acl=False,
-                create_read_acl=True,
-                create_delete_acl=False,
-            )
-        else:
-            print("No support article, no default ACLs created")
-
         return EndpointOutput(
             result={"keyAvailable": True, "key": key, "conversation": conversation_db, "created": True},
         )
@@ -175,21 +147,24 @@ def create_crud_conversation_router(prefix: str = "/api/conversations"):
 
         resource_type = ResourceManager.get_resource_by_kind(resource_kind)
 
-        with context_db() as db:
-            query = (
-                resource_type.query(db)
-                .filter(resource_type.id == resource_id)
-                .join(Acl, Acl.resource_id == resource_id)
-                .filter(Acl.operation == Operation.READ.value)
-                .filter(Acl.resource_kind == resource_kind)
-            )
+        if current_user_db and current_user_db.is_admin():
+            resource_db = resource_type.by_id(resource_id)
+        else:
+            with context_db() as db:
+                query = (
+                    resource_type.query(db)
+                    .filter(resource_type.id == resource_id)
+                    .join(Acl, Acl.resource_id == resource_id)
+                    .filter(Acl.operation == Operation.READ.value)
+                    .filter(Acl.resource_kind == resource_kind)
+                )
 
-            query = add_acl_filters(current_user_db, session_db, query)
+                query = add_acl_filters(current_user_db, session_db, query)
 
-            # group by resource_id to avoid duplicates
-            query = query.group_by(resource_type.id)
+                # group by resource_id to avoid duplicates
+                query = query.group_by(resource_type.id)
 
-            resource_db = query.first()
+                resource_db = query.first()
         if resource_db is None:
             return EndpointOutput(
                 error=EndpointError(

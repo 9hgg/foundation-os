@@ -1,7 +1,9 @@
-import * as SUT from './pdf-viewer.component';
+import { PdfViewerComponent } from './pdf-viewer.component';
 
 describe('pdf-viewer.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('PdfViewerComponent', () => {
+		it('is exported', () => {
+			expect(PdfViewerComponent).toBeDefined();
+		});
+	});
 });

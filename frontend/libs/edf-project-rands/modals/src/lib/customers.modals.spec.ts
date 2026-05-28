@@ -1,7 +1,9 @@
-import * as SUT from './customers.modals';
+import { CustomersModals } from './customers.modals';
 
 describe('customers.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('CustomersModals', () => {
+		it('is exported', () => {
+			expect(CustomersModals).toBeDefined();
+		});
+	});
 });

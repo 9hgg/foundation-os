@@ -17,6 +17,7 @@ import libs.utils.tokens
 from libs.acl.methods import create_default_acls
 from libs.acl.models import Who
 from libs.auth.providers.auth_provider_manager import AuthProvidersManager
+from libs.auth.providers.errors import EmailNotFoundError, InvalidLDAPDataError, NoLDAPDataError
 from libs.db import context_db
 from libs.endpoints import create_crud_endpoints
 from libs.i18n.deps import Translator__dep
@@ -150,7 +151,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
             If you did not request this, you can ignore this email.
 
             ---
-            The spOken Team
+            The {USER_SETTINGS.APP_NAME or ""} team
         """
         ).strip()
 
@@ -1443,8 +1444,23 @@ def create_auth_providers_router(prefix: str = "/api/auth-providers"):
         details: dict = Body(...),
     ):
         auth_provider = AuthProvidersManager.get_auth_provider(auth_provider_id)
-        register_user = False
-        return EndpointOutput(result=auth_provider(details, register_user))
+        if auth_provider is None:
+            return EndpointOutput(
+                error=EndpointError(
+                    title="No auth provider found",
+                    code="NO_AUTH_PROVIDER_FOUND",
+                )
+            )
+        try:
+            return EndpointOutput(result=auth_provider(details, register_user=False))
+        except (NoLDAPDataError, InvalidLDAPDataError, EmailNotFoundError) as e:
+            return EndpointOutput(
+                error=EndpointError(
+                    title="Authentication failed",
+                    description=str(e),
+                    code="AUTH_PROVIDER_ERROR",
+                )
+            )
 
     @auth_providers_router.post("/register/{auth_provider_id}")
     async def register_with_auth_provider(
@@ -1459,8 +1475,15 @@ def create_auth_providers_router(prefix: str = "/api/auth-providers"):
                     code="NO_AUTH_PROVIDER_FOUND",
                 )
             )
-
-        register_user = True
-        return EndpointOutput(result=auth_provider(details, register_user))
+        try:
+            return EndpointOutput(result=auth_provider(details, register_user=True))
+        except (NoLDAPDataError, InvalidLDAPDataError, EmailNotFoundError) as e:
+            return EndpointOutput(
+                error=EndpointError(
+                    title="Authentication failed",
+                    description=str(e),
+                    code="AUTH_PROVIDER_ERROR",
+                )
+            )
 
     return auth_providers_router

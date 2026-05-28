@@ -1034,6 +1034,17 @@ export class TwEmojiHappyIcon {}
 export class TwListIcon {}
 
 /**
+ * Clipboard Document icon (copy to clipboard)
+ */
+@Component({
+	selector: 'tw-clipboard-document',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template: '<svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M23 15H11.707l2.646 2.646-.707.707L9.793 14.5l3.854-3.854.707.707L11.707 14H23zm-13-5H6v1h4zm-4 5h2v-1H6zM3 4h3V3h3a2 2 0 0 1 4 0h3v1h3v9h-1V5h-2v2H6V5H4v16h14v-5h1v6H3zm4 2h8V4h-3V2.615A.615.615 0 0 0 11.386 2h-.771a.615.615 0 0 0-.615.615V4H7zM6 19h4v-1H6z"/></svg>'
+})
+export class TwClipboardDocumentIcon {}
+
+/**
  * Clipboard List icon (used for Text input in legacy)
  */
 @Component({
@@ -1162,3 +1173,14 @@ export class TwTileMapIcon {}
 
 /** */
 
+
+/**
+ * config list icon
+ */
+@Component({
+	selector: 'tw-config-list',
+	styles: ':host{display:inline-block}',
+	standalone: true,
+	template: '<svg class="h-full w-full" fill="currentColor" stroke="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11.969 14a1.237 1.237 0 0 0 .044.863l.061.137H8v-1zm5.183-3.25h1.65a1.216 1.216 0 0 1 .198.03V10H8v1h8.412a1.243 1.243 0 0 1 .74-.25zM19 6H8v1h11zM4 13h3v3H4zm1 2h1v-1H5zm5.75 3H2V3h19v9.077l.135-.06a1.1 1.1 0 0 1 .865-.039V2H1v17h9.773a1.201 1.201 0 0 1-.023-.152zM7 8H4V5h3zM6 6H5v1h1zm1 6H4V9h3zm-1-2H5v1h1zm14 8a2 2 0 1 1-2-2 2 2 0 0 1 2 2zm-1 0a1 1 0 1 0-1 1 1 1 0 0 0 1-1zm3.414 1.392l-.296.628.724 1.624-1.162 1.17-1.543-.71-.653.236-.636 1.66h-1.65l-.59-1.586-.628-.295-1.627.727-1.167-1.166.71-1.543-.236-.653-1.66-.636v-1.65l1.586-.59.295-.628-.727-1.627 1.166-1.167 1.543.71.653-.236.636-1.66h1.65l.59 1.586.628.296 1.624-.724 1.166 1.167-.705 1.538.235.653 1.66.636v1.65zm-1.277.523l.544-1.158 1.319-.49v-.582l-1.427-.548-.434-1.204.585-1.28-.412-.412-1.397.622-1.158-.544-.49-1.319h-.582l-.548 1.427-1.206.434-1.283-.59-.41.411.626 1.4-.545 1.161-1.319.49v.582l1.427.548.434 1.206-.59 1.283.411.41 1.4-.626 1.161.545.49 1.319h.582l.548-1.427 1.206-.434 1.28.588.411-.413z"/></svg>',
+})
+export class TwConfigListIcon {}

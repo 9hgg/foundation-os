@@ -5,7 +5,7 @@ import fastapi
 from fastapi import Body, Query, Request, status
 from sqlalchemy import func
 
-from libs.acl.methods import create_default_acls, get_user_writers
+from libs.acl.methods import create_default_acls, get_user_writers, purge_acls_for_resource
 from libs.acl.models import Acl, Operation, Who
 from libs.conversations.models import Conversation
 from libs.db import context_db
@@ -22,7 +22,7 @@ from libs.utils.types import EndpointError, EndpointOutput
 from .models import Message
 
 
-def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
+def create_crud_message_router(prefix: str = "/api/messages"):
     """
     Create a CRUD router for messages with custom endpoints.
     """
@@ -36,6 +36,64 @@ def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
         include_update=False,  # to bypass: updating messages needs to check author_id
         include_delete=True,
     )
+
+    @crud_message_router.delete(
+        "/admin/{message_id}",
+        status_code=status.HTTP_200_OK,
+        response_model=EndpointOutput[SimpleResponse[Message]],
+    )
+    def delete_message_as_admin(
+        message_id: str,
+        classic_deps: ClassicDeps__dep,
+    ):
+        current_user_db, _, translator = classic_deps
+        if not current_user_db or not current_user_db.email_verified:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Not authorized"),
+                    description=translator.translate("You must be logged in with a verified email to delete messages."),
+                    code="Unauthorized",
+                )
+            )
+        if not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Not authorized"),
+                    description=translator.translate("You must be an administrator to delete messages."),
+                    code="Unauthorized",
+                )
+            )
+
+        try:
+            parsed_message_id = uuid.UUID(message_id)
+        except ValueError:
+            return EndpointOutput(
+                error=EndpointError(
+                    title="Invalid resource ID",
+                    description="The resource ID is invalid.",
+                    code="BadRequest",
+                )
+            )
+
+        message_db = Message.by_id(parsed_message_id)
+        if not message_db:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Not Found"),
+                    description=translator.translate("Message not found."),
+                    code="NotFound",
+                )
+            )
+
+        Message.delete(obj_id=parsed_message_id)
+        purge_acls_for_resource(resource_kind=Message.__kind__, resource_id=parsed_message_id)
+        return EndpointOutput(
+            result=SimpleResponse(
+                data=message_db,
+                self=f"/admin/{message_id}",
+                all=crud_message_router.prefix + "/?page=1",
+            )
+        )
 
     @crud_message_router.get(
         "",
@@ -103,7 +161,7 @@ def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
             )
 
         # check if the user has access to the conversation resource
-        if conversation_db.resource_kind is not None:
+        if conversation_db.resource_kind is not None and not (current_user_db and current_user_db.is_admin()):
             resource_db = get_resource_if_READ_allowed(
                 current_user_db, session_db, conversation_db.resource_kind, conversation_db.resource_id
             )
@@ -266,7 +324,7 @@ def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
             )
 
         # check if the user has access to the conversation resource
-        if conversation_db.resource_kind is not None:
+        if conversation_db.resource_kind is not None and not (current_user_db and current_user_db.is_admin()):
             resource_type = ResourceManager.get_resource_by_kind(conversation_db.resource_kind)
             resource_id = conversation_db.resource_id
             resource_kind = conversation_db.resource_kind
@@ -398,8 +456,6 @@ def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
                             code="Unauthorized",
                         )
                     )
-                else:
-                    print("message_in.author_id is same as current_user_db.id")
 
                 message_db = Message.update(obj_id=message_id, new_obj=message_in)
         else:

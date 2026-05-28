@@ -1,7 +1,9 @@
-import * as SUT from './redirect.interceptor';
+import { RedirectInterceptor } from './redirect.interceptor';
 
 describe('redirect.interceptor', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('RedirectInterceptor', () => {
+		it('is exported', () => {
+			expect(RedirectInterceptor).toBeDefined();
+		});
+	});
 });

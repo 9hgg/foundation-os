@@ -1,7 +1,9 @@
-import * as SUT from './track-scroll.directive';
+import { TrackScrollDirective } from './track-scroll.directive';
 
 describe('track-scroll.directive', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('TrackScrollDirective', () => {
+		it('is exported', () => {
+			expect(TrackScrollDirective).toBeDefined();
+		});
+	});
 });

@@ -1,0 +1,20 @@
+<div class="flex flex-col gap-3">
+	<!-- Chart-type toggle (only shown when multiple types are available) -->
+	@if (availableChartTypes().length > 1) {
+		<div class="flex items-center gap-2">
+			@for (chartType of availableChartTypes(); track chartType) {
+				<button
+					type="button"
+					class="btn btn-sm btn-primary"
+					[class.btn-outline]="activeChartType() !== chartType"
+					(click)="setChartType(chartType)"
+				>
+					{{ chartTypeLabel(chartType) }}
+				</button>
+			}
+		</div>
+	}
+
+	<!-- echarts container -->
+	<div #chartContainer class="bg-base-200/50 border-base-300 w-full rounded border" [style.height]="height()"></div>
+</div>

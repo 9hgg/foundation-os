@@ -1,12 +1,11 @@
+import threading
 import uuid
 
 from psycopg2.errors import UniqueViolation
-from rich import print
 from sqlalchemy.exc import IntegrityError
 
 from libs.db import context_db
-from libs.logger import print_error, print_warning
-from libs.logger.customLogger import print_color
+from libs.logger import print, print_error, print_warning
 from libs.tasks.models import Task, TaskSlot
 from libs.tasks.tasks_manager import TasksManager
 
@@ -67,6 +66,7 @@ def process_tasks():
                     TaskSlot,
                     TaskSlot.task_id == Task.id,
                 )
+                .filter(Task.started == False)  # noqa: E712
                 .filter(TaskSlot.task_id == None)  # noqa: E711
                 .order_by(Task.priority.desc(), Task.time_created.asc())
                 .first()
@@ -101,63 +101,45 @@ def process_tasks():
 
 
 async def retry_failed_tasks():
-    # list tasks
     with context_db() as db:
-        nb_not_started_tasks = (
-            Task.query(db).filter(Task.failed == True).count()  # noqa: E712
-        )
-    print(f"Number of failed tasks: {nb_not_started_tasks}")
+        failed_task_ids = [
+            str(task_id)
+            for (task_id,) in (
+                Task.query(db)
+                .filter(Task.failed == True)  # noqa: E712
+                .order_by(Task.priority.desc(), Task.time_created.asc())
+                .with_entities(Task.id)
+                .all()
+            )
+        ]
 
-    while True:
-        # handle shutdown
+    print(f"Number of failed tasks: {len(failed_task_ids)}")
+
+    recreated_tasks = 0
+    for failed_task_id in failed_task_ids:
         if shutdown:
             print("Exiting gracefully...")
             clear_slots()
             exit(0)
-        with context_db() as db:
-            task_id_slot_not_in_slots: tuple | None = (
-                db.query(Task.id, TaskSlot.processor_id)
-                .outerjoin(
-                    TaskSlot,
-                    TaskSlot.task_id == Task.id,
-                )
-                .filter(TaskSlot.task_id == None)  # noqa: E711
-                .order_by(Task.priority.desc(), Task.time_created.asc())
-                .first()
-            )
-            if task_id_slot_not_in_slots is None:
-                print("No more task to process")
-                break
-            else:
-                print(
-                    f"Task {task_id_slot_not_in_slots} to process",
-                )
-            task_id_not_in_slots = task_id_slot_not_in_slots[0]
 
-            # add it to the slots
-            try:
-                task_slot = TaskSlot(
-                    task_id=task_id_not_in_slots, processor_id=PROCESSOR_INSTANCE_ID
-                )
-                db.add(task_slot)
-                db.commit()
-                TasksManager.execute_task(task_id_not_in_slots)
-            except UniqueViolation as e:
-                print_warning("[UniqueViolation]", e)
-                db.rollback()
-            except IntegrityError as e:
-                print_warning("[IntegrityError]", e)
-                db.rollback()
-            except Exception as e:
-                print_error(e)
-                db.rollback()
-            break
+        try:
+            recreated_task = TasksManager.recreate_task(failed_task_id, priority=0)
+            recreated_tasks += 1
+            print(f"Recreated failed task {failed_task_id} as {recreated_task.id}")
+        except Exception as e:
+            print_error(e)
+
+    if recreated_tasks > 0:
+        await launch_tasks_processing()
 
 
 async def launch_tasks_processing():
-    # print_color("red", "TASKS ARE NOT BEING PROCESSED")
-    sync_launch_tasks_processing()
-
+    processing_thread = threading.Thread(
+        target=sync_launch_tasks_processing,
+        name="launch-tasks-processing",
+        daemon=True,
+    )
+    processing_thread.start()
 
 def sync_launch_tasks_processing():
     """

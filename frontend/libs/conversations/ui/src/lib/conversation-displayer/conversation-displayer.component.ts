@@ -1,3 +1,5 @@
+import { Article } from '@foundation/articles/models';
+import { ArticlesRepository } from '@foundation/articles/state';
 import { AccessService } from '@foundation/shared/access';
 import { Conversation } from '@foundation/conversations/models';
 import { ConversationsRepository } from '@foundation/conversations/state';
@@ -9,20 +11,20 @@ import { TranslationService } from '@foundation/translations/services';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { UsersRepository } from '@foundation/users/state';
 import { UserPillComponent } from '@foundation/users/ui';
-import { BehaviorSubjectReplayedProxied, DateAsAgoPipe, NewlinesToBrPipe, Selector } from '@foundation/utils';
+import { BehaviorSubjectReplayedProxied, DateAsAgoPipe, NewlinesToBrPipe, Selector, slugify } from '@foundation/utils';
 import { CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, ViewChild, computed, effect, inject, input, model, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { of, tap } from 'rxjs';
+import { of, filter, take, switchMap, tap, EMPTY } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 const DEFAULT_NUMBER_OF_MESSAGES = 10;
 
 // Interface for processed message data
 interface ProcessedMessage extends Message {
-	authorId: string;
+	authorId?: string;
 	authorPublicName: string;
 	avatarUrl: string;
 	currentUserReactionEmoji?: string;
@@ -41,13 +43,15 @@ export class ConversationDisplayerComponent {
 	private _notificationService = inject(NotificationService);
 	private _conversationsRepository = inject(ConversationsRepository);
 	private _messagesRepository = inject(MessagesRepository);
+	private _articlesRepository = inject(ArticlesRepository);
 	usersRepository = inject(UsersRepository);
 	private _accessService = inject(AccessService);
 	private _router = inject(Router);
 	private _translationService = inject(TranslationService);
-	public MAX_COMMENT_LENGTH = 2000;
-	public COMMENT_LENGTH_COLLAPSE = 200;
+	public MAX_COMMENT_LENGTH = 4000;
+	public COMMENT_LENGTH_COLLAPSE = 2000;
 	public commentTitle = input<string | undefined>('Comments');
+	public adminModeration = input(false);
 	public displayNoCommentsMessage = signal(true);
 
 	// todo: add i18n
@@ -63,6 +67,17 @@ export class ConversationDisplayerComponent {
 	conversationKey = model<string>('default');
 	resourceKind = model.required<string>();
 	resourceId = model.required<string>();
+
+	/** Optional: title of the linked resource (e.g. article title) – used by admin prefix actions */
+	resourceTitle = input<string | undefined>(undefined);
+	/** Optional: authorId of the linked resource – used to navigate to the admin user page */
+	resourceAuthorId = input<string | undefined>(undefined);
+
+	/** Prefix options an admin can prepend to the article title */
+	public readonly articleTitlePrefixes: string[] = ['[SOLVED]', '[WIP]', '[URGENT]', '[DUPLICATE]', '[ARCHIVED]'];
+
+	private _i18n_prefixAdded = this._translationService.prep('Prefix added to article title');
+	private _i18n_prefixAlreadyPresent = this._translationService.prep('This prefix is already present in the article title');
 
 	replyingToMessage = signal<ProcessedMessage | null>(null);
 	expandedComments = new Selector<Message>((a, b) => a.id === b.id, []);
@@ -165,7 +180,7 @@ export class ConversationDisplayerComponent {
 				for (const currentMessage of messagesOnCurrentPage) {
 					if (currentMessage) {
 						// Add the author of the current message
-						neededUserIds.add(currentMessage.authorId);
+						if (currentMessage.authorId) neededUserIds.add(currentMessage.authorId);
 
 						if (currentMessage.config?.replyTo) {
 							// Add the replyTo message itself to the neededMessageIds
@@ -173,7 +188,7 @@ export class ConversationDisplayerComponent {
 
 							// if the replyTo message is already in the convenient list, add its authorId to neededUserIds
 							const replyToMessage = convenientListOfExtraMessages[currentMessage.config.replyTo];
-							if (replyToMessage) neededUserIds.add(replyToMessage.authorId);
+							if (replyToMessage && replyToMessage.authorId) neededUserIds.add(replyToMessage.authorId);
 						}
 
 						// add the reactions authors to neededUserIds
@@ -211,7 +226,7 @@ export class ConversationDisplayerComponent {
 	): ProcessedMessage {
 		const userId = message.authorId;
 
-		const userDetails = userIdsToDetails[userId];
+		const userDetails = userId ? userIdsToDetails[userId] : undefined;
 		const avatarUrl = userDetails?.avatarUrl || '';
 		const publicName = userDetails?.publicName || 'User';
 
@@ -309,15 +324,7 @@ export class ConversationDisplayerComponent {
 						this.messagesPaginator.goToPage(1);
 
 						setTimeout(() => {
-							// scroll "immediately" to the new comment if available
-							const commentElement = document.getElementById(`message-${messageId}`);
-							if (commentElement) commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-							else {
-								setTimeout(() => {
-									const commentElement = document.getElementById(`message-${messageId}`);
-									commentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-								}, 1000);
-							}
+							this._scrollAfterCommentPosted(messageId);
 						}, 100);
 						// Scroll to the new comment
 					} else {
@@ -326,6 +333,20 @@ export class ConversationDisplayerComponent {
 				})
 			)
 			.subscribe();
+	}
+
+	protected _scrollAfterCommentPosted(messageId: string): void {
+		// scroll "immediately" to the new comment if available
+		const commentElement = document.getElementById(`message-${messageId}`);
+		if (commentElement) {
+			commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			return;
+		}
+
+		setTimeout(() => {
+			const delayedCommentElement = document.getElementById(`message-${messageId}`);
+			delayedCommentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}, 1000);
 	}
 
 	public scrollToTopComments(): void {
@@ -348,8 +369,8 @@ export class ConversationDisplayerComponent {
 	public removeComment(messageId: string): void {
 		this._notificationService.confirm(this._i18n_deleteSentence()).closed.subscribe((confirmed) => {
 			if (!confirmed) return;
-			this._messagesRepository.store
-				.deleteObject$(messageId)
+			const deleteMessage$ = this.adminModeration() ? this._messagesRepository.deleteAsAdmin$(messageId) : this._messagesRepository.store.deleteObject$(messageId);
+			deleteMessage$
 				.pipe(
 					tap(() => {
 						this.messagesPaginator.refresh();
@@ -413,9 +434,36 @@ export class ConversationDisplayerComponent {
 	public editArticle() {
 		// assume resourceKind is article for now or check it
 		if (this.resourceKind() === 'article') {
-			this._router.navigate(['/', 'host', 'dashboard', 'articles', this.resourceId(), 'builder']);
+			const url = this._router.serializeUrl(this._router.createUrlTree(['/', 'host', 'dashboard', 'articles', this.resourceId(), 'builder']));
+			window.open(url, '_blank');
 		} else {
 			this._notificationService.notify('Editing not supported for resource type: ' + this.resourceKind());
 		}
+	}
+
+	public addPrefixToTitle(prefix: string) {
+		const resourceId = this.resourceId();
+		if (this.resourceKind() !== 'article' || !resourceId) return;
+
+		this._articlesRepository.store
+			.getObjectByIdPullOnce$$$(resourceId)
+			.pipe(
+				filter((article): article is Article => !!article),
+				take(1),
+				switchMap((article: Article) => {
+					const currentTitle = article.title ?? '';
+					if (currentTitle.startsWith(prefix)) {
+						this._notificationService.notify(this._i18n_prefixAlreadyPresent());
+						return EMPTY;
+					}
+					const newTitle = prefix + ' ' + currentTitle;
+					return this._articlesRepository.store.save({ ...article, title: newTitle, slug: slugify(newTitle) }).pipe(tap(() => this._notificationService.success(this._i18n_prefixAdded())));
+				})
+			)
+			.subscribe();
+	}
+
+	public goToAdminUserPage(userId: string) {
+		this._router.navigate(['/', 'admin', 'users', userId, 'builder']);
 	}
 }

@@ -1,7 +1,9 @@
-import * as SUT from './user.modals';
+import { UserModals } from './user.modals';
 
-describe('user.modals', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
-});
+describe('UserModals', () => {
+        it('is a class (function)', () => {
+                expect(typeof UserModals).toBe('function');
+        });
+
+        it('exposes an openUsersSelectionDialog method on its prototype', () => {
+                expect(typeof UserModals.prototype.openUsersSelectionDialog).toBe('function');

@@ -20,6 +20,7 @@ export interface FileSelectionConstraints {
 export interface FileSelectionModalData {
 	selectionConstraints?: FileSelectionConstraints;
 	filters?: Filter[];
+	alreadySelectedFiles?: EntityFile[];
 }
 
 export const DEFAULT_FILE_SELECTION_MODAL_DATA: Partial<FileSelectionModalData> & Required<Pick<FileSelectionModalData, 'selectionConstraints'>> = {
@@ -56,6 +57,7 @@ export class FilesSelectionModalComponent {
 			fileTable.itemsSelector._min = this.fileSelectionModalData.selectionConstraints?.minFiles ?? fileTable.itemsSelector._min;
 			fileTable.itemsSelector._max = this.fileSelectionModalData.selectionConstraints?.maxFiles ?? fileTable.itemsSelector._max;
 			fileTable.paginator.setAlwaysOnFilters(this.fileSelectionModalData.filters ?? []);
+			fileTable.itemsSelector.selectMultiple(this.fileSelectionModalData.alreadySelectedFiles ?? []);
 		});
 
 		dialogCloser$(this._dialogRef)

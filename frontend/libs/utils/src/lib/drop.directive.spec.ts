@@ -1,7 +1,9 @@
-import * as SUT from './drop.directive';
+import { DropDirective } from './drop.directive';
 
 describe('drop.directive', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('DropDirective', () => {
+		it('is exported', () => {
+			expect(DropDirective).toBeDefined();
+		});
+	});
 });

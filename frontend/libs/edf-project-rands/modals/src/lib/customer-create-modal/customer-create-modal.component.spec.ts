@@ -1,7 +1,9 @@
-import * as SUT from './customer-create-modal.component';
+import { CustomerCreateModalComponent } from './customer-create-modal.component';
 
 describe('customer-create-modal.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('CustomerCreateModalComponent', () => {
+		it('is exported', () => {
+			expect(CustomerCreateModalComponent).toBeDefined();
+		});
+	});
 });

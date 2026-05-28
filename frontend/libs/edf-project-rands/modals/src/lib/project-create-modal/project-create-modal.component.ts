@@ -221,7 +221,7 @@ export class ProjectCreateModalComponent {
 				this.mainCustomerName.set(null);
 				return;
 			}
-			const sub = this._customersRepository.store.getObjectById$$$(id, true).$?.subscribe((c) => {
+			const sub = this._customersRepository.store.getObjectByIdPullOnce$$$(id).$?.subscribe((c) => {
 				if (c) this.mainCustomerName.set([c.firstName, c.lastName].filter(Boolean).join(' '));
 			});
 			onCleanup(() => sub?.unsubscribe());
@@ -233,7 +233,7 @@ export class ProjectCreateModalComponent {
 				this.sponsorCustomerName.set(null);
 				return;
 			}
-			const sub = this._customersRepository.store.getObjectById$$$(id, true).$?.subscribe((c) => {
+			const sub = this._customersRepository.store.getObjectByIdPullOnce$$$(id).$?.subscribe((c) => {
 				if (c) this.sponsorCustomerName.set([c.firstName, c.lastName].filter(Boolean).join(' '));
 			});
 			onCleanup(() => sub?.unsubscribe());
@@ -245,7 +245,7 @@ export class ProjectCreateModalComponent {
 				this.projectManagerName.set(null);
 				return;
 			}
-			const sub = this._contributorsRepository.store.getObjectById$$$(id, true).$?.subscribe((c) => {
+			const sub = this._contributorsRepository.store.getObjectByIdPullOnce$$$(id).$?.subscribe((c) => {
 				if (c) this.projectManagerName.set([c.firstName, c.lastName].filter(Boolean).join(' '));
 			});
 			onCleanup(() => sub?.unsubscribe());
@@ -257,7 +257,7 @@ export class ProjectCreateModalComponent {
 				this.strategicLeadName.set(null);
 				return;
 			}
-			const sub = this._contributorsRepository.store.getObjectById$$$(id, true).$?.subscribe((c) => {
+			const sub = this._contributorsRepository.store.getObjectByIdPullOnce$$$(id).$?.subscribe((c) => {
 				if (c) this.strategicLeadName.set([c.firstName, c.lastName].filter(Boolean).join(' '));
 			});
 			onCleanup(() => sub?.unsubscribe());

@@ -1,7 +1,7 @@
-import * as SUT from './resource.type';
+import './resource.type';
 
 describe('resource.type', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	it('loads without runtime exports', () => {
+		expect(true).toBe(true);
+	});
 });

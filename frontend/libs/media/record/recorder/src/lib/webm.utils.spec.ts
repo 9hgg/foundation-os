@@ -1,7 +1,9 @@
-import * as SUT from './webm.utils';
+import { fixWebmDuration } from './webm.utils';
 
 describe('webm.utils', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('fixWebmDuration', () => {
+		it('is exported', () => {
+			expect(fixWebmDuration).toBeDefined();
+		});
+	});
 });

@@ -2,5 +2,5 @@
   "extends": "./tsconfig.json",
   "include": ["frontend/apps/leopar/src/**/*.ts"],
   "compilerOptions": {},
-  "exclude": ["jest.config.ts", "frontend/apps/leopar/src/**/*.test.ts", "frontend/apps/leopar/src/**/*.spec.ts"]
+  "exclude": ["frontend/apps/leopar/src/**/*.test.ts", "frontend/apps/leopar/src/**/*.spec.ts"]
 }

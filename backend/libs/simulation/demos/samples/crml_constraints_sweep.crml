@@ -1,0 +1,20 @@
+{
+  "kind": "crml-parameter-sweep",
+  "title": "Constraint-aware parameter sweep for FMU launch",
+  "baseFmuFileHint": "simple.fmu",
+  "sweep": {
+    "parameters": {
+      "u": [0.8, 1.0, 1.2],
+      "tau": [2, 5, 10]
+    },
+    "constraints": [
+      "max(x) <= 1.5",
+      "rise_time <= 20"
+    ]
+  },
+  "runTemplate": {
+    "startTime": 0,
+    "stopTime": 50,
+    "outputInterval": 0.2
+  }
+}

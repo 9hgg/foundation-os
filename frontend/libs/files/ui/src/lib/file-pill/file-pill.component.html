@@ -1,0 +1,15 @@
+@if (isLoading()) {
+	<span class="skeleton h-4 w-36 rounded"></span>
+} @else if (resolvedFile()) {
+	<div class="flex min-w-0 items-center gap-2">
+		<span class="truncate text-sm font-medium text-base-content">{{ filename() }}</span>
+		@if (extension(); as ext) {
+			<span class="badge badge-outline badge-sm shrink-0">{{ ext }}</span>
+		}
+		@if (formattedSize(); as size) {
+			<span class="shrink-0 text-xs text-base-content/50">{{ size }}</span>
+		}
+	</div>
+} @else {
+	<span class="truncate font-mono text-xs text-base-content/40">{{ fileId() }}</span>
+}

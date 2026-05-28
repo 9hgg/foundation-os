@@ -1,7 +1,15 @@
-import * as SUT from './cache.interceptor';
+import { CacheInterceptor, InterceptorSkipCacheHeader } from './cache.interceptor';
 
 describe('cache.interceptor', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('CacheInterceptor', () => {
+		it('is exported', () => {
+			expect(CacheInterceptor).toBeDefined();
+		});
+	});
+
+	describe('InterceptorSkipCacheHeader', () => {
+		it('is exported', () => {
+			expect(InterceptorSkipCacheHeader).toBeDefined();
+		});
+	});
 });

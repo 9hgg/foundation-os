@@ -246,6 +246,7 @@ export interface ActivityProposal {
 	title?: string;
 	content: string;
 	answerContent?: string;
+	answered?: boolean;
 	fileIds?: string[];
 	links?: ActivityUpdateLink[];
 }

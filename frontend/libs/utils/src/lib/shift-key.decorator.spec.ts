@@ -1,7 +1,9 @@
-import * as SUT from './shift-key.decorator';
+import { ShiftKeyMixin } from './shift-key.decorator';
 
 describe('shift-key.decorator', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ShiftKeyMixin', () => {
+		it('is exported', () => {
+			expect(ShiftKeyMixin).toBeDefined();
+		});
+	});
 });

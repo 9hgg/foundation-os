@@ -1,7 +1,9 @@
-import * as SUT from './activity-table.component';
+import { ActivityTableComponent } from './activity-table.component';
 
 describe('activity-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ActivityTableComponent', () => {
+		it('is exported', () => {
+			expect(ActivityTableComponent).toBeDefined();
+		});
+	});
 });

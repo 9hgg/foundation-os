@@ -1,7 +1,9 @@
-import * as SUT from './question-mark-helper.component';
+import { QuestionMarkHelpComponent } from './question-mark-helper.component';
 
 describe('question-mark-helper.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('QuestionMarkHelpComponent', () => {
+		it('is exported', () => {
+			expect(QuestionMarkHelpComponent).toBeDefined();
+		});
+	});
 });

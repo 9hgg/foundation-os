@@ -1,7 +1,9 @@
-import * as SUT from './duration-indicator.component';
+import { DurationIndicatorComponent } from './duration-indicator.component';
 
 describe('duration-indicator.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('DurationIndicatorComponent', () => {
+		it('is exported', () => {
+			expect(DurationIndicatorComponent).toBeDefined();
+		});
+	});
 });

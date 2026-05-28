@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { of } from 'rxjs';
 
 /**
  * Creates a fresh mock for TranslationService.
@@ -7,5 +8,6 @@ import { vi } from 'vitest';
 export function createMockTranslationService() {
 	return {
 		prep: vi.fn().mockReturnValue(() => 'translated'),
+		translate$: vi.fn(({ inputSentence }: { inputSentence: string }) => of(inputSentence)),
 	};
 }

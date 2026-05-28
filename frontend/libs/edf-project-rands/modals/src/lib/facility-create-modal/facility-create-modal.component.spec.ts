@@ -1,7 +1,9 @@
-import * as SUT from './facility-create-modal.component';
+import { FacilityCreateModalComponent } from './facility-create-modal.component';
 
 describe('facility-create-modal.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FacilityCreateModalComponent', () => {
+		it('is exported', () => {
+			expect(FacilityCreateModalComponent).toBeDefined();
+		});
+	});
 });

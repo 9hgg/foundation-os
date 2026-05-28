@@ -3,14 +3,14 @@ from enum import Enum
 from typing import Any, Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import ConfigDict, field_validator
 import sqlmodel
+from pydantic import field_validator
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field
 
 from libs.files.models import File
-from libs.resource import Resource, ResourceWithConfig
-from libs.utils.types import BaseModelWithConfig, to_camel
+from libs.resource import CanReadIfReadOver, Resource, ResourceWithConfig, SameAccessAs
+from libs.utils.types import BaseModelWithConfig
 
 # --- Enums ---
 
@@ -296,6 +296,7 @@ class Batch(Resource, table=True):
     project_id: UUID = Field(
         foreign_key="projects.id", nullable=False, ondelete="CASCADE"
     )
+    __access_rules__ = (SameAccessAs(Project, local_field="project_id"),)
 
 
 class ActivityDeliverable(Resource, table=True):
@@ -337,6 +338,9 @@ class Deliverable(Resource, table=True):
 
     customer_id: Optional[UUID] = Field(
         default=None, foreign_key="customers.id", nullable=True, ondelete="SET NULL"
+    )
+    __access_rules__ = (
+        CanReadIfReadOver(ActivityDeliverable, local_field="id", remote_field="deliverable_id"),
     )
 
 
@@ -427,6 +431,7 @@ class ActivityProposal(BaseModelWithConfig):
     title: Optional[str] = None
     content: str = ""
     answer_content: Optional[str] = None
+    answered: Optional[bool] = None
     file_ids: list[str] = Field(default_factory=list)
     links: list[ActivityUpdateLink] = Field(default_factory=list)
 
@@ -488,6 +493,7 @@ class Activity(ResourceWithConfig, table=True):
         nullable=False,
         default_factory=lambda: ActivityConfig().model_dump(),
     )
+    __access_rules__ = (SameAccessAs(Batch, local_field="batch_id"),)
 
 
 class Purchase(Resource, table=True):
@@ -513,6 +519,7 @@ class Purchase(Resource, table=True):
     activity_id: UUID = Field(
         foreign_key="activities.id", nullable=False, ondelete="CASCADE"
     )
+    __access_rules__ = (SameAccessAs(Activity, local_field="activity_id"),)
 
 
 # --- Presentation Snapshot ---
@@ -572,3 +579,20 @@ class PresentationSnapshot(BaseModelWithConfig):
     cost_tracking_data: Optional[ProjectCostTrackingData] = None
     # Map of fileId → File for all files referenced in activity updates and proposals
     files: dict[str, File] = Field(default_factory=dict)
+
+
+ActivityDeliverable.__access_rules__ = (
+    SameAccessAs(Activity, local_field="activity_id"),
+)
+Customer.__access_rules__ = (
+    CanReadIfReadOver(Deliverable, local_field="id", remote_field="customer_id"),
+)
+Contributor.__access_rules__ = (
+    CanReadIfReadOver(AnnualContribution, local_field="id", remote_field="contributor_id"),
+)
+AnnualContribution.__access_rules__ = (
+    SameAccessAs(Activity, local_field="activity_id"),
+)
+AnnualFacilityUsage.__access_rules__ = (
+    SameAccessAs(Activity, local_field="activity_id"),
+)

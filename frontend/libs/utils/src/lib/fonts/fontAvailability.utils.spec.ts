@@ -1,7 +1,9 @@
-import * as SUT from './fontAvailability.utils';
+import { checkLocalStylesheetsForMissingFonts } from './fontAvailability.utils';
 
 describe('fontAvailability.utils', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('checkLocalStylesheetsForMissingFonts', () => {
+		it('is exported', () => {
+			expect(checkLocalStylesheetsForMissingFonts).toBeDefined();
+		});
+	});
 });

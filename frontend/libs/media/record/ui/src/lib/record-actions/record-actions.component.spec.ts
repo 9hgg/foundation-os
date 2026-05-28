@@ -1,7 +1,9 @@
-import * as SUT from './record-actions.component';
+import { RecordActionsComponent } from './record-actions.component';
 
 describe('record-actions.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('RecordActionsComponent', () => {
+		it('is exported', () => {
+			expect(RecordActionsComponent).toBeDefined();
+		});
+	});
 });

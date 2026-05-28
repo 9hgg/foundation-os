@@ -8,7 +8,7 @@ export interface MessageConfig {
 
 export interface Message extends Resource {
 	conversationId: string; // UUID
-	authorId: string; // UUID of the user who sent the message
+	authorId?: string; // UUID of the user who sent the message
 	title?: string; // e.g., "My First Message"
 	content?: string;
 	kind: string; // e.g., "default", "agent", "reaction", etc.

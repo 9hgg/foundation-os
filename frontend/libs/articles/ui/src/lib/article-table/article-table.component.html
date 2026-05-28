@@ -55,6 +55,41 @@
 						}
 					</th>
 
+					@if (adminMode) {
+						<th class="py-4">
+							<div class="flex items-center gap-2">
+								<span [translate]>Kind</span>
+								<button
+									class="btn btn-ghost btn-xs"
+									[class.btn-active]="displaySearchByFields$_['kind']"
+									(click)="toggleSearchByField('kind')"
+								>
+									<span [translate]>Filter</span>
+								</button>
+							</div>
+							@if (displaySearchByFields$_['kind']) {
+								<select
+									class="select select-bordered select-xs mt-2"
+									[(ngModel)]="filterByFields$_['kind']"
+								>
+									<option
+										value=""
+										[translate]
+									>
+										All
+									</option>
+									@for (kind of articleKinds; track kind) {
+										<option [value]="kind">{{ kind }}</option>
+									}
+								</select>
+							}
+						</th>
+
+						<th class="py-4">
+							<span [translate]>Status</span>
+						</th>
+					}
+
 					<!-- update date header -->
 					<th class="py-4">
 						<div class="flex items-center gap-2">
@@ -132,6 +167,25 @@
 								</div>
 							</td>
 
+							@if (adminMode) {
+								<td>
+									<span class="badge badge-outline">{{ article.kind }}</span>
+								</td>
+
+								<td>
+									<div class="flex flex-wrap gap-1">
+										@if (article.draft) {
+											<span class="badge badge-warning badge-sm"><span [translate]>Draft</span></span>
+										} @else {
+											<span class="badge badge-success badge-sm"><span [translate]>Published</span></span>
+										}
+										@if (article.featured) {
+											<span class="badge badge-secondary badge-sm"><span [translate]>Featured</span></span>
+										}
+									</div>
+								</td>
+							}
+
 							<!-- update date -->
 							<td>
 								<div class="text-base-content/60 text-xs">
@@ -205,6 +259,46 @@
 												<span [translate]>Add to folder</span>
 											</button>
 										</li>
+										@if (adminMode) {
+											<div class="divider my-1"></div>
+											<li class="menu-title">
+												<span [translate]>Change kind</span>
+											</li>
+											@for (kind of articleKinds; track kind) {
+												<li cdkMenuItem>
+													<button
+														(click)="$event.stopPropagation(); updateKind(article, kind)"
+														[disabled]="article.kind === kind"
+													>
+														{{ kind }}
+													</button>
+												</li>
+											}
+											<div class="divider my-1"></div>
+											<li cdkMenuItem>
+												<button (click)="$event.stopPropagation(); toggleDraft(article)">
+													@if (article.draft) {
+														<span [translate]>Publish</span>
+													} @else {
+														<span [translate]>Return to draft</span>
+													}
+												</button>
+											</li>
+											<li cdkMenuItem>
+												<button (click)="$event.stopPropagation(); togglePublic(article)">
+													<span [translate]>Toggle public access</span>
+												</button>
+											</li>
+											<li cdkMenuItem>
+												<button (click)="$event.stopPropagation(); toggleFeatured(article)">
+													@if (article.featured) {
+														<span [translate]>Remove featured status</span>
+													} @else {
+														<span [translate]>Mark as featured</span>
+													}
+												</button>
+											</li>
+										}
 										<li cdkMenuItem>
 											<button
 												(click)="$event.stopPropagation(); deleteArticle(article)"
@@ -237,14 +331,21 @@
 										>
 									</button>
 
-									<pre>{{ { article } | json }}</pre>
+									@if (expandedItemTemplate(); as expandedItemTemplate) {
+										<ng-container
+											[ngTemplateOutlet]="expandedItemTemplate.templateRef"
+											[ngTemplateOutletContext]="{ $implicit: article, item: article }"
+										/>
+									} @else {
+										<pre>{{ { article } | json }}</pre>
+									}
 								</td>
 							</tr>
 						}
 					} @else {
 						<tr>
 							<td
-								colspan="5"
+								[attr.colspan]="adminMode ? 7 : 5"
 								class="text-center"
 							>
 								<span class="loading loading-spinner loading-md text-primary"></span>
@@ -254,7 +355,7 @@
 				} @empty {
 					<tr>
 						<td
-							colspan="5"
+							[attr.colspan]="adminMode ? 7 : 5"
 							class="text-base-content/50 py-12 text-center italic"
 						>
 							{{ 'Nothing here' | translate | async }}

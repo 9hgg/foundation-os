@@ -1,7 +1,9 @@
-import * as SUT from './memory.utils';
+import { MemoryStats } from './memory.utils';
 
 describe('memory.utils', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('MemoryStats', () => {
+		it('is exported', () => {
+			expect(MemoryStats).toBeDefined();
+		});
+	});
 });

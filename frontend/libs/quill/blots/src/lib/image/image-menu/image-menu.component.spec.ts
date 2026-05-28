@@ -1,7 +1,9 @@
-import * as SUT from './image-menu.component';
+import { ImageMenuComponent } from './image-menu.component';
 
 describe('image-menu.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('ImageMenuComponent', () => {
+		it('is exported', () => {
+			expect(ImageMenuComponent).toBeDefined();
+		});
+	});
 });

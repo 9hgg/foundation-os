@@ -1,5 +1,6 @@
 import datetime
 import sys
+import threading
 import traceback
 import typing
 import uuid
@@ -15,7 +16,7 @@ from libs.tasks.tasks_manager_errors import (
 from libs.utils.types import BaseModelWithConfig, serialize
 
 from .config import TASKS_SETTINGS
-from .models import Task, TaskArguments, TaskArtifacts
+from .models import Task, TaskArguments, TaskArtifacts, TaskSlot
 
 
 class TaskMethod(BaseModelWithConfig):
@@ -33,6 +34,44 @@ class TasksManager:
 
     tasks_methods: ClassVar[dict[str, TaskMethod]] = {}
     workers_methods: ClassVar[dict[str, WorkerMethod]] = {}
+
+    @classmethod
+    def _start_task_heartbeat(
+        cls,
+        task_id: uuid.UUID | str,
+        processor_id: str | None,
+        processor_kind: str | None,
+    ) -> tuple[threading.Event, threading.Thread]:
+        stop_heartbeat_event = threading.Event()
+
+        def heartbeat_loop():
+            while not stop_heartbeat_event.wait(
+                TASKS_SETTINGS.HEARTBEAT_INTERVAL_SECONDS
+            ):
+                try:
+                    cls.update_task(
+                        task_id,
+                        {
+                            "last_heartbeat_at": datetime.datetime.now(
+                                datetime.timezone.utc
+                            ),
+                            "processor_id": processor_id,
+                            "processor_kind": processor_kind,
+                        },
+                    )
+                except Exception as heartbeat_error:
+                    print_color(
+                        "yellow",
+                        f"Task heartbeat failed for {task_id}: {heartbeat_error}",
+                    )
+
+        heartbeat_thread = threading.Thread(
+            target=heartbeat_loop,
+            name=f"task-heartbeat-{task_id}",
+            daemon=True,
+        )
+        heartbeat_thread.start()
+        return stop_heartbeat_event, heartbeat_thread
 
     @classmethod
     def enlist_worker(
@@ -106,6 +145,7 @@ class TasksManager:
             {
                 "started_at": task.started_at,
                 "started": task.started,
+                "last_heartbeat_at": task.started_at,
                 "processor_id": task.processor_id,
                 "processor_kind": task.processor_kind,
             },
@@ -137,12 +177,19 @@ class TasksManager:
         )
         print(f"Task arguments ({task.method_name}): {arguments}")
 
+        stop_heartbeat_event, heartbeat_thread = cls._start_task_heartbeat(
+            task.id, task.processor_id, task.processor_kind
+        )
+
         try:
-            artifacts = TaskArtifacts()
-            artifacts.return_value = task_method.fn(
+            existing_artifacts = TypeAdapter(TaskArtifacts).validate_python(
+                task.artifacts or {}
+            )
+            existing_artifacts.return_value = task_method.fn(
                 *arguments.args, **arguments.kwargs, task=task, task_manager=cls
             )
-            task.artifacts = serialize(artifacts, False, True)
+            artifacts = existing_artifacts
+            task.artifacts = serialize(existing_artifacts, False, True)
             task.completed = True
         except Exception as e:
             print_color("red", f"Error executing task {task.title}")
@@ -155,6 +202,8 @@ class TasksManager:
             task.artifacts = serialize(artifacts)
             task.failed = True
         finally:
+            stop_heartbeat_event.set()
+            heartbeat_thread.join(timeout=1)
             task.ended = True
 
         task.ended_at = datetime.datetime.now(datetime.timezone.utc)
@@ -189,6 +238,41 @@ class TasksManager:
             db.commit()
 
     @classmethod
+    def recreate_task(
+        cls,
+        task_or_id: Task | uuid.UUID | str,
+        *,
+        priority: int = 0,
+        clear_source_slot: bool = True,
+    ) -> Task:
+        if isinstance(task_or_id, Task):
+            source_task = task_or_id
+        else:
+            source_task = Task.by_id(obj_id=task_or_id)
+
+        if source_task is None:
+            raise TaskNotFoundError(str(task_or_id))
+
+        if clear_source_slot:
+            with context_db() as db:
+                db.query(TaskSlot).filter(TaskSlot.task_id == source_task.id).delete()
+                db.commit()
+
+        task_arguments: TaskArguments = TypeAdapter(TaskArguments).validate_python(
+            source_task.arguments
+        )
+
+        return cls.create_task(
+            method_name=source_task.method_name,
+            title=source_task.title,
+            description=source_task.description,
+            kind=source_task.kind,
+            priority=priority,
+            args=task_arguments.args,
+            kwargs=task_arguments.kwargs,
+        )
+
+    @classmethod
     def create_task(
         #
         cls,
@@ -197,6 +281,8 @@ class TasksManager:
         custom_id: str | uuid.UUID | None = None,
         title: str | None = None,
         description: str | None = None,
+        kind: str | None = None,
+        priority: int = 100,
         args: list | None = None,
         kwargs: dict | None = None,
     ) -> Task:
@@ -224,7 +310,9 @@ class TasksManager:
             method_name=method_name,
             title=title,
             description=description,
+            kind=kind,
             arguments=TaskArguments(args=args, kwargs=kwargs).model_dump(),
+            priority=priority
         )
 
         # save the task

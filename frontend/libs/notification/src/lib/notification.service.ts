@@ -2,8 +2,9 @@
 import { Dialog, DIALOG_DATA, DialogConfig, DialogRef } from '@angular/cdk/dialog';
 import { CdkMenuModule } from '@angular/cdk/menu';
 import { GlobalPositionStrategy, Overlay } from '@angular/cdk/overlay';
-import { Component, Inject, inject, Injectable, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Inject, inject, Injectable, OnDestroy, signal, viewChild } from '@angular/core';
 import { TranslationService } from '@foundation/translations/services';
+import Quill from 'quill';
 
 interface DataType {
 	title?: string;
@@ -23,6 +24,12 @@ interface PromptDataType extends DataType {
 	cancelButtonText?: string;
 }
 
+interface PromptTextareaDataType extends PromptDataType {
+	rows?: number;
+}
+
+type PromptQuillTextareaDataType = PromptDataType;
+
 interface SelectionOption {
 	value: string;
 	label: string;
@@ -37,7 +44,7 @@ interface SelectionDataType extends DataType {
 	cancelButtonText?: string;
 }
 
-interface BaseDialogConfig {
+interface BaseDialogConfig<T = unknown> {
 	width?: string;
 	height?: string;
 	maxWidth?: string;
@@ -45,7 +52,7 @@ interface BaseDialogConfig {
 	closeDialogs?: '*' | string[];
 	dialogTarget?: string;
 	autoCloseMs?: number;
-	callback?: (result: any) => void;
+	callback?: (result: T | undefined) => void;
 	snack?: boolean;
 	snackPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 	hasBackdrop?: boolean;
@@ -54,27 +61,53 @@ interface BaseDialogConfig {
 }
 
 // Specific configs per dialog type
-type NotificationDialogConfig = BaseDialogConfig & {
+type NotificationDialogConfig = BaseDialogConfig<void> & {
 	data?: DataType;
 	dismissButtonText?: string;
 };
-type PromptDialogConfig = BaseDialogConfig & {
+type PromptDialogConfig = BaseDialogConfig<{ value: string } | null> & {
 	data?: PromptDataType;
 	confirmButtonText?: string;
 	cancelButtonText?: string;
 	defaultValue?: string;
 	inputPlaceholder?: string;
 };
-type ConfirmDialogConfig = BaseDialogConfig & {
+type PromptTextareaDialogConfig = BaseDialogConfig<{ value: string } | null> & {
+	data?: PromptTextareaDataType;
+	confirmButtonText?: string;
+	cancelButtonText?: string;
+	defaultValue?: string;
+	inputPlaceholder?: string;
+	rows?: number;
+};
+type PromptQuillTextareaDialogConfig = BaseDialogConfig<{ value: string } | null> & {
+	data?: PromptQuillTextareaDataType;
+	confirmButtonText?: string;
+	cancelButtonText?: string;
+	defaultValue?: string;
+	inputPlaceholder?: string;
+};
+type ConfirmDialogConfig = BaseDialogConfig<boolean> & {
 	data?: ConfirmDataType;
 	confirmButtonText?: string;
 	cancelButtonText?: string;
 };
-type SelectionDialogConfig = BaseDialogConfig & {
+type SelectionDialogConfig = BaseDialogConfig<{ value: string } | null> & {
 	data?: SelectionDataType;
 	confirmButtonText?: string;
 	cancelButtonText?: string;
 };
+
+type AnyDialogConfig = NotificationDialogConfig | PromptDialogConfig | PromptTextareaDialogConfig | PromptQuillTextareaDialogConfig | ConfirmDialogConfig | SelectionDialogConfig;
+
+type AnyDialogRef =
+	| DialogRef<void, NotificationDialogComponent>
+	| DialogRef<void, SnackNotificationComponent>
+	| DialogRef<{ value: string } | null, PromptDialogComponent>
+	| DialogRef<{ value: string } | null, PromptTextareaDialogComponent>
+	| DialogRef<{ value: string } | null, PromptQuillTextareaDialogComponent>
+	| DialogRef<boolean, ConfirmationDialogComponent>
+	| DialogRef<{ value: string } | null, SelectionDialogComponent>;
 
 const DEFAULT_DIALOG_CONFIG: BaseDialogConfig & { snackPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' } = {
 	width: 'auto',
@@ -84,9 +117,6 @@ const DEFAULT_DIALOG_CONFIG: BaseDialogConfig & { snackPosition: 'top-left' | 't
 	snack: false,
 	snackPosition: 'top-right',
 	hasBackdrop: true,
-	callback: (result: any) => {
-		console.log('Dialog closed with result: ', result);
-	},
 };
 
 @Injectable({ providedIn: 'root' })
@@ -94,7 +124,7 @@ export class NotificationService {
 	dialog = inject(Dialog);
 	private _overlay = inject(Overlay);
 	private _translationService = inject(TranslationService);
-	dialogMap = new Map<string, DialogRef<any, any>>();
+	dialogMap = new Map<string, { close: () => void }>();
 
 	// Translation methods for common UI text (called at runtime for proper i18n)
 	private _i18n_dismiss = () => this._translationService.prep('Dismiss')();
@@ -106,7 +136,7 @@ export class NotificationService {
 	private _i18n_success = () => this._translationService.prep('SUCCESS')();
 	private _i18n_error = () => this._translationService.prep('ERROR')();
 
-	private _closeDialogs(config: BaseDialogConfig) {
+	private _closeDialogs(config: Pick<BaseDialogConfig, 'closeDialogs' | 'dialogTarget'>) {
 		if (config.closeDialogs === '*') {
 			this.dialog.closeAll();
 		} else if (Array.isArray(config.closeDialogs)) {
@@ -145,18 +175,51 @@ export class NotificationService {
 		}
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- implementation boundary: each overload guarantees the correct T at call sites
+	private _finalizeDialogRef<TDialogResult, TDialogComponent>(dialogRef: DialogRef<TDialogResult, TDialogComponent>, config: BaseDialogConfig<any>): DialogRef<TDialogResult, TDialogComponent> {
+		if (config.dialogTarget) {
+			this.dialogMap.set(config.dialogTarget, { close: () => dialogRef.close() });
+		}
+
+		if (config.autoCloseMs && config.autoCloseMs > 0 && isFinite(config.autoCloseMs)) {
+			setTimeout(() => {
+				dialogRef.close();
+				if (config.dialogTarget) {
+					this.dialogMap.delete(config.dialogTarget);
+				}
+			}, config.autoCloseMs);
+		}
+
+		if (config.callback) {
+			const callback = config.callback;
+			console.log('Setting up callback for dialog close');
+			dialogRef.closed.subscribe((result) => {
+				console.log('Dialog closed with result:', result);
+				callback(result);
+			});
+		}
+
+		return dialogRef;
+	}
+
 	// Overloads
 	private _openDialog(component: 'notification', config?: NotificationDialogConfig): DialogRef<void, NotificationDialogComponent>;
 	private _openDialog(component: 'prompt', config?: PromptDialogConfig): DialogRef<{ value: string } | null, PromptDialogComponent>;
+	private _openDialog(component: 'promptTextarea', config?: PromptTextareaDialogConfig): DialogRef<{ value: string } | null, PromptTextareaDialogComponent>;
+	private _openDialog(component: 'promptQuillTextarea', config?: PromptQuillTextareaDialogConfig): DialogRef<{ value: string } | null, PromptQuillTextareaDialogComponent>;
 	private _openDialog(component: 'confirm', config?: ConfirmDialogConfig): DialogRef<boolean, ConfirmationDialogComponent>;
 	private _openDialog(component: 'selection', config?: SelectionDialogConfig): DialogRef<{ value: string } | null, SelectionDialogComponent>;
 
 	// Implementation
-	private _openDialog(component: 'notification' | 'prompt' | 'confirm' | 'selection', _config: NotificationDialogConfig | PromptDialogConfig | ConfirmDialogConfig | SelectionDialogConfig = {}): DialogRef<any, any> {
+	private _openDialog(
+		component: 'notification' | 'prompt' | 'promptTextarea' | 'promptQuillTextarea' | 'confirm' | 'selection',
+		_config: AnyDialogConfig = {}
+	): AnyDialogRef {
 		console.log('Original config:', _config);
 		console.log('Default config:', DEFAULT_DIALOG_CONFIG);
 
-		const config: BaseDialogConfig = { ...DEFAULT_DIALOG_CONFIG, ..._config };
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dispatch hub: overloads guarantee correct types at call sites; config cannot be narrowed by the switch
+		const config: BaseDialogConfig<any> = { ...DEFAULT_DIALOG_CONFIG, ..._config };
 		this._closeDialogs(config);
 
 		// Auto-configure for snack notifications
@@ -175,8 +238,6 @@ export class NotificationService {
 
 		console.log('Opening dialog with config:', config);
 
-		let dialogRef: DialogRef<any, any>;
-
 		switch (component) {
 			case 'notification':
 				if (config.snack) {
@@ -185,59 +246,41 @@ export class NotificationService {
 						positionStrategy: config.positionStrategy || this.createSnackPositionStrategy(config.snackPosition ?? DEFAULT_DIALOG_CONFIG.snackPosition),
 					};
 					// Ensure autoCloseMs is available in the component via the config itself
-					dialogRef = this.dialog.open<void, DataType, SnackNotificationComponent>(SnackNotificationComponent, snackConfig);
+					return this._finalizeDialogRef(this.dialog.open<void, DataType, SnackNotificationComponent>(SnackNotificationComponent, snackConfig), config);
 				} else {
-					dialogRef = this.dialog.open<void, DataType, NotificationDialogComponent>(NotificationDialogComponent, {
+					return this._finalizeDialogRef(this.dialog.open<void, DataType, NotificationDialogComponent>(NotificationDialogComponent, {
 						...config,
 						backdropClass: 'cdk-overlay-dark-backdrop',
-					});
+					}), config);
 				}
-				break;
 			case 'prompt':
-				dialogRef = this.dialog.open<{ value: string } | null, PromptDataType, PromptDialogComponent>(PromptDialogComponent, {
+				return this._finalizeDialogRef(this.dialog.open<{ value: string } | null, PromptDataType, PromptDialogComponent>(PromptDialogComponent, {
 					...config,
 					backdropClass: 'cdk-overlay-dark-backdrop',
-				});
-				break;
+				}), config);
+			case 'promptTextarea':
+				return this._finalizeDialogRef(this.dialog.open<{ value: string } | null, PromptTextareaDataType, PromptTextareaDialogComponent>(PromptTextareaDialogComponent, {
+					...config,
+					backdropClass: 'cdk-overlay-dark-backdrop',
+				}), config);
+			case 'promptQuillTextarea':
+				return this._finalizeDialogRef(this.dialog.open<{ value: string } | null, PromptQuillTextareaDataType, PromptQuillTextareaDialogComponent>(PromptQuillTextareaDialogComponent, {
+					...config,
+					backdropClass: 'cdk-overlay-dark-backdrop',
+				}), config);
 			case 'confirm':
-				dialogRef = this.dialog.open<boolean, ConfirmDataType, ConfirmationDialogComponent>(ConfirmationDialogComponent, {
+				return this._finalizeDialogRef(this.dialog.open<boolean, ConfirmDataType, ConfirmationDialogComponent>(ConfirmationDialogComponent, {
 					...config,
 					backdropClass: 'cdk-overlay-dark-backdrop',
-				});
-				break;
+				}), config);
 			case 'selection':
-				dialogRef = this.dialog.open<{ value: string } | null, any, SelectionDialogComponent>(SelectionDialogComponent, {
-					...(config as any),
+				return this._finalizeDialogRef(this.dialog.open<{ value: string } | null, SelectionDataType, SelectionDialogComponent>(SelectionDialogComponent, {
+					...config,
 					backdropClass: 'cdk-overlay-dark-backdrop',
-				});
-				break;
+				}), config);
 			default:
 				throw new Error('Unknown dialog component');
 		}
-
-		if (config.dialogTarget) {
-			this.dialogMap.set(config.dialogTarget, dialogRef);
-		}
-
-		if (config.autoCloseMs && config.autoCloseMs > 0 && isFinite(config.autoCloseMs)) {
-			setTimeout(() => {
-				dialogRef.close();
-				if (config.dialogTarget) {
-					this.dialogMap.delete(config.dialogTarget);
-				}
-			}, config.autoCloseMs);
-		}
-
-		// Handle callback when dialog closes
-		if (config.callback) {
-			console.log('Setting up callback for dialog close');
-			dialogRef.closed.subscribe((result) => {
-				console.log('Dialog closed with result:', result);
-				config.callback!(result);
-			});
-		}
-
-		return dialogRef;
 	}
 
 	notify(message?: string, title?: string, config: NotificationDialogConfig = {}) {
@@ -284,6 +327,37 @@ export class NotificationService {
 
 	prompt(message?: string, title?: string, config: PromptDialogConfig = {}) {
 		return this._openDialog('prompt', {
+			...config,
+			data: {
+				message,
+				title,
+				defaultValue: config.defaultValue,
+				inputPlaceholder: config.inputPlaceholder,
+				confirmButtonText: config.confirmButtonText || this._i18n_submit(),
+				cancelButtonText: config.cancelButtonText || this._i18n_cancel(),
+				...(config.data ?? {}),
+			},
+		});
+	}
+
+	promptTextarea(message?: string, title?: string, config: PromptTextareaDialogConfig = {}) {
+		return this._openDialog('promptTextarea', {
+			...config,
+			data: {
+				message,
+				title,
+				rows: config.rows,
+				defaultValue: config.defaultValue,
+				inputPlaceholder: config.inputPlaceholder,
+				confirmButtonText: config.confirmButtonText || this._i18n_submit(),
+				cancelButtonText: config.cancelButtonText || this._i18n_cancel(),
+				...(config.data ?? {}),
+			},
+		});
+	}
+
+	promptQuillTextarea(message?: string, title?: string, config: PromptQuillTextareaDialogConfig = {}) {
+		return this._openDialog('promptQuillTextarea', {
 			...config,
 			data: {
 				message,
@@ -569,13 +643,211 @@ export class PromptDialogComponent {
 	}
 }
 
+@Component({
+	selector: 'lib-prompt-textarea-dialog',
+	template: `
+		<div class="modal-box bg-base-100 text-base-content w-full max-w-lg rounded-2xl p-0 shadow-2xl">
+			<div class="border-base-200 flex items-center gap-3 border-b px-6 py-4">
+				<div class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
+					<svg
+						class="text-primary h-5 w-5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 4v16m8-8H4"
+						/>
+					</svg>
+				</div>
+				<h3
+					class="text-lg font-semibold"
+					[innerHTML]="promptTextareaModalData.title"
+				></h3>
+			</div>
+
+			<div class="px-6 py-5">
+				@if (promptTextareaModalData.message) {
+					<p
+						class="mb-4 text-sm opacity-70"
+						[innerHTML]="promptTextareaModalData.message"
+					></p>
+				}
+
+				<div class="form-control w-full">
+					<label
+						for="prompt-textarea-input"
+						class="mb-2 text-xs font-medium opacity-60"
+						>Content</label
+					>
+					<textarea
+						id="prompt-textarea-input"
+						name="prompt-textarea-input"
+						class="textarea textarea-bordered min-h-32 w-full"
+						[rows]="promptTextareaModalData.rows ?? 6"
+						[placeholder]="promptTextareaModalData.inputPlaceholder ?? ''"
+						[value]="promptTextareaModalData.defaultValue || ''"
+						#textareaInput
+					></textarea>
+				</div>
+			</div>
+
+			<div class="border-base-200 flex justify-end gap-2 border-t px-6 py-4">
+				<button
+					type="button"
+					class="btn btn-ghost"
+					(click)="dialogRef.close(null)"
+				>
+					<span [innerHTML]="promptTextareaModalData.cancelButtonText || 'Cancel'"></span>
+				</button>
+				<button
+					type="button"
+					class="btn btn-primary"
+					(click)="dialogRef.close({ value: textareaInput.value })"
+				>
+					<span [innerHTML]="promptTextareaModalData.confirmButtonText || 'Submit'"></span>
+				</button>
+			</div>
+		</div>
+	`,
+})
+export class PromptTextareaDialogComponent {
+	dialogRef = inject(DialogRef<{ value: string } | null, PromptTextareaDialogComponent>);
+
+	constructor(@Inject(DIALOG_DATA) public promptTextareaModalData: PromptTextareaDataType) {
+		console.log('PromptTextareaDialogComponent', promptTextareaModalData);
+	}
+}
+
+@Component({
+	selector: 'lib-prompt-quill-textarea-dialog',
+	template: `
+		<div class="modal-box bg-base-100 text-base-content h-[80vh] w-full max-w-3xl rounded-2xl p-0 shadow-2xl">
+			<div class="border-base-200 flex items-center gap-3 border-b px-6 py-4">
+				<div class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
+					<svg
+						class="text-primary h-5 w-5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M11 5h10M11 9h7M11 13h9M11 17h6M4 5h.01M4 9h.01M4 13h.01M4 17h.01"
+						/>
+					</svg>
+				</div>
+				<h3
+					class="text-lg font-semibold"
+					[innerHTML]="promptQuillTextareaModalData.title"
+				></h3>
+			</div>
+
+			<div class="flex h-[calc(80vh-8.5rem)] flex-col px-6 py-5">
+				@if (promptQuillTextareaModalData.message) {
+					<p
+						class="mb-4 text-sm opacity-70"
+						[innerHTML]="promptQuillTextareaModalData.message"
+					></p>
+				}
+
+				@if (promptQuillTextareaModalData.inputPlaceholder) {
+					<p class="mb-2 text-xs opacity-60">{{ promptQuillTextareaModalData.inputPlaceholder }}</p>
+				}
+
+				<div class="min-h-0 flex-1 overflow-auto rounded-xl border border-base-200 p-3">
+					<div
+						#quillContainer
+						class="bg-base-100 h-full min-h-56 rounded-md"
+					></div>
+				</div>
+			</div>
+
+			<div class="border-base-200 flex justify-end gap-2 border-t px-6 py-4">
+				<button
+					type="button"
+					class="btn btn-ghost"
+					(click)="dialogRef.close(null)"
+				>
+					<span [innerHTML]="promptQuillTextareaModalData.cancelButtonText || 'Cancel'"></span>
+				</button>
+				<button
+					type="button"
+					class="btn btn-primary"
+					(click)="dialogRef.close({ value: editorValue() })"
+				>
+					<span [innerHTML]="promptQuillTextareaModalData.confirmButtonText || 'Submit'"></span>
+				</button>
+			</div>
+		</div>
+	`,
+})
+export class PromptQuillTextareaDialogComponent implements AfterViewInit, OnDestroy {
+	dialogRef = inject(DialogRef<{ value: string } | null, PromptQuillTextareaDialogComponent>);
+	quillContainer = viewChild<ElementRef<HTMLDivElement>>('quillContainer');
+	editorValue = signal<string>('');
+	private _quillInstance: Quill | null = null;
+	private _onEditorChange = () => {
+		if (!this._quillInstance) {
+			return;
+		}
+		this.editorValue.set(this._quillInstance.getSemanticHTML());
+	};
+
+	constructor(@Inject(DIALOG_DATA) public promptQuillTextareaModalData: PromptQuillTextareaDataType) {
+		this.editorValue.set(promptQuillTextareaModalData.defaultValue ?? '');
+		console.log('PromptQuillTextareaDialogComponent', promptQuillTextareaModalData);
+	}
+
+	ngAfterViewInit() {
+		const quillContainerElement = this.quillContainer()?.nativeElement;
+		if (!quillContainerElement) {
+			return;
+		}
+
+		this._quillInstance = new Quill(quillContainerElement, {
+			theme: 'snow',
+			placeholder: this.promptQuillTextareaModalData.inputPlaceholder,
+			modules: {
+				toolbar: [
+					['bold', 'italic', 'underline', 'strike'],
+					[{ list: 'ordered' }, { list: 'bullet' }],
+					['link'],
+					['clean'],
+				],
+			},
+		});
+
+		const initialEditorValue = this.editorValue();
+		if (initialEditorValue) {
+			this._quillInstance.clipboard.dangerouslyPasteHTML(initialEditorValue);
+		}
+
+		this._quillInstance.on('text-change', this._onEditorChange);
+	}
+
+	ngOnDestroy() {
+		if (!this._quillInstance) {
+			return;
+		}
+
+		this._quillInstance.off('text-change', this._onEditorChange);
+		this._quillInstance = null;
+	}
+}
+
 // Selection component with a title, a message, and selectable options
 @Component({
 	selector: 'lib-selection-dialog',
 	standalone: true,
 	imports: [CdkMenuModule],
 	template: `
-		<div class="modal-box bg-base-100 text-base-content w-full max-w-lg rounded-2xl p-0 shadow-2xl">
+		<div class="modal-box bg-base-100 text-base-content flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl p-0 shadow-2xl">
 			<!-- Header -->
 			<div class="border-base-200 flex items-center gap-3 border-b px-6 py-4">
 				<div class="bg-secondary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
@@ -600,7 +872,7 @@ export class PromptDialogComponent {
 			</div>
 
 			<!-- Content -->
-			<div class="flex max-h-[70vh] flex-col px-6 py-5">
+			<div class="flex min-h-0 flex-1 flex-col px-6 py-5">
 				@if (selectionModalData.message) {
 					<p
 						class="mb-5 text-sm opacity-80"
@@ -608,7 +880,7 @@ export class PromptDialogComponent {
 					></p>
 				}
 
-				<div class="space-y-3 overflow-y-auto pr-1">
+				<div class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
 					@for (option of selectionModalData.options; track option.value) {
 						<div
 							class="group rounded-xl border-2 transition-all duration-200"
@@ -819,12 +1091,12 @@ export class SnackNotificationComponent {
 
 	constructor() {
 		const data = this.dialogRef.config.data;
-		const config = this.dialogRef.config as any; // Cast to access custom properties
+		const autoCloseCandidate = Reflect.get(this.dialogRef.config, 'autoCloseMs');
 
 		this.title = data.title;
 		this.message = data.message;
 		// Get autoCloseMs from the config
-		this.autoCloseMs = config.autoCloseMs;
+		this.autoCloseMs = typeof autoCloseCandidate === 'number' ? autoCloseCandidate : undefined;
 
 		console.log('SnackNotificationComponent - autoCloseMs:', this.autoCloseMs);
 

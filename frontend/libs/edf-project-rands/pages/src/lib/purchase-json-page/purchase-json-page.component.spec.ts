@@ -1,7 +1,9 @@
-import * as SUT from './purchase-json-page.component';
+import { PurchaseJsonPageComponent } from './purchase-json-page.component';
 
 describe('purchase-json-page.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('PurchaseJsonPageComponent', () => {
+		it('is exported', () => {
+			expect(PurchaseJsonPageComponent).toBeDefined();
+		});
+	});
 });

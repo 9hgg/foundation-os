@@ -11,7 +11,8 @@
 	width: 100%;
 }
 
-:host-context(body.presentation-print-mode) [data-presentation-export-hide] {
+:host-context(body.presentation-print-mode) [data-presentation-export-hide],
+:host(.presentation-readonly) [data-presentation-export-hide] {
 	display: none !important;
 }
 
@@ -22,7 +23,8 @@
 	-webkit-mask-image: none !important;
 }
 
-:host-context(body.presentation-print-mode) .presentation-update-action {
+:host-context(body.presentation-print-mode) .presentation-update-action,
+:host(.presentation-readonly) .presentation-update-action {
 	display: none !important;
 }
 

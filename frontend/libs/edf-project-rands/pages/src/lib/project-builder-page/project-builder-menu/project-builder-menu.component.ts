@@ -34,7 +34,7 @@ export class ProjectBuilderMenuComponent {
 	public projectId = input<string | null>(null);
 	patchableProject = new PatchableItem<Project>(
 		this.projectId,
-		(id) => (id ? this._projectsRepository.store.getObjectById$$$(id, true).$ : of(null)),
+		(id) => (id ? this._projectsRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null)),
 		(projectId, patch) => this._projectsRepository.store.applyPatch(projectId, patch)
 	);
 	// public project = this.patchableProject.patchedItem;

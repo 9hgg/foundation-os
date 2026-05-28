@@ -31,6 +31,10 @@ export class MessagesRepository extends GenericRepository<Message> {
 		);
 	}
 
+	public deleteAsAdmin$(messageId: string) {
+		return this._requestService.deleteObject$<Message>(`/api/messages/admin/${messageId}`);
+	}
+
 	// debounce the function to avoid too many requests
 	private _messagesDetailsToFetch = new BehaviorSubject<string[]>([]);
 	public fetchMessagesDetails(messageIds: string[]) {

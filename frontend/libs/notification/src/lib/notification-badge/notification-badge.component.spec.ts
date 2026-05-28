@@ -1,7 +1,9 @@
-import * as SUT from './notification-badge.component';
+import { NotificationBadgeComponent } from './notification-badge.component';
 
 describe('notification-badge.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('NotificationBadgeComponent', () => {
+		it('is exported', () => {
+			expect(NotificationBadgeComponent).toBeDefined();
+		});
+	});
 });

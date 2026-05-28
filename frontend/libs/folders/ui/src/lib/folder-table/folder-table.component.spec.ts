@@ -1,7 +1,9 @@
-import * as SUT from './folder-table.component';
+import { FolderTableComponent } from './folder-table.component';
 
 describe('folder-table.component', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('FolderTableComponent', () => {
+		it('is exported', () => {
+			expect(FolderTableComponent).toBeDefined();
+		});
+	});
 });

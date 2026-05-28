@@ -1,7 +1,9 @@
-import * as SUT from './playlist.service';
+import { PlaylistService } from './playlist.service';
 
 describe('playlist.service', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	describe('PlaylistService', () => {
+		it('is exported', () => {
+			expect(PlaylistService).toBeDefined();
+		});
+	});
 });

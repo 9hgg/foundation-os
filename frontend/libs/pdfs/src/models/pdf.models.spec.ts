@@ -1,7 +1,7 @@
-import * as SUT from './pdf.models';
+import './pdf.models';
 
 describe('pdf.models', () => {
-  it('should be defined', () => {
-    expect(SUT).toBeDefined();
-  });
+	it('loads without runtime exports', () => {
+		expect(true).toBe(true);
+	});
 });

@@ -4,11 +4,13 @@ import sys
 import traceback
 from copy import deepcopy
 
+import ffmpeg
 import ffmpegio
+from PIL import Image
 
 from libs.files.config import FILES_SETTINGS
 from libs.logger import print, print_color
-from libs.logger.customLogger import print_error
+from libs.logger.customLogger import print_error, print_warning
 
 from ..models import FileAlternative
 from ..storage import GenericStorage
@@ -27,12 +29,19 @@ class AudioProcessor(GenericProcessor):
     def generate_alternatives(self, *, force: bool = False) -> list[FileAlternative]:
         """
         Generate the alternative files for an audio like:
+        - thumbnail (extracted from embedded artwork, if present)
         - mp3 (compressed for web)
         - flac (loss less)
         - subtitles (srt and json)
         """
 
         alternative_files = []
+
+        # alternative: "thumbnail" (embedded artwork, if present)
+        print("generate_alternatives: thumbnail")
+        alternative__thumbnail = self.__generate_audio_thumbnail(force=force)
+        if alternative__thumbnail is not None:
+            alternative_files.append(alternative__thumbnail)
 
         # alternative: "default" (mp3 compressed)
         alternative__default = self.__generate_same_compressed_audio(force=force)
@@ -58,6 +67,91 @@ class AudioProcessor(GenericProcessor):
                 alternative_files.append(alternative__whisper_transcript_srt)
 
         return alternative_files
+
+    def __generate_audio_thumbnail(self, *, force: bool = False) -> FileAlternative | None:
+        """
+        Extract the embedded artwork (cover art) from the audio file and use it as a thumbnail.
+        Returns None if no embedded artwork is found.
+        """
+
+        print("generate_audio_thumbnail")
+
+        if self.storage is None:
+            print_error("Storage is not available")
+            raise PermissionError
+
+        if self.storage_folder_path is None:
+            print_error("Storage is not available")
+            raise PermissionError
+
+        STORAGE_SUFFIX = "thumbnail"
+
+        if not force and self.storage.exists_in_storage(
+            storage_folder_path=self.storage_folder_path,
+            alternative=STORAGE_SUFFIX,
+        ):
+            print_color(
+                "green",
+                "(__generate_audio_thumbnail): alternative already exists",
+                self.storage_folder_path,
+                STORAGE_SUFFIX,
+            )
+            return None
+
+        raw_artwork_path = GenericStorage.get_temporary_local_path(suffix=".jpg")
+        output_path = GenericStorage.get_temporary_local_path(suffix=".jpg")
+
+        try:
+            # Extract the embedded artwork stream from the audio file.
+            # ffmpeg treats the cover art as a video stream; -an drops audio, -vcodec copy
+            # copies the image stream as-is. If no artwork exists ffmpeg raises an error.
+            (
+                ffmpeg.input(self.local_path)
+                .output(raw_artwork_path, an=None, vcodec="copy", vframes=1)
+                .run(overwrite_output=True, quiet=True)
+            )
+        except ffmpeg.Error:
+            # No embedded artwork — expected for audio files without cover art.
+            print_color("green", "(__generate_audio_thumbnail): no embedded artwork found, skipping thumbnail")
+            for path in (raw_artwork_path, output_path):
+                if os.path.exists(path):
+                    os.remove(path)
+            return None
+
+        try:
+            # Resize the artwork to a standard 200×200 thumbnail.
+            with Image.open(raw_artwork_path) as pil_image:
+                pil_image = pil_image.convert("RGB")
+                pil_image.thumbnail((200, 200), Image.Resampling.LANCZOS)
+                pil_image.save(output_path, format="JPEG", quality=85, optimize=True)
+        except Exception as error:
+            print_warning("(__generate_audio_thumbnail): failed to resize embedded artwork:", error)
+            for path in (raw_artwork_path, output_path):
+                if os.path.exists(path):
+                    os.remove(path)
+            return None
+        finally:
+            if os.path.exists(raw_artwork_path):
+                os.remove(raw_artwork_path)
+
+        self.storage.upload(
+            local_path=output_path,
+            storage_folder_path=self.storage_folder_path,
+            alternative=STORAGE_SUFFIX,
+            force=True,
+        )
+        file_stats = os.stat(output_path)
+        os.remove(output_path)
+
+        return FileAlternative(
+            alternative_filename="thumbnail.jpg",
+            storage_suffix=STORAGE_SUFFIX,
+            description="Thumbnail extracted from embedded audio artwork",
+            size=file_stats.st_size,
+            kind="image",
+            mime="image/jpeg",
+            extension=".jpg",
+        )
 
     def __generate_same_compressed_audio(self, *, force: bool = False) -> FileAlternative | None:
         """
