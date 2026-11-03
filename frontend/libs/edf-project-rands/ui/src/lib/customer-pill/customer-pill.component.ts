@@ -42,7 +42,7 @@ export class CustomerPillComponent implements OnDestroy {
 			}
 
 			this._customersRepository.store
-				.getObjectById$$$(customerId_, true)
+				.getObjectByIdPullOnce$$$(customerId_)
 				.$.pipe(
 					filter((a) => !!a),
 					take(1),

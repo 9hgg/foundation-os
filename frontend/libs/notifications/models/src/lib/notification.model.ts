@@ -94,4 +94,25 @@ interface NotificationInteractionForm extends NotificationBase {
 	config: NotificationInteractionFormConfig;
 }
 
-export type Notification = NotificationReaction | NotificationComment | NotificationReply | NotificationMention | NotificationInteraction | NotificationInteractionForm;
+// TICKET
+interface NotificationTicketConfig {
+	userId: string;
+}
+/** A support ticket or a feature request was opened -- someone stuck, or someone wishing. Same
+ *  shape, different news, so they are different kinds rather than one wearing both names.
+ *  Neither carries a message: the author may write one later, or never, which is exactly why the
+ *  creation is worth a notification of its own. */
+interface NotificationTicket extends NotificationBase {
+	targetId: string;
+	kind: 'ticket' | 'feature_request';
+	config: NotificationTicketConfig;
+}
+
+export type Notification =
+	| NotificationReaction
+	| NotificationComment
+	| NotificationReply
+	| NotificationMention
+	| NotificationInteraction
+	| NotificationInteractionForm
+	| NotificationTicket;

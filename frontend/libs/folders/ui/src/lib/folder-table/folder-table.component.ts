@@ -6,7 +6,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Folder } from '@foundation/folders/models';
 import { FoldersRepository } from '@foundation/folders/state';
 import { Filter } from '@foundation/network/store';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { BehaviorSubjectReplayedProxied } from '@foundation/utils';
 import { of, switchMap } from 'rxjs';
 
@@ -14,6 +14,7 @@ import { of, switchMap } from 'rxjs';
 	selector: 'lib-folder-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		//
 		CommonModule,
 		ReactiveFormsModule,

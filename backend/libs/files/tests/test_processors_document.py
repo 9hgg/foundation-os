@@ -1,12 +1,16 @@
-import os
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from libs.files.models import ExtraDetailsFile, File
-from libs.files.processors.document import DocumentProcessor, NoLocalPathError, NoStorageAvailableError, NoStorageFolderPathError
+from libs.files.processors.document import (
+    DocumentProcessor,
+    NoLocalPathError,
+    NoStorageAvailableError,
+    NoStorageFolderPathError,
+)
 from libs.files.storage import GenericStorage
 
 

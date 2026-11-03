@@ -1,16 +1,15 @@
 """init models
 
 Revision ID: 6f91b7161f16
-Revises: 
+Revises:
 Create Date: 2026-01-19 23:41:29.866589
 
 """
 
 import sqlalchemy as sa
 import sqlmodel.sql.sqltypes
-from sqlalchemy.dialects import postgresql
-
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '6f91b7161f16'

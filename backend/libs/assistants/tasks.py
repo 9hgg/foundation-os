@@ -1,8 +1,10 @@
 """Background task that generates an AI reply for a stored conversation using Bob."""
 
 from dataclasses import dataclass
-from tempfile import mkdtemp, mktemp
+from tempfile import mkdtemp
 from uuid import UUID
+
+import structlog
 
 from libs.bob.bob.bob import BobRuntime
 from libs.bob.bob.shell import run_bob_shell_turn
@@ -11,11 +13,9 @@ from libs.bob.history.history import History, HistoryEntryKind
 from libs.bob.tools import (
     build_plan_tools,
     build_report_tools,
-    build_store_tools,
 )
 from libs.conversations.models import Conversation
 from libs.db import context_db
-from libs.logger.customLogger import print_color
 from libs.messages.models import Message
 from libs.ml.llm import LLMClient
 from libs.tasks.models import Task
@@ -26,12 +26,13 @@ from libs.users.models import User
 from .config import ASSISTANTS_SETTINGS
 from .constants import _AI_RESPONSE_KIND, _THINKING_KIND
 from .methods.users import _resolve_auth_token
-from .methods.utils import _set_task_progress
 
 _FALLBACK_REPLY = (
     "I was unable to generate a response for this request. "
     "Please try again or rephrase your question."
 )
+
+logger = structlog.get_logger(__name__)
 
 
 def format_bob_thinking(history: History) -> str:
@@ -145,7 +146,7 @@ def run_bob_assistant_task(
     if conversation_db is None:
         raise ValueError(f"Conversation {conversation_id} not found")  # noqa: TRY003
 
-    # _set_task_progress(task, task_manager, 5.0)
+    # TasksManager.set_task_progress(task, 5.0)
 
     with context_db() as db:
         messages_db: list[Message] = (
@@ -164,15 +165,12 @@ def run_bob_assistant_task(
     non_thinking_messages: list[Message] = [
         m for m in messages_db if m.kind != _THINKING_KIND
     ]
-    auth_token = _resolve_auth_token(non_thinking_messages, user_id)
+    _resolve_auth_token(non_thinking_messages, user_id)
 
     # 3. Resolve MCP server URL
     mcp_server_url = _resolve_assistant_mcp_server_url()
     if not mcp_server_url:
-        print_color(
-            "yellow",
-            "[bob-assistant] no MCP server configured — running without MCP tools",
-        )
+        logger.warning("assistant_mcp_server_unconfigured", assistant=assistant_name)
 
     # 4. Run Bob conversation
     # conversation_messages = build_conversation_messages(non_thinking_messages)
@@ -216,7 +214,11 @@ def run_bob_assistant_task(
             timeout_seconds=120.0,
         )
     except TimeoutError as error:
-        print_color("yellow", f"[bob-assistant] timed out: {error}")
+        logger.warning(
+            "assistant_turn_timeout",
+            assistant=assistant_name,
+            error_type=type(error).__name__,
+        )
     finally:
         runtime.stop_looper()
         looper_thread = runtime.looper_thread
@@ -239,15 +241,15 @@ def run_bob_assistant_task(
     ]
     if assistant_messages:
         reply_content = str(assistant_messages[-1].content or "").strip()
-        print_color("cyan", f"[bob-assistant] reply ({len(reply_content)} chars)")
+        logger.info("assistant_reply_generated", assistant=assistant_name, character_count=len(reply_content))
     else:
         reply_content = _FALLBACK_REPLY
-        print_color("yellow", "[bob-assistant] no reply found — using fallback")
+        logger.warning("assistant_reply_missing", assistant=assistant_name, using_fallback=True)
 
     thinking_content = format_bob_thinking(runtime.history)
 
-    print_color("cyan", f"[bob-assistant] reply ({len(reply_content)} chars)")
-    _set_task_progress(task, task_manager, 90.0)
+    logger.debug("assistant_reply_ready", assistant=assistant_name, character_count=len(reply_content))
+    TasksManager.set_task_progress(task, 90.0)
 
     # 5. Persist to DB
     thinking_is_meaningful = (
@@ -263,7 +265,7 @@ def run_bob_assistant_task(
                 "title": f"{assistant_name} thinking",
             }
         )
-        print_color("cyan", "[bob-assistant] saved thinking message")
+        logger.info("assistant_thinking_saved", assistant=assistant_name)
 
     new_message = Message.create(
         obj_dict={
@@ -273,5 +275,5 @@ def run_bob_assistant_task(
             "title": f"{assistant_name} reply",
         }
     )
-    print_color("green", f"[bob-assistant] saved reply as message {new_message.id}")
+    logger.info("assistant_reply_saved", assistant=assistant_name, message_id=str(new_message.id))
     return str(new_message.id)

@@ -3,7 +3,7 @@ import { LightPaginatedResponse, PaginatedResponse, PaginatedResponseHoled, Pagi
 import { anyToObservable, BehaviorSubjectReplayed, BehaviorSubjectReplayedFromObs, getBestStorage, TabManagerService } from '@foundation/utils';
 import { inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { BehaviorSubject, combineLatest, map, NEVER, Observable, of, shareReplay, skipUntil, Subject, switchMap, take, tap } from 'rxjs';
+import { BehaviorSubject, combineLatest, EMPTY, map, NEVER, Observable, of, shareReplay, skipUntil, Subject, switchMap, take, tap } from 'rxjs';
 
 const alert = console.error;
 
@@ -155,7 +155,7 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 	}
 
 	getAclsForObject$(objectId: string) {
-		return this._requestService.getBasic$<Acl[]>('/api/acls/for/' + this._name + '/' + objectId).pipe(
+		return this._requestService.getBasic$<{ acls: Acl[]; canWrite: boolean }>('/api/resources/for/' + this._name + '/' + objectId + '/acls').pipe(
 			tap((response) => {
 				if (response.error) {
 					alert(response.error.title);
@@ -281,7 +281,10 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 		const resultFromRequest$ = this.pullObjects$(page, pageSize, filters, orderingBy, ignoreAnonymous, bypass_acls).pipe(
 			switchMap((response) => {
 				if (response.error) {
-					throw response.error;
+					// pullObjects$ has already reported the endpoint error. Completing
+					// keeps fire-and-forget paginator subscriptions from turning an
+					// expected API/network failure into an unhandled RxJS exception.
+					return EMPTY;
 				}
 				const objectIds: string[] = response.result.data.map((object) => object.id);
 				const lightPaginatedResponseData: Record<string, any> = {};
@@ -369,6 +372,27 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 
 		this.objects$$$.next(objects);
 		return newObject;
+	}
+
+	/**
+	 * Drop an object from the store without asking the server.
+	 *
+	 * The counterpart of `upsertObjectLocally`, for the same situation: an endpoint outside the
+	 * CRUD router (an admin one, typically) has just deleted this object, and the store should
+	 * stop holding it. Issues no request, so it works whatever the CRUD router publishes.
+	 */
+	removeObjectLocally(objectId: ObjectType['id'], broadcast: boolean = false) {
+		const objects = this.objects$$$.value.filter((object) => object.id !== objectId);
+		this.objects$$$.next(objects);
+		if (broadcast)
+			this.bc?.postMessage({
+				type: 'delete',
+				tab: this._tabManagerService.tabId.substring(0, 8),
+				endpoint: this._restEndpoint,
+				name: this._name,
+				timestamp: Date.now(),
+				objectId,
+			});
 	}
 
 	/**
@@ -552,6 +576,9 @@ export class SmartRestStore<ObjectType extends { id: string }> {
 					type: 'local-upsert',
 					object: eventData.object,
 				});
+			} else if (eventData.type === 'delete') {
+				if (DEBUG) console.log('[smartRestStore](bc.onmessage) removing object', eventData.objectId);
+				this.removeObjectLocally(eventData.objectId, false);
 			} else {
 				if (DEBUG) console.log('[smartRestStore](bc.onmessage) received message of type', eventData.type, 'but not handled');
 			}

@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Union
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from jose import jwt
 
@@ -8,9 +8,9 @@ from .config import TOKENS_SETTINGS
 
 def create_jwt_token(
     token_context_key: str,
-    subject: Union[str, Any],
-    expires_delta: Optional[timedelta] = None,
-    extra_data_to_encode: Optional[dict] = None,
+    subject: str | Any,
+    expires_delta: timedelta | None = None,
+    extra_data_to_encode: dict | None = None,
 ) -> str:
     """
     Create a JSON Web Token (JWT) with the given parameters.
@@ -24,7 +24,7 @@ def create_jwt_token(
         str: The encoded JWT as a string.
     """
 
-    at = datetime.now(timezone.utc)
+    at = datetime.now(UTC)
     if expires_delta:
         expire = at + expires_delta
     else:

@@ -1,7 +1,7 @@
 /* eslint-disable @angular-eslint/prefer-inject */
 import { Deliverable } from '@edf/edf-project-rands/models';
 import { DeliverablesRepository } from '@edf/edf-project-rands/state';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
@@ -14,6 +14,7 @@ import { AccessService } from '@foundation/shared/access';
 	selector: 'lib-deliverable-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		CommonModule,
 		TranslateDirective,
 		TranslatePipe,

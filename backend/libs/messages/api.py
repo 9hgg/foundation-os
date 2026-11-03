@@ -1,7 +1,8 @@
-import typing
+# ruff: noqa: E402
 import uuid
 
 import fastapi
+import structlog
 from fastapi import Body, Query, Request, status
 from sqlalchemy import func
 
@@ -12,8 +13,9 @@ from libs.db import context_db
 from libs.endpoints import create_crud_endpoints
 from libs.endpoints.endpoints import add_acl_filters, decode_filters, get_resource_if_READ_allowed
 from libs.endpoints.types import PaginatedResponse, SimpleResponse, get_paginated_results
-from libs.logger.customLogger import print_color
-from libs.notifications.methods import notify, notify_to_writers
+
+_logger = structlog.get_logger(__name__)
+from libs.notifications.methods import notify, notify_admins, notify_to_writers
 from libs.resource import ResourceManager, getattr_by_alias_or_name
 from libs.users.models import User
 from libs.utils.deps import ClassicDeps__dep
@@ -22,7 +24,7 @@ from libs.utils.types import EndpointError, EndpointOutput
 from .models import Message
 
 
-def create_crud_message_router(prefix: str = "/api/messages"):
+def create_crud_message_router(prefix: str = "/api/messages"):  # noqa: C901
     """
     Create a CRUD router for messages with custom endpoints.
     """
@@ -102,13 +104,13 @@ def create_crud_message_router(prefix: str = "/api/messages"):
         operation_id=f"list_{Message.__kind__}_paginated",
         summary=(f"List all accessible from {Message.__tablename__}, paginated"),
     )
-    def read_resources(
+    def read_resources(  # noqa: C901
         request: Request,
         classic_deps: ClassicDeps__dep,
         page: int = Query(1, gt=0),
         page_size: int = Query(100, gt=0, le=1000),
-        filters: typing.Optional[list[str]] = Query(None),
-        ordering_by: typing.Optional[str] = Query(None),
+        filters: list[str] | None = Query(None),
+        ordering_by: str | None = Query(None),
     ):
         """
         List all messages with pagination and filters.
@@ -217,14 +219,10 @@ def create_crud_message_router(prefix: str = "/api/messages"):
                     if f.match_type == "exact":
                         query = query.filter(field == f.value)
                     elif f.match_type == "partial":
-                        print_color(
-                            "yellow",
-                            "Partial match on",
-                            field,
-                            "using:",
-                            (f.value.lower() if isinstance(f.value, str) else f.value),
-                            "for",
-                            f.value,
+                        _logger.info(
+                            "message_filter_partial_match",
+                            field=f.field_name,
+                            value=(f.value.lower() if isinstance(f.value, str) else f.value),
                         )
 
                         query = query.filter(field.ilike(f"%{f.value}%"))
@@ -386,7 +384,7 @@ def create_crud_message_router(prefix: str = "/api/messages"):
         operation_id=f"update_{Message.__kind__}",
         summary=f"Update a row in {Message.__tablename__}",
     )
-    def update_resource(
+    def update_resource(  # noqa: C901
         message_id: str,
         message_in: Message,
         classic_deps: ClassicDeps__dep,
@@ -402,6 +400,18 @@ def create_crud_message_router(prefix: str = "/api/messages"):
                     title=translator.translate("Unauthorized"),
                     description=translator.translate("You must be logged in to create a resource."),
                     code="Unauthorized",
+                )
+            )
+
+        # A suspended conversation keeps everything that was said and accepts nothing new.
+        conversation_db = Conversation.by_id(message_in.conversation_id) if message_in.conversation_id else None
+        if conversation_db and conversation_db.status != "active":
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Conversation closed"),
+                    description=translator.translate("This conversation no longer accepts new messages."),
+                    details={"conversation_status": conversation_db.status},
+                    code="conversation_closed",
                 )
             )
 
@@ -423,7 +433,7 @@ def create_crud_message_router(prefix: str = "/api/messages"):
             # independant of ACLs
             message_already_exists = Message.in_db(obj_id=message_id, _db=db)
 
-        message_db: typing.Optional[Message] = None
+        message_db: Message | None = None
 
         if message_already_exists:
             if message_through_acl_db is None:
@@ -519,9 +529,24 @@ def create_crud_message_router(prefix: str = "/api/messages"):
             },
             kind="comment",
             content="A comment on the conversation of your resource",
-            include_admins=True,
             for_key=f"conversation_{conversation_db.id}",
         )
+
+        # Support tickets and feature requests are the only conversations that warrant
+        # pinging the app admins. Regular article comments (published content) do not.
+        if conversation_db.resource_kind == "article" and getattr(resource_db, "kind", None) in ("support", "backlog"):
+            notify_admins(
+                resource=resource_db,
+                config={
+                    "conversationId": str(conversation_db.id),
+                    "messageId": str(message_db.id),
+                    "userId": str(current_user_db.id),
+                },
+                kind="comment",
+                content="A new message on a support ticket",
+                current_user_db=current_user_db,
+                for_key=f"conversation_{conversation_db.id}",
+            )
 
         # if the message has a config["replyTo"] field, notify the user that sent the original message
         if message_db.config.reply_to is not None:
@@ -552,7 +577,7 @@ def create_crud_message_router(prefix: str = "/api/messages"):
         )
 
     @crud_message_router.post("/{message_id}/reaction/toggle", status_code=status.HTTP_200_OK)
-    def toggle_message_reaction(
+    def toggle_message_reaction(  # noqa: C901
         message_id: str,
         classic_deps: ClassicDeps__dep,
         reaction: str = Body(..., description="Reaction emoji"),

@@ -1,0 +1,74 @@
+@if (state(); as paginatorState) {
+	<div
+		name="table-footer"
+		class="bg-base-200/30 border-base-200 flex w-full shrink-0 items-center border-t"
+		[class]="denseDisplay() ? 'gap-2 px-2 py-1' : 'p-4'"
+	>
+		@if (paginatorState.totalNumberOfPages > 1) {
+			<div class="join">
+				<button
+					type="button"
+					class="btn join-item"
+					[class]="denseDisplay() ? 'btn-xs' : 'btn-sm'"
+					data-testid="paginator-previous"
+					[disabled]="!paginatorState.hasPrev"
+					[attr.aria-label]="'Previous page'"
+					(click)="paginator().previousPage()"
+				>
+					«
+				</button>
+				<button
+					type="button"
+					class="btn join-item no-animation cursor-default"
+					[class]="denseDisplay() ? 'btn-xs' : 'btn-sm'"
+					tabindex="-1"
+				>
+					<span class="text-xs font-medium">{{ 'Page' | translate | async }} {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }}</span>
+				</button>
+				<button
+					type="button"
+					class="btn join-item"
+					[class]="denseDisplay() ? 'btn-xs' : 'btn-sm'"
+					data-testid="paginator-next"
+					[disabled]="!paginatorState.hasNext"
+					[attr.aria-label]="'Next page'"
+					(click)="paginator().nextPage()"
+				>
+					»
+				</button>
+			</div>
+		}
+
+		<div class="ml-auto flex items-center gap-3">
+			@if (!hidePageSizeOption() && pageSizeOptions().length > 0) {
+				<label class="flex items-center gap-1">
+					<span
+						class="text-base-content/40 font-medium tracking-tight uppercase"
+						[class]="denseDisplay() ? 'text-[10px]' : 'text-xs'"
+					>
+						{{ 'Per page' | translate | async }}
+					</span>
+					<select
+						class="select select-bordered"
+						[class]="denseDisplay() ? 'select-xs' : 'select-sm'"
+						data-testid="paginator-page-size"
+						[attr.aria-label]="'Rows per page'"
+						[value]="paginatorState.numberOfItemsPerPage"
+						(change)="paginator().setPageSize(+$any($event.target).value)"
+					>
+						@for (option of sizeChoices(); track option) {
+							<option [value]="option">{{ option }}</option>
+						}
+					</select>
+				</label>
+			}
+
+			<div
+				class="text-base-content/40 font-medium tracking-tight uppercase"
+				[class]="denseDisplay() ? 'truncate text-[10px]' : 'text-xs'"
+			>
+				{{ 'Total' | translate | async }}: {{ paginatorState.totalNumberOfItems }} {{ 'items' | translate | async }}
+			</div>
+		</div>
+	</div>
+}

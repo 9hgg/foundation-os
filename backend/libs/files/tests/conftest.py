@@ -8,7 +8,7 @@ import pytest
 os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
 os.environ.setdefault("APP_SECRET", "test_app_secret")
 os.environ.setdefault("SENDER_EMAIL", "sender@example.com")
-os.environ.setdefault("EMAIL_TEMPLATES_DIR", "/tmp/templates")
+os.environ.setdefault("EMAIL_TEMPLATES_DIR", "/tmp/templates")  # noqa: S108
 os.environ.setdefault("DEFAULT_STORAGE_ID", "00000000-0000-0000-0000-000000000000")
 os.environ.setdefault("PADDLE_API_KEY", "test_paddle_key")
 os.environ.setdefault("PADDLE_SANDBOX", "True")
@@ -19,7 +19,7 @@ def mock_env(monkeypatch):
     monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
     monkeypatch.setenv("APP_SECRET", "test_app_secret")
     monkeypatch.setenv("SENDER_EMAIL", "sender@example.com")
-    monkeypatch.setenv("EMAIL_TEMPLATES_DIR", "/tmp/templates")
+    monkeypatch.setenv("EMAIL_TEMPLATES_DIR", "/tmp/templates")  # noqa: S108
     monkeypatch.setenv("DEFAULT_STORAGE_ID", "00000000-0000-0000-0000-000000000000")
     monkeypatch.setenv("PADDLE_API_KEY", "test_paddle_key")
     monkeypatch.setenv("PADDLE_SANDBOX", "True")
@@ -31,7 +31,12 @@ def mock_env(monkeypatch):
 def mock_file_storage():
     from libs.files.models import StorageSettings
 
-    with patch("libs.files.api.get_file_storage") as mock:
+    # The endpoints reach storage directly; the presigned-url helpers reach it from their own
+    # module, so both namespaces have to point at the same fake.
+    with (
+        patch("libs.files.api.get_file_storage") as mock,
+        patch("libs.files.storage.methods.get_file_storage", new=mock),
+    ):
         storage_mock = MagicMock()
         storage_mock.storage_settings = MagicMock(spec=StorageSettings)
         storage_mock.storage_settings.id = uuid.uuid4()
@@ -42,7 +47,7 @@ def mock_file_storage():
         storage_mock.get_size.return_value = 1024
         storage_mock.upload.return_value = True
         storage_mock.storage_type = "local"
-        storage_mock.config.path = "/tmp/storage"
+        storage_mock.config.path = "/tmp/storage"  # noqa: S108
         mock.return_value = storage_mock
         yield mock
 

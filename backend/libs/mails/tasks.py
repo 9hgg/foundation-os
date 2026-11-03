@@ -1,10 +1,9 @@
-import traceback
 from uuid import UUID
 
+import structlog
 from sqlalchemy import func, text
 
 from libs.db import context_db
-from libs.logger import print, print_error
 from libs.tasks.models import Task
 from libs.tasks.tasks_manager import TasksManager
 
@@ -15,6 +14,8 @@ from .providers.smtp._generic import GenericSMTPProvider
 MAX_EMAILS = 10
 MAX_ATTEMPTS = 3
 MINIMUM_BACKOFF_SECONDS = 5
+
+logger = structlog.get_logger(__name__)
 
 
 def exponential_backoff(attempt: int):
@@ -40,26 +41,30 @@ class MailNotFoundException(Exception):
 
 @TasksManager.enlist_task()
 def send_email(**kwargs):
+    task = kwargs.get("task")
+
     mail_id = kwargs.get("mail_id")
     if mail_id is None:
         raise MailIdRequiredException()
 
+    TasksManager.set_task_progress(task, 5.0)
+
     mail_db = Mail.by_id(mail_id)
     if mail_db is None:
-        print_error("Mail not found")
+        logger.error("mail_not_found", mail_id=str(mail_id))
         raise MailNotFoundException()
 
     mail_settings = MailSettings.by_id(MAILS_SETTINGS.MAIL_SETTINGS_ID)
     if mail_settings is None:
-        print_error("Mail settings not found")
+        logger.error("mail_settings_not_found")
         # check if the mail settings is not the 00000000-0000-0000-0000-000000000000
         if MAILS_SETTINGS.MAIL_SETTINGS_ID == UUID(  # noqa: SIM300
             "00000000-0000-0000-0000-000000000000"
         ):
-            print_error(
-                "Mail settings ID is the default placeholder, please set it in the config."
-            )
+            logger.error("mail_settings_placeholder_configured")
         raise MailSettingsNotFoundException()
+
+    TasksManager.set_task_progress(task, 20.0)
 
     mail_attempt = MailAttempt.create(
         obj_dict={
@@ -74,7 +79,9 @@ def send_email(**kwargs):
             mail_settings=mail_settings,
         )
 
-        print("Sending email with SMTP provider", smtp_provider.mail_settings.name)
+        logger.info("email_sending", provider=type(smtp_provider).__name__)
+
+        TasksManager.set_task_progress(task, 40.0)
 
         smtp_provider.send_email_with_attachments(
             sender_email=mail_db.sender,
@@ -82,9 +89,12 @@ def send_email(**kwargs):
             subject=mail_db.subject,
             text_content=mail_db.body,
             html_content=mail_db.body_html,
+            cc_emails=mail_db.config.cc,
             # headers=[],
             # dry_run=True,
         )
+
+        TasksManager.set_task_progress(task, 90.0)
 
         Mail.patch(
             obj_id=mail_db.id,
@@ -100,10 +110,14 @@ def send_email(**kwargs):
             },
         )
 
+        TasksManager.set_task_progress(task, 100.0)
+
     except Exception as e:
-        print_error("Error sending email", e)
-        # print stack trace
-        traceback.print_exc()
+        logger.exception(
+            "email_send_failed",
+            mail_id=str(mail_db.id),
+            error_type=type(e).__name__,
+        )
         try:
             Mail.patch(
                 obj_id=mail_db.id,
@@ -112,7 +126,7 @@ def send_email(**kwargs):
                 },
             )
         except Exception as e:
-            print_error("Error updating mail", e)
+            logger.exception("mail_failure_status_update_failed", error_type=type(e).__name__)
 
         try:
             MailAttempt.patch(
@@ -123,12 +137,12 @@ def send_email(**kwargs):
                 },
             )
         except Exception as e:
-            print_error("Error updating mail_attempt", e)
+            logger.exception("mail_attempt_failure_status_update_failed", error_type=type(e).__name__)
 
 
 @TasksManager.enlist_task()
 def process_emails(**kwargs):
-    print("Processing emails", kwargs)
+    logger.debug("email_processing_started")
 
     ## Task "process_emails" => subtasks creation for each email with the status "pending" and "failed"
     #    - should update the status of the mail to "processing"
@@ -159,10 +173,10 @@ def process_emails(**kwargs):
         mails_and_attempts = query.all()
 
         for mail, attempts_count in mails_and_attempts:
-            print("Processing mail", mail.id)
+            logger.debug("mail_processing", mail_id=str(mail.id))
             # TODO: if attempt count > MAX_ATTEMPTS, we should replace the mail by another one to the admin
             if attempts_count >= MAX_ATTEMPTS:
-                print("Mail has reached the maximum number of attempts", mail.id)
+                logger.warning("mail_max_attempts_reached", mail_id=str(mail.id))
                 continue
 
             # # 2 - Update the status of the mail to "processing"
@@ -194,5 +208,5 @@ def process_emails(**kwargs):
         mails_processing = query_status_processing.all()
 
         for mail in mails_processing:
-            print("Mail has been processing for more than 1 minute", mail.id)
+            logger.warning("mail_processing_stale", mail_id=str(mail.id))
             Mail.patch(obj_id=mail.id, update_dict={"status": "failed"}, _db=db)

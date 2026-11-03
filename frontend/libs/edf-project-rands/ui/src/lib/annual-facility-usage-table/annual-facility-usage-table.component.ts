@@ -1,7 +1,7 @@
 /* eslint-disable @angular-eslint/prefer-inject */
 import { AnnualFacilityUsage, getOverheadCoefficient } from '@edf/edf-project-rands/models';
 import { AnnualFacilityUsagesRepository } from '@edf/edf-project-rands/state';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { TranslateDirective } from '@foundation/translations/services';
 import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component, EventEmitter, Output, input, signal } from '@angular/core';
@@ -14,7 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 @Component({
 	selector: 'lib-annual-facility-usage-table',
 	standalone: true,
-	imports: [CommonModule, TranslateDirective, ReactiveFormsModule, FormsModule, FacilityPillComponent],
+	imports: [TablePaginatorComponent, CommonModule, TranslateDirective, ReactiveFormsModule, FormsModule, FacilityPillComponent],
 	templateUrl: './annual-facility-usage-table.component.html',
 	styleUrl: './annual-facility-usage-table.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,

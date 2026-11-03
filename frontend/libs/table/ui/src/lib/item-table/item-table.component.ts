@@ -10,6 +10,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { cloneDeep } from 'lodash-es';
 import { combineLatest, of, switchMap, tap } from 'rxjs';
 import { BehaviorType, GenericItemTableComponent, PAGINATOR_OPTIONS } from '../generic-item-table/generic-item-table.component';
+import { TablePaginatorComponent } from '../table-paginator/table-paginator.component';
 
 export const ITEM_REPOSITORY = 'ITEM_REPOSITORY';
 
@@ -17,6 +18,7 @@ export const ITEM_REPOSITORY = 'ITEM_REPOSITORY';
 	selector: 'lib-item-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		//
 		CommonModule,
 		TranslateDirective,

@@ -33,7 +33,7 @@ export class ConversationsRepository extends GenericRepository<Conversation> {
 					console.error('No conversation ID returned');
 					return of(null);
 				}
-				return this.store.getObjectById$$$(conversationId).$;
+				return this.store.getObjectByIdPullOnce$$$(conversationId).$;
 			})
 		);
 	}
@@ -52,7 +52,7 @@ export class ConversationsRepository extends GenericRepository<Conversation> {
 				if (!conversationId) {
 					return of(null);
 				}
-				return this.store.getObjectById$$$(conversationId).$;
+				return this.store.getObjectByIdPullOnce$$$(conversationId).$;
 			})
 		);
 	}

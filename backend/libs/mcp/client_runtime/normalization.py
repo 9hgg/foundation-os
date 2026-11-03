@@ -94,7 +94,7 @@ def find_primary_list(data: Any) -> list[Any] | None:
 
 
 def short_scalar(value: Any, limit: int = 160) -> str | int | float | bool | None:
-    if value is None or isinstance(value, (bool, int, float)):
+    if value is None or isinstance(value, bool | int | float):
         return value
     if isinstance(value, str):
         cleaned = re.sub(r"\s+", " ", value).strip()

@@ -145,6 +145,17 @@ describe('SmartRestStore', () => {
 		});
 	});
 
+	describe('getObjects$', () => {
+		it('does not rethrow endpoint errors from its internal paginator request', () => {
+			const observerError = vi.fn();
+			requestMock.getObjectList$.mockReturnValue(of({ error: { title: 'Offline', description: 'Network unavailable' } }));
+
+			store.getObjects$(1, 10, [], undefined, true).subscribe({ error: observerError });
+
+			expect(observerError).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('deleteObject$', () => {
 		it('removes the object from store after delete', async () => {
 			store.upsertObjectLocally({ id: 'del1', name: 'Del' });

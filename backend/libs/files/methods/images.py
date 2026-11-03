@@ -1,4 +1,7 @@
 import cv2
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 ############################################################
 #                                                          #
@@ -17,8 +20,7 @@ def generate_square_centered_image(filename: str, output: str):
 
     width = img.shape[1]
     height = img.shape[0]
-    print("(generate_square_centered_image): image width:", width)
-    print("(generate_square_centered_image): image height:", height)
+    logger.debug("square_image_loaded", width=width, height=height)
     min_size = 1400
     max_size = 3000
     max_bytes = 500_000
@@ -36,29 +38,26 @@ def generate_square_centered_image(filename: str, output: str):
 
     # Resize the image if necessary
     if target_size < min_size:
-        print(
-            "(generate_square_centered_image): image too small, will be upscaled to:",
-            min_size,
-        )
+        logger.debug("square_image_upscaling", original_size=target_size, target_size=min_size)
         cropped_img = cv2.resize(cropped_img, (min_size, min_size))
     elif target_size > max_size:
-        print(
-            "(generate_square_centered_image): image too large, will be downscaled to:",
-            max_size,
-        )
+        logger.debug("square_image_downscaling", original_size=target_size, target_size=max_size)
         cropped_img = cv2.resize(cropped_img, (max_size, max_size))
 
     # Check the size of the image
     img_size_bytes = len(cv2.imencode(".jpg", cropped_img)[1])
-    print("image size ############################", img_size_bytes)
+    logger.debug("square_image_encoded", size_bytes=img_size_bytes, jpeg_quality=jpeg_quality)
     while img_size_bytes > max_bytes:
-        print(
-            f"(generate_square_centered_image): image size {img_size_bytes} bytes is above the maximum allowed {max_bytes} bytes. \nCompressing image with quality {jpeg_quality}"
+        logger.debug(
+            "square_image_recompressing",
+            size_bytes=img_size_bytes,
+            max_bytes=max_bytes,
+            jpeg_quality=jpeg_quality,
         )
         jpeg_quality -= 5
         if jpeg_quality <= 0:
             return None
         successfull_encoding, img_data = cv2.imencode(".jpg", cropped_img, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality])
         img_size_bytes = len(img_data)
-        print("new image size ############################", img_size_bytes)
+        logger.debug("square_image_recompressed", size_bytes=img_size_bytes, jpeg_quality=jpeg_quality)
     cv2.imwrite(output, cropped_img, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality])

@@ -1,11 +1,13 @@
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+
 from libs.endpoints.api import create_dummy_test_endpoints_router
-from libs.users.methods import get_current_user_optional
-from libs.sessions.methods import get_current_session_optional
 from libs.i18n.deps import get_translator
+from libs.sessions.methods import get_current_session_optional
+from libs.users.methods import get_current_user_optional
 
 
 def test_create_dummy_test_endpoints_router():

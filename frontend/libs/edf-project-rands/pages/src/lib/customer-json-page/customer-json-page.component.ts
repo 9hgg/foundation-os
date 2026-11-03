@@ -18,7 +18,7 @@ export class CustomerJsonPageComponent {
 	public customerId = model<string | null>(null);
 
 	customer$$$ = new BehaviorSubjectReplayedProxied<string | null, Customer | null>((id: string | null) => {
-		return id ? this._customersRepository.store.getObjectById$$$(id).$ : of(null);
+		return id ? this._customersRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	constructor() {

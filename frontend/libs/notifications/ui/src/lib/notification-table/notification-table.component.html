@@ -109,6 +109,68 @@
 													</div>
 												</div>
 											}
+											@case ('mention') {
+												<div class="flex flex-col text-sm">
+													<div class="flex items-center gap-1">
+														<span [translate]>Mentioned by</span>
+														<span class="font-bold"><lib-user-pill [userId]="notification.config.userId" /></span>
+													</div>
+													<div class="text-base-content/70 flex items-center gap-1 text-xs">
+														<span
+															[translate]
+															[translationContext]="'mention over'"
+															>on</span
+														>
+														<span class="font-medium"><lib-article-pill [articleId]="notification.targetId" /></span>
+													</div>
+												</div>
+											}
+											@case ('interaction.interview') {
+												<div class="flex flex-col text-sm">
+													<div class="flex items-center gap-1">
+														<span [translate]>New interview interaction</span>
+													</div>
+													<div class="text-base-content/70 text-xs">
+														{{ notification.config.interactionDetails.nbStepsSeen }}/{{ notification.config.interactionDetails.nbTotalSteps }}
+														<span [translate]>steps seen</span>
+													</div>
+												</div>
+											}
+											@case ('interaction.form') {
+												<div class="flex flex-col text-sm">
+													<div class="flex items-center gap-1">
+														<span [translate]>New form interaction</span>
+													</div>
+													@if (notification.config.interactionDetails) {
+														<div class="text-base-content/70 text-xs">
+															{{ notification.config.interactionDetails.nbStepsSeen }}/{{ notification.config.interactionDetails.nbTotalSteps }}
+															<span [translate]>steps seen</span>
+														</div>
+													}
+												</div>
+											}
+											@case ('feature_request') {
+												<div class="flex flex-col text-sm">
+													<div class="flex items-center gap-1">
+														<span [translate]>New feature request by</span>
+														<span class="font-bold"><lib-user-pill [userId]="notification.config.userId" /></span>
+													</div>
+													<div class="text-base-content/70 flex items-center gap-1 text-xs">
+														<span class="font-medium"><lib-article-pill [articleId]="notification.targetId" /></span>
+													</div>
+												</div>
+											}
+											@case ('ticket') {
+												<div class="flex flex-col text-sm">
+													<div class="flex items-center gap-1">
+														<span [translate]>New ticket by</span>
+														<span class="font-bold"><lib-user-pill [userId]="notification.config.userId" /></span>
+													</div>
+													<div class="text-base-content/70 flex items-center gap-1 text-xs">
+														<span class="font-medium"><lib-article-pill [articleId]="notification.targetId" /></span>
+													</div>
+												</div>
+											}
 											@default {
 												<span class="text-xs opacity-50">Unknown notification type</span>
 											}
@@ -226,28 +288,6 @@
 			</table>
 		</div>
 
-		@if (paginatorState.totalNumberOfPages > 1) {
-			<div class="border-base-200 flex items-center justify-between border-t p-4">
-				<button
-					class="btn btn-sm"
-					[class.btn-disabled]="!paginatorState.hasPrev"
-					(click)="paginatorState.hasPrev ? paginator.previousPage() : null"
-					[disabled]="!paginatorState.hasPrev"
-				>
-					Previous
-				</button>
-
-				<span class="text-base-content/60 text-xs"> Page {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} ({{ paginatorState.totalNumberOfItems }}) </span>
-
-				<button
-					class="btn btn-sm"
-					[class.btn-disabled]="!paginatorState.hasNext"
-					(click)="paginatorState.hasNext ? paginator.nextPage() : null"
-					[disabled]="!paginatorState.hasNext"
-				>
-					Next
-				</button>
-			</div>
-		}
+		<lib-table-paginator [paginator]="paginator" />
 	</div>
 }

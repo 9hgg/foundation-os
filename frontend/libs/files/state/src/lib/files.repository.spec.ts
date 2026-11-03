@@ -4,12 +4,9 @@ import { HttpClient, HttpEventType } from '@angular/common/http';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { RendererFactory2 } from '@angular/core';
 import { DEFAULT_BACKEND_URL } from '@foundation/network/services';
-import { TranslationsRepository } from '@foundation/translations/state';
 import { TranslationService } from '@foundation/translations/services';
-import { TranslationTableComponent } from '@foundation/translations/ui';
-import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
 import { NotificationService } from '@foundation/notification';
-import { of, EMPTY, throwError, Subject } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 
 const rendererMock = {
 	createElement: vi.fn().mockReturnValue({}),
@@ -24,7 +21,6 @@ const rendererFactoryMock = {
 };
 
 describe('FilesRepository', () => {
-	// ... convertToUrl tests ...
 	describe('convertToUrl', () => {
 		it('should return http url as is', () => {
 			expect(convertToUrl('http://example.com/image.png')).toBe('http://example.com/image.png');
@@ -81,6 +77,7 @@ describe('FilesRepository', () => {
 			notificationServiceMock = {
 				prompt: vi.fn(),
 				confirm: vi.fn(),
+				error: vi.fn(),
 			};
 
 			translationServiceMock = {
@@ -181,6 +178,19 @@ describe('FilesRepository', () => {
 		});
 
 		describe('upload methods', () => {
+			it('fetches public metadata through the unfiltered streaming endpoint', () => {
+				const requestServiceMock = {
+					getBasic$: vi.fn().mockReturnValue(of({ result: { metadata: { kind: 'image', width: 640 } } })),
+				};
+				(service as any)._requestService = requestServiceMock;
+
+				const observer = vi.fn();
+				service.getFilePublicMetadata$('file-42').subscribe(observer);
+
+				expect(requestServiceMock.getBasic$).toHaveBeenCalledWith('/api/files/storage/read/file-42/public-metadata');
+				expect(observer).toHaveBeenCalledWith({ result: { metadata: { kind: 'image', width: 640 } } });
+			});
+
 			it('should get resumable upload url', () => {
 				const fileName = 'test.png';
 				const contentType = 'image/png';
@@ -262,7 +272,7 @@ describe('FilesRepository', () => {
 
 				service.handleFileList$(fileList).subscribe();
 
-				expect(service.getResumableUploadUrl$).toHaveBeenCalledWith('test.png', 'image/png', 7, undefined, undefined, undefined);
+				expect(service.getResumableUploadUrl$).toHaveBeenCalledWith('test.png', 'image/png', 7, undefined, undefined, undefined, undefined);
 				expect(httpClientPutSpy).toHaveBeenCalled();
 				expect(service.updateAfterUpload$).toHaveBeenCalledWith('1', undefined, undefined);
 				expect(service.getTaskProgress$).toHaveBeenCalledWith('task1', false);
@@ -286,6 +296,48 @@ describe('FilesRepository', () => {
 
 				expect(requestServiceMock.post$).toHaveBeenCalled();
 				expect((service as any)._httpClient.put).not.toHaveBeenCalled();
+				expect(notificationServiceMock.error).toHaveBeenCalled();
+				vi.useRealTimers();
+			});
+
+			it('should not report a failure the request service already reported', () => {
+				vi.useFakeTimers();
+				const file = new File([''], 'test.txt', { type: 'text/plain' });
+				const fileList = { length: 1, item: () => file, 0: file } as any;
+
+				const requestServiceMock = {
+					post$: vi.fn().mockReturnValue(of({ error: { title: 'Invalid folder path' } })),
+					getBasic$: vi.fn(),
+				};
+				(service as any)._requestService = requestServiceMock;
+				(service as any)._httpClient = { put: vi.fn() };
+
+				service.handleFileList$(fileList).subscribe();
+
+				vi.runAllTimers();
+
+				expect((service as any)._httpClient.put).not.toHaveBeenCalled();
+				expect(notificationServiceMock.error).not.toHaveBeenCalled();
+				vi.useRealTimers();
+			});
+
+			it('should report a failed transfer to the storage provider', () => {
+				vi.useFakeTimers();
+				const file = new File([''], 'test.txt', { type: 'text/plain' });
+				const fileList = { length: 1, item: () => file, 0: file } as any;
+
+				const requestServiceMock = {
+					post$: vi.fn().mockReturnValue(of({ result: { data: { id: '1', uploadUrl: 'http://upload.url' } } })),
+					getBasic$: vi.fn(),
+				};
+				(service as any)._requestService = requestServiceMock;
+				(service as any)._httpClient = { put: vi.fn().mockReturnValue(throwError(() => new Error('net::ERR_FAILED'))) };
+
+				service.handleFileList$(fileList).subscribe();
+
+				vi.runAllTimers();
+
+				expect(notificationServiceMock.error).toHaveBeenCalled();
 				vi.useRealTimers();
 			});
 
@@ -325,6 +377,22 @@ describe('FilesRepository', () => {
 				expect(service['backgroundDiv']).toBeNull();
 				expect(service['progressDiv']).toBeNull();
 				expect(service['textDiv']).toBeNull();
+				vi.useRealTimers();
+			});
+
+			it('should ignore duplicate delayed progress-bar removal', () => {
+				vi.useFakeTimers();
+				service['backgroundDiv'] = document.createElement('div');
+				service['progressDiv'] = document.createElement('div');
+				service['textDiv'] = document.createElement('div');
+				rendererMock.removeChild.mockClear();
+
+				service.removeProgressBar();
+				service.removeProgressBar();
+				vi.runAllTimers();
+
+				expect(rendererMock.removeChild).toHaveBeenCalledOnce();
+				expect(rendererMock.removeChild.mock.calls[0][1]).not.toBeNull();
 				vi.useRealTimers();
 			});
 
@@ -419,7 +487,7 @@ describe('FilesRepository', () => {
 
 			it('should return empty if no files', () => {
 				const fileList = [] as any;
-				const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+				const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
 				service.handleFileList$(fileList).subscribe();
 
@@ -568,7 +636,7 @@ describe('FilesRepository', () => {
 							.mockReturnValueOnce(of({ result: { id: taskId2, progress: 100, completed: true } })),
 					};
 					(service as any)._requestService = requestServiceMock;
-					const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+					const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
 					service.getTaskProgress$(taskId1, true).subscribe();
 
@@ -584,7 +652,7 @@ describe('FilesRepository', () => {
 						getBasic$: vi.fn().mockReturnValue(of({ result: null })),
 					};
 					(service as any)._requestService = requestServiceMock;
-					const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+					const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
 					service.getTaskProgress$('task1', true).subscribe();
 
@@ -599,7 +667,7 @@ describe('FilesRepository', () => {
 						getBasic$: vi.fn().mockReturnValue(of({ result: { id: 'task1', progress: 50 } })),
 					};
 					(service as any)._requestService = requestServiceMock;
-					const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+					const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
 					service.getTaskProgress$('task1', true).subscribe();
 
@@ -755,7 +823,7 @@ describe('FilesRepository', () => {
 				} as any;
 				const options = { duration: 100 };
 
-				const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+				const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
 				service.handleFileList$(fileList, options).subscribe();
 
@@ -777,7 +845,7 @@ describe('FilesRepository', () => {
 				} as any;
 				const options = { fileId: '123' };
 
-				const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+				const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
 				service.handleFileList$(fileList, options).subscribe();
 
@@ -911,12 +979,21 @@ describe('FilesRepository', () => {
 			it('should fetch text content', async () => {
 				const url = 'http://example.com';
 				const text = 'content';
-				global.fetch = vi.fn().mockResolvedValue({ text: () => Promise.resolve(text) } as any);
+				global.fetch = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve(text) } as any);
 
 				const result = await service.fetchTextContent(url);
 
 				expect(result).toBe(text);
 				expect(service.textContentCache.get(url)).toBe(text);
+			});
+
+			it('should refuse an error envelope as if it were the file', async () => {
+				const url = 'http://example.com/missing';
+				const envelope = '{"error":{"title":"Download URL not found"},"result":null}';
+				global.fetch = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve(envelope) } as any);
+
+				expect(await service.fetchTextContent(url)).toBeUndefined();
+				expect(service.textContentCache.has(url)).toBe(false);
 			});
 
 			it('should return cached text content', async () => {

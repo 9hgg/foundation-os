@@ -24,6 +24,7 @@ from typing import Any
 
 import numpy as np
 import typer
+from parc.naming import ecs
 from rich import box
 from rich.console import Console
 from rich.table import Table
@@ -54,7 +55,6 @@ from libs.ml.methods.semantic_centroid import SemanticCentroidJsonClassifier
 from libs.ml.metrics import accuracy, macro_f1, per_class_f1
 from libs.ml.registry import TaskFormalism
 from libs.ml.tracing import TRACE
-from parc.naming import ecs
 
 console = Console()
 

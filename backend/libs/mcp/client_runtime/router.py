@@ -6,6 +6,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Annotated, Any, TypedDict
 
+import structlog
 from fastapi import APIRouter, Depends
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
@@ -16,7 +17,6 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 from pydantic import BaseModel
 
-from libs.logger.customLogger import print, print_color
 from libs.mcp.config import MCP_SETTINGS
 from libs.users.methods import get_current_user_optional
 from libs.users.models import User
@@ -28,6 +28,8 @@ from .extraction import extract_tool_runs_and_final_message
 from .rendering import render_error_html
 from .routes import parse_route_summary
 from .store import ToolResultStore
+
+logger = structlog.get_logger(__name__)
 
 AUTH_TOKEN_CONTEXT_KEY = "auth"  # noqa: S105 - token context label, not a secret
 MAX_TOOL_CALLS = 25
@@ -75,7 +77,10 @@ async def get_frontend_route_summary(*, llm: BaseChatModel, app_name: str, front
         {route_config_source}
         """
     )
-    print_color("red", f"Angular route summary prompt size: {_estimate_token_count(llm, summary_prompt)} tokens")
+    logger.debug(
+        "frontend_route_summary_prompt_built",
+        token_count=_estimate_token_count(llm, summary_prompt),
+    )
     response = await llm.ainvoke(summary_prompt)
     summary = getattr(response, "content", str(response))
     if not isinstance(summary, str):
@@ -83,9 +88,13 @@ async def get_frontend_route_summary(*, llm: BaseChatModel, app_name: str, front
     summary = summary.strip()
     try:
         cache_path.write_text(summary, encoding="utf-8")
-        print(f"Cached Angular route summary at {cache_path}")
+        logger.debug("frontend_route_summary_cached", cache_path=str(cache_path))
     except OSError as exc:
-        print_color("red", f"Unable to cache Angular route summary at {cache_path}: {exc}")
+        logger.warning(
+            "frontend_route_summary_cache_failed",
+            cache_path=str(cache_path),
+            error_type=type(exc).__name__,
+        )
     return summary
 
 
@@ -115,7 +124,7 @@ def extract_json_payload(tool_result: Any) -> Any:
             if parsed is None:
                 parsed_null = True
                 continue
-            return parsed
+            return parsed  # noqa: TRY300
         except json.JSONDecodeError:
             continue
     if parsed_null:
@@ -157,7 +166,7 @@ def create_result_store_tools(result_store: ToolResultStore) -> list[StructuredT
     ]
 
 
-async def create_langchain_tools_from_mcp(
+async def create_langchain_tools_from_mcp(  # noqa: C901
     *,
     mcp_session: ClientSession,
     auth_token: str | None,
@@ -198,15 +207,26 @@ async def create_langchain_tools_from_mcp(
                     if isinstance(val, str):
                         # "name:horloge:partial" → ["name:horloge:partial"]
                         tool_args[param] = [val]
-                        print_color("yellow", f"[MCP] {tn}: coerced '{param}' str→list")
+                        logger.warning(
+                            "mcp_tool_argument_coerced",
+                            tool_name=tn,
+                            parameter=param,
+                            source_type="str",
+                            target_type="list",
+                        )
                     elif isinstance(val, dict):
                         # {"public_filename": {"match_type": "partial", "value": "horloge"}}
                         # → [{"field": "public_filename", "match_type": "partial", "value": "horloge"}]
                         tool_args[param] = [
-                            {"field": k, **(v if isinstance(v, dict) else {"value": v})}
-                            for k, v in val.items()
+                            {"field": k, **(v if isinstance(v, dict) else {"value": v})} for k, v in val.items()
                         ]
-                        print_color("yellow", f"[MCP] {tn}: coerced '{param}' dict→list")
+                        logger.warning(
+                            "mcp_tool_argument_coerced",
+                            tool_name=tn,
+                            parameter=param,
+                            source_type="dict",
+                            target_type="list",
+                        )
                 try:
                     result = await mcp_session.call_tool(tn, tool_args)
                     payload = extract_json_payload(result)
@@ -251,7 +271,11 @@ async def synthesize_compact_answer(
     )
     response = await llm.ainvoke(synthesis_prompt)
     content = getattr(response, "content", str(response))
-    return content.strip() if isinstance(content, str) and content.strip() else render_error_html("I could not produce an answer from the available tool results.")
+    return (
+        content.strip()
+        if isinstance(content, str) and content.strip()
+        else render_error_html("I could not produce an answer from the available tool results.")
+    )
 
 
 class _ConclusionVerdict(BaseModel):
@@ -277,10 +301,10 @@ async def _is_failure_conclusion(llm: BaseChatModel, query: str, conclusion: str
             "Set is_failure=false if the agent genuinely answered the query. "
             "Include a one-sentence reason."
         )
-        print_color("cyan", f"[Ralph] conclusion check → is_failure={verdict.is_failure} ({verdict.reason})")
-        return verdict.is_failure
+        logger.debug("ralph_conclusion_checked", is_failure=verdict.is_failure)
+        return verdict.is_failure  # noqa: TRY300
     except Exception as exc:
-        print_color("yellow", f"[Ralph] conclusion check failed ({exc}), assuming success")
+        logger.warning("ralph_conclusion_check_failed", error_type=type(exc).__name__, fallback="success")
         return False
 
 
@@ -327,7 +351,7 @@ async def _run_ralph_loop(
             )
         )
 
-        print_color("cyan", f"[Ralph] iteration {iteration}/{max_iterations}")
+        logger.debug("ralph_iteration_started", iteration=iteration, max_iterations=max_iterations)
         result = await agent_executor.ainvoke(
             {"messages": [HumanMessage(content=user_msg)]},
             config={"recursion_limit": 30},
@@ -340,21 +364,19 @@ async def _run_ralph_loop(
         if iter_final:
             model_final_message = iter_final
 
-        progress_summary = (
-            progress_summary + "\n" + _build_progress_summary(iteration, iter_runs, iter_final)
-        ).strip()
+        progress_summary = (progress_summary + "\n" + _build_progress_summary(iteration, iter_runs, iter_final)).strip()
 
         made_tool_calls = bool(iter_runs)
 
         if iter_final and made_tool_calls:
             is_failure = await _is_failure_conclusion(llm, query, iter_final)
             if not is_failure:
-                print_color("cyan", f"[Ralph] concluded after {iteration} iteration(s)")
+                logger.debug("ralph_loop_concluded", iteration=iteration)
                 break
             if iteration < max_iterations:
-                print_color("yellow", f"[Ralph] iteration {iteration} ended in failure — retrying with context")
+                logger.warning("ralph_iteration_failed_retrying", iteration=iteration, max_iterations=max_iterations)
         elif not made_tool_calls and iteration > 1:
-            print_color("yellow", f"[Ralph] no tool calls in iteration {iteration}, stopping")
+            logger.warning("ralph_iteration_no_tool_calls", iteration=iteration, action="stop")
             break
 
     return all_tool_runs, model_final_message
@@ -362,7 +384,7 @@ async def _run_ralph_loop(
 
 def _log_agent_messages(messages: list) -> None:
     """Log each message in the agent chain for debugging the thinking process."""
-    print_color("cyan", f"[MCP agent] {len(messages)} messages in chain:")
+    logger.debug("mcp_agent_message_chain", message_count=len(messages))
     for i, msg in enumerate(messages):
         role = type(msg).__name__.replace("Message", "").upper()
         content = getattr(msg, "content", "")
@@ -371,14 +393,35 @@ def _log_agent_messages(messages: list) -> None:
 
         if tool_calls:
             for tc in tool_calls:
-                print_color("cyan", f"  [{i}] {role} → tool_call: {tc.get('name')}({tc.get('args')})")
+                arguments = tc.get("args")
+                logger.debug(
+                    "mcp_agent_tool_call",
+                    message_index=i,
+                    role=role,
+                    tool_name=tc.get("name"),
+                    argument_names=sorted(arguments) if isinstance(arguments, dict) else [],
+                )
             if isinstance(content, str) and content.strip():
-                print_color("cyan", f"  [{i}] {role} reasoning: {content[:200]}")
+                logger.debug(
+                    "mcp_agent_reasoning_present",
+                    message_index=i,
+                    role=role,
+                    content_length=len(content),
+                )
         elif tool_call_id:
-            preview = str(content)[:120].replace("\n", " ")
-            print_color("cyan", f"  [{i}] TOOL result (id={tool_call_id[:8]}…): {preview}")
+            logger.debug(
+                "mcp_agent_tool_result",
+                message_index=i,
+                role=role,
+                content_length=len(str(content)),
+            )
         elif isinstance(content, str) and content.strip():
-            print_color("cyan", f"  [{i}] {role}: {content[:300]}")
+            logger.debug(
+                "mcp_agent_message",
+                message_index=i,
+                role=role,
+                content_length=len(content),
+            )
 
 
 def create_mcp_client_router(
@@ -401,7 +444,11 @@ def create_mcp_client_router(
         )
 
     @router.post("/ask")
-    async def mcp_ask(query: str, max_iterations: int = 3, current_user: User | None = Depends(get_current_user_optional)) -> EndpointOutput[dict]:
+    async def mcp_ask(
+        query: str,
+        max_iterations: int = 3,
+        current_user: User | None = Depends(get_current_user_optional),  # noqa: B008
+    ) -> EndpointOutput[dict]:
         mcp_server_url = get_primary_mcp_server_url()
         if not mcp_server_url:
             return EndpointOutput(
@@ -417,7 +464,12 @@ def create_mcp_client_router(
             if current_user
             else None
         )
-        print(f"Received MCP ask request. User: {current_user.id if current_user else 'anonymous'}, Query: {query}")
+        logger.debug(
+            "mcp_ask_received",
+            is_authenticated=current_user is not None,
+            query_length=len(query),
+            max_iterations=max_iterations,
+        )
 
         try:
             async with (
@@ -436,13 +488,20 @@ def create_mcp_client_router(
                     tool_call_counter=tool_call_counter,
                 )
                 if not mcp_lc_tools:
-                    return EndpointOutput(result={"query": query, "answer": render_error_html("No MCP tools are available."), "tool_runs": []})
+                    return EndpointOutput(
+                        result={
+                            "query": query,
+                            "answer": render_error_html("No MCP tools are available."),
+                            "tool_runs": [],
+                        }
+                    )
 
                 lc_tools = mcp_lc_tools + create_result_store_tools(result_store)
-                print(
-                    f"Converted {len(mcp_lc_tools)} MCP tools to LangChain tools "
-                    f"and added {len(lc_tools) - len(mcp_lc_tools)} local result tools. "
-                    f"Tool names: {[tool.name for tool in lc_tools]}"
+                logger.debug(
+                    "mcp_langchain_tools_created",
+                    mcp_tool_count=len(mcp_lc_tools),
+                    local_tool_count=len(lc_tools) - len(mcp_lc_tools),
+                    tool_names=[tool.name for tool in lc_tools],
                 )
 
                 frontend_route_summary = await get_frontend_route_summary(
@@ -478,11 +537,12 @@ def create_mcp_client_router(
                     + "\n\nCurrent Angular route config summary:\n"
                     + frontend_route_summary
                 )
-                print("The prompt:")
-                print(system_prompt)
-                print(f"Constructed system prompt of length {len(system_prompt)} characters.")
                 prompt_token_count = _estimate_token_count(llm, system_prompt)
-                print_color("red", f"Initial MCP system prompt size: {prompt_token_count} tokens")
+                logger.debug(
+                    "mcp_system_prompt_built",
+                    character_count=len(system_prompt),
+                    token_count=prompt_token_count,
+                )
 
                 class _AgentState(TypedDict):
                     messages: Annotated[list[BaseMessage], operator.add]
@@ -524,10 +584,9 @@ def create_mcp_client_router(
                     )
 
         except Exception as exc:
-            import sys
             import traceback
 
-            traceback.print_exc(file=sys.stdout)
+            logger.exception("mcp_agent_request_failed", error_type=type(exc).__name__)
             return EndpointOutput(
                 error=EndpointError(
                     title="MCP Agent request failed",

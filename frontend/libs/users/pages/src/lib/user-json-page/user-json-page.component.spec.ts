@@ -10,3 +10,5 @@ describe('UserJsonPageComponent — class structure', () => {
                 // user$$$ is defined in the constructor, verify it exists as an own property pattern
                 expect('user$$$' in UserJsonPageComponent.prototype).toBe(false); // it's an instance prop, not prototype
                 expect(typeof UserJsonPageComponent).toBe('function'); // confirm the class itself is valid
+        });
+});

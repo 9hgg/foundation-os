@@ -18,10 +18,18 @@
 
 	<!-- Body -->
 	<div class="flex-1 overflow-auto p-0">
-		<lib-user-table
-			class="block h-full w-full"
-			#userTable
-		></lib-user-table>
+		@if (userSelectionModalData.bypassAcls) {
+			<lib-user-table
+				class="block h-full w-full"
+				#userTable
+				bypass-acls="true"
+			></lib-user-table>
+		} @else {
+			<lib-user-table
+				class="block h-full w-full"
+				#userTable
+			></lib-user-table>
+		}
 	</div>
 
 	<!-- Footer -->
@@ -34,7 +42,7 @@
 		</button>
 		<button
 			class="btn btn-primary"
-			[disabled]="!userTable.itemsSelector.valid"
+			[disabled]="!userTableChild()?.itemsSelector?.valid"
 			(click)="save()"
 		>
 			save

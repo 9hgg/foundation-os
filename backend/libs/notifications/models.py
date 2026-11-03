@@ -1,4 +1,3 @@
-from typing import Optional
 
 import sqlmodel
 from sqlalchemy.dialects.postgresql import JSONB
@@ -16,15 +15,15 @@ class NotificationConfig(BaseModelWithConfig):
     __private__ = False
     __category__ = "config"
 
-    conversation_id: Optional[str] = None
-    message_id: Optional[str] = None
-    user_id: Optional[str] = None
-    emoji: Optional[str] = None
-    reply_to_id: Optional[str] = None
+    conversation_id: str | None = None
+    message_id: str | None = None
+    user_id: str | None = None
+    emoji: str | None = None
+    reply_to_id: str | None = None
 
     # when the notification is related to an interaction
-    interaction_id: Optional[str] = None
-    interaction_details: Optional[dict] = None
+    interaction_id: str | None = None
+    interaction_details: dict | None = None
 
 
 class Notification(ResourceWithConfig, table=True):
@@ -36,15 +35,15 @@ class Notification(ResourceWithConfig, table=True):
 
     kind: str = "default"
     read: bool = False
-    archived: Optional[bool] = False
+    archived: bool | None = False
 
     # to find a notification deterministically, we use a key
-    key: Optional[str] = None
+    key: str | None = None
 
-    title: Optional[str] = None
-    content: Optional[str] = None
-    target_id: Optional[str] = None
-    target_kind: Optional[str] = None
+    title: str | None = None
+    content: str | None = None
+    target_id: str | None = None
+    target_kind: str | None = None
     config: NotificationConfig = sqlmodel.Field(
         sa_type=JSONB, nullable=False, default_factory=lambda: NotificationConfig()
     )

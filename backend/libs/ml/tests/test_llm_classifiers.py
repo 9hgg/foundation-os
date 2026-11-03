@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from libs.ml.llm.client import LLMMessage, LLMResponse, LLMTokenUsage
+from libs.ml.llm.client import LLMResponse, LLMTokenUsage
 from libs.ml.methods.llm import (
     LLMZeroShotJsonClassifier,
     LLMZeroShotJsonMultiLabelClassifier,
@@ -19,8 +20,6 @@ from libs.ml.methods.llm_few_shot import (
     LLMFewShotTextMultiLabelClassifier,
 )
 from libs.ml.models import JsonInput, Label, TextInput
-
-import json
 
 # ─── Fake LLM client ─────────────────────────────────────────────────────────
 

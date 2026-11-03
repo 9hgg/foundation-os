@@ -40,6 +40,9 @@ export class UploadButtonComponent {
 	width = input<string>('300px');
 	accept = input<string>('*');
 
+	/** Target folder for the uploaded files. Without it they land at the root of the file library. */
+	folderId = input<string | null>(null);
+
 	openOnClick = input<boolean>(true);
 	dropZoneActive = input<boolean>(false);
 	dropZoneBackground = input<boolean>(false);
@@ -69,7 +72,7 @@ export class UploadButtonComponent {
 	/** Called when uploading multiple file at a time or no need to control the fileId */
 	private _handleFileList(fileList: FileList | File[] | null) {
 		this._filesRepository
-			.handleFileList$(fileList, { elementRef: this._el })
+			.handleFileList$(fileList, { elementRef: this._el, folderId: this.folderId() ?? undefined })
 			.pipe(map((res) => res.map((r) => r.result?.file)))
 			.subscribe({
 				next: (res) => {

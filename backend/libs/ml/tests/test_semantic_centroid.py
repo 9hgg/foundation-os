@@ -1,7 +1,7 @@
 import json
 import math
-import re
 import pickle
+import re
 from collections.abc import Sequence
 
 import pytest
@@ -79,6 +79,77 @@ class _ConceptEmbeddingClient:
         return [value / norm for value in vector] if norm else vector
 
 
+class _RecordingEmbeddingClient:
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+
+    def embed(
+        self,
+        texts: Sequence[str],
+        *,
+        model: str | None = None,
+    ) -> EmbeddingResponse:
+        self.texts.extend(texts)
+        return EmbeddingResponse(
+            embeddings=[[1.0] for _text in texts],
+            model=model or "recording-embedding",
+        )
+
+
+class _LengthCheckingEmbeddingClient:
+    def __init__(self, max_chars: int) -> None:
+        self.max_chars = max_chars
+
+    def embed(
+        self,
+        texts: Sequence[str],
+        *,
+        model: str | None = None,
+    ) -> EmbeddingResponse:
+        too_long = [len(text) for text in texts if len(text) > self.max_chars]
+        if too_long:
+            raise AssertionError(f"embedding text too long: {too_long}")
+        return EmbeddingResponse(
+            embeddings=[[1.0] for _text in texts],
+            model=model or "length-checking-embedding",
+        )
+
+
+class _LongThenShortCentroidLLMClient:
+    def __init__(self) -> None:
+        self.length_feedback_count = 0
+
+    def complete(
+        self,
+        messages: Sequence[LLMMessage],
+        *,
+        model: str | None = None,
+        temperature: float = 0.0,
+    ) -> LLMResponse:
+        prompt = "\n".join(message.content for message in messages)
+        if "too long for the embedding model" in prompt:
+            self.length_feedback_count += 1
+            description = "short centroid"
+            examples = ["short"]
+        else:
+            description = "x" * 300
+            examples = ["y" * 300]
+        return LLMResponse(
+            text=json.dumps(
+                {
+                    "centroids": [
+                        {
+                            "name": "length test",
+                            "description": description,
+                            "examples": examples,
+                        }
+                    ]
+                }
+            ),
+            model="fake",
+        )
+
+
 def _inputs() -> list[JsonInput]:
     return [
         JsonInput(json_value=json.dumps({"text": "rare"})),
@@ -142,3 +213,34 @@ def test_semantic_centroid_examples_must_be_rewritten_prototypes() -> None:
             description="This centroid only refers back to numbered inputs.",
             examples=["Example 2"],
         )
+
+
+def test_semantic_centroid_cleans_and_truncates_candidate_embeddings() -> None:
+    embedding_client = _RecordingEmbeddingClient()
+    classifier = SemanticCentroidJsonClassifier(
+        llm_client=_FakeCentroidLLMClient(),
+        embedding_client=embedding_client,
+        max_embedding_chars=20,
+    )
+
+    classifier._embed_candidate_texts(["abc////déf!!! " * 10])
+
+    assert len(embedding_client.texts) == 1
+    assert len(embedding_client.texts[0]) <= 20
+    assert not re.search(r"[^\w\s]", embedding_client.texts[0], flags=re.UNICODE)
+
+
+def test_semantic_centroid_regenerates_centroids_that_are_too_long() -> None:
+    llm_client = _LongThenShortCentroidLLMClient()
+    classifier = SemanticCentroidJsonClassifier(
+        llm_client=llm_client,
+        embedding_client=_LengthCheckingEmbeddingClient(max_chars=80),
+        max_embedding_chars=80,
+        max_samples_per_label=1,
+        max_centroids_per_label=1,
+    )
+
+    classifier.fit(_inputs(), _targets())
+
+    assert llm_client.length_feedback_count >= 1
+    assert all(len(centroid.description) < 80 for centroid in classifier.centroids_)

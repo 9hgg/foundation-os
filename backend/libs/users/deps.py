@@ -1,5 +1,4 @@
 import typing
-from typing import Optional
 
 from fastapi import Depends
 from jose import jwt
@@ -13,7 +12,7 @@ from .models import User
 CurrentUser__dep = typing.Annotated[User | None, Depends(get_current_user_optional)]
 
 
-async def get_current_user_from_ws_token(token: str) -> Optional[User]:
+async def get_current_user_from_ws_token(token: str) -> User | None:
     """Get current user from WebSocket token."""
     try:
 

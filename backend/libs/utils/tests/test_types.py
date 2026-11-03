@@ -1,6 +1,8 @@
-import pytest
 import uuid
 from datetime import datetime
+
+import pytest
+
 from libs.utils.types import serialize, to_camel, to_snake
 
 

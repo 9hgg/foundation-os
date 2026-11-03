@@ -319,7 +319,7 @@ def _normalize_json_text(text: str) -> str:
     return normalized
 
 
-def structured_completion(
+def structured_completion[T: BaseModel](
     client: LLMClient,
     messages: Sequence[LLMMessage],
     schema: type[T],
@@ -400,7 +400,7 @@ def structured_completion(
             except (ValidationError, ValueError, json.JSONDecodeError) as exc:
                 last_error = exc
                 # Still record tokens even if validation failed - we got a response
-                if isinstance(exc, (ValidationError, ValueError, json.JSONDecodeError)):
+                if isinstance(exc, ValidationError | ValueError | json.JSONDecodeError):
                     try:
                         record_llm_token_usage(response.usage)
                     except NameError:

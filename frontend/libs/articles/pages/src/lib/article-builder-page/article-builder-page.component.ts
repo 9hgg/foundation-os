@@ -9,7 +9,7 @@ import { UploadButtonComponent } from '@foundation/files/ui';
 import { NotificationService, QuestionMarkHelpComponent } from '@foundation/notification';
 import { QuillService } from '@foundation/quill/utils';
 import { TranslateDirective } from '@foundation/translations/services';
-import { BehaviorSubjectReplayed, BehaviorSubjectReplayedProxied, SanitizeHtmlPipe, slugify } from '@foundation/utils';
+import { BehaviorSubjectReplayed, BehaviorSubjectReplayedProxied, SanitizeHtmlPipe } from '@foundation/utils';
 import { CdkDropList } from '@angular/cdk/drag-drop';
 import { CdkMenuModule } from '@angular/cdk/menu';
 import { PortalModule } from '@angular/cdk/portal';
@@ -127,7 +127,11 @@ export class ArticleBuilderPageComponent {
 					const article = this.article$$$.value;
 					if (!article) return;
 					article.title = articleTitle;
-					article.slug = slugify(articleTitle);
+					// Do NOT regenerate the slug from the title here: the slug is
+					// assigned a unique value at creation, and re-deriving it on every
+					// edit both silently changes the article's public URL and collides
+					// with other articles sharing the same title (unique constraint
+					// violation -> 500 on save).
 					this._articlesRepository.store.save(article);
 				})
 			)
@@ -280,7 +284,7 @@ export class ArticleBuilderPageComponent {
 			.pipe(
 				tap((aclsResponse) => {
 					console.log('[ArticleBuilderPage](constructor) ACLs', aclsResponse);
-					this.acls.set(aclsResponse.result ?? []);
+					this.acls.set(aclsResponse.result?.acls ?? []);
 				})
 			)
 			.subscribe();

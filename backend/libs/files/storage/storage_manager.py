@@ -1,10 +1,13 @@
 import typing
 from typing import ClassVar
 
-from libs.logger.customLogger import print
+import structlog
+
 from libs.utils.types import BaseModelWithConfig
 
 from ._generic import GenericStorage
+
+logger = structlog.get_logger(__name__)
 
 
 class AlreadyEnlistedStorageError(Exception):
@@ -48,7 +51,7 @@ class StoragesManager:
                 raise AlreadyEnlistedStorageError(storage_name)
             storage_class = EnlistedStorage(config_name=storage_name, storage=fn)
             cls.storages[storage_name] = storage_class
-            print(f"💾 Storage {storage_name} registered")
+            logger.info("storage_registered", storage_name=storage_name)
             return fn
 
         return decorator

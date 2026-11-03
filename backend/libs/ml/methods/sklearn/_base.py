@@ -3,7 +3,7 @@ import math
 from abc import abstractmethod
 from typing import Any, TypeVar
 
-from libs.logger.customLogger import print_color
+import structlog
 
 from ...models import (
     AlgorithmInput,
@@ -17,6 +17,8 @@ from ...models import (
     TrainableMultiLabelClassifier,
     TrainableRegressor,
 )
+
+logger = structlog.get_logger(__name__)
 
 T = TypeVar("T", bound=AlgorithmInput)
 _MODEL_NOT_FITTED_ERROR = "Model has not been fitted yet."
@@ -93,30 +95,20 @@ class SklearnClassifier(TrainableClassifier[T]):
     def _extract_features(self, inputs: list[T], *, fit: bool = False) -> Any: ...
 
     def _fit(self, inputs: list[T], targets: list[Label]) -> None:
-        self.estimator.fit(
-            self._extract_features(inputs, fit=True), [t.id for t in targets]
-        )
+        self.estimator.fit(self._extract_features(inputs, fit=True), [t.id for t in targets])
 
     def _classify(self, inputs: list[T]) -> list[ClassificationPrediction]:
         features = self._extract_features(inputs)
         labels = list(self.estimator.predict(features))
-        proba = (
-            list(self.estimator.predict_proba(features))
-            if hasattr(self.estimator, "predict_proba")
-            else None
-        )
+        proba = list(self.estimator.predict_proba(features)) if hasattr(self.estimator, "predict_proba") else None
         if proba is None:
             proba = _decision_scores(self.estimator, features)
-        classes = (
-            [str(c) for c in self.estimator.classes_]
-            if proba and hasattr(self.estimator, "classes_")
-            else None
-        )
+        classes = [str(c) for c in self.estimator.classes_] if proba and hasattr(self.estimator, "classes_") else None
         return [
             ClassificationPrediction(
                 label_id=str(label),
                 score=float(max(proba[i])) if proba else None,
-                metadata={"class_scores": dict(zip(classes, [float(v) for v in proba[i]]))}
+                metadata={"class_scores": dict(zip(classes, [float(v) for v in proba[i]], strict=False))}
                 if proba and classes
                 else None,
             )
@@ -157,27 +149,19 @@ class SklearnMultiLabelClassifier(TrainableMultiLabelClassifier[T]):
         features = self._extract_features(inputs)
         mo_clf = _unwrap_multi_output(self._fitted_estimator)
         per_label_proba = [
-            est.predict_proba(features)[:, 1]
-            if hasattr(est, "predict_proba")
-            else None
-            for est in mo_clf.estimators_
+            est.predict_proba(features)[:, 1] if hasattr(est, "predict_proba") else None for est in mo_clf.estimators_
         ]
         n_samples = len(inputs)
         return [
             [
                 ClassificationPrediction(
                     label_id=self._classes[i],
-                    score=float(per_label_proba[i][sample_idx])
-                    if per_label_proba[i] is not None
-                    else None,
+                    score=float(per_label_proba[i][sample_idx]) if per_label_proba[i] is not None else None,
                 )
                 for i in range(len(self._classes))
-                if (
-                    per_label_proba[i] is not None
-                    and float(per_label_proba[i][sample_idx]) >= threshold
-                ) or (
-                    per_label_proba[i] is None
-                    and threshold <= 0.5  # fallback: include when threshold is relaxed
+                if (per_label_proba[i] is not None and float(per_label_proba[i][sample_idx]) >= threshold)
+                or (
+                    per_label_proba[i] is None and threshold <= 0.5  # fallback: include when threshold is relaxed
                 )
             ]
             for sample_idx in range(n_samples)
@@ -198,10 +182,7 @@ class SklearnRegressor(TrainableRegressor[T]):
         self.estimator.fit(self._extract_features(inputs, fit=True), targets)
 
     def _regress(self, inputs: list[T]) -> list[RegressionPrediction]:
-        return [
-            RegressionPrediction(value=float(v))
-            for v in self.estimator.predict(self._extract_features(inputs))
-        ]
+        return [RegressionPrediction(value=float(v)) for v in self.estimator.predict(self._extract_features(inputs))]
 
 
 class SmartSklearnClassifier(TrainableClassifier[T]):
@@ -243,10 +224,7 @@ class SmartSklearnClassifier(TrainableClassifier[T]):
         k = self._effective_splits(target_ids)
 
         if n < 2 * k or k < 2:
-            print_color(
-                "yellow",
-                f"[smart_train] {n} samples — too few for {k}-fold CV, fitting directly",
-            )
+            logger.warning("smart_train_too_few_samples_for_cv", n_samples=n, n_folds=k)
             self._fit_simple(raw, target_ids)
             return
 
@@ -254,15 +232,11 @@ class SmartSklearnClassifier(TrainableClassifier[T]):
         if self.feature_extractor is not None:
             from sklearn.pipeline import Pipeline
 
-            model = Pipeline(
-                [("vect", self.feature_extractor), ("clf", self.estimator)]
-            )
+            model = Pipeline([("vect", self.feature_extractor), ("clf", self.estimator)])
             grid = {f"clf__{k}": v for k, v in self.param_grid.items()}
             search = GridSearchCV(model, grid, cv=cv, scoring=self.scoring, refit=True)
         else:
-            search = GridSearchCV(
-                self.estimator, self.param_grid, cv=cv, scoring=self.scoring, refit=True
-            )
+            search = GridSearchCV(self.estimator, self.param_grid, cv=cv, scoring=self.scoring, refit=True)
         search.fit(raw, target_ids)
 
         self._fitted = search.best_estimator_
@@ -270,9 +244,7 @@ class SmartSklearnClassifier(TrainableClassifier[T]):
         self.cv_results_ = {
             "best_params": search.best_params_,
             "cv_score": round(float(search.best_score_), 4),
-            "cv_score_std": round(
-                float(search.cv_results_["std_test_score"][best_idx]), 4
-            ),
+            "cv_score_std": round(float(search.cv_results_["std_test_score"][best_idx]), 4),
             "n_folds": k,
             "n_samples": n,
             "scoring": self.scoring,
@@ -282,15 +254,11 @@ class SmartSklearnClassifier(TrainableClassifier[T]):
         #     f"[smart_train] best={search.best_params_} {self.scoring}={search.best_score_:.3f}±{self.cv_results_['cv_score_std']:.3f} ({k} folds, {n} samples)",
         # )
 
-    def _fit_simple(
-        self, raw: list[Any], targets: list[str]
-    ) -> None:  # targets are already extracted IDs
+    def _fit_simple(self, raw: list[Any], targets: list[str]) -> None:  # targets are already extracted IDs
         if self.feature_extractor is not None:
             from sklearn.pipeline import Pipeline
 
-            pipeline = Pipeline(
-                [("vect", self.feature_extractor), ("clf", self.estimator)]
-            )
+            pipeline = Pipeline([("vect", self.feature_extractor), ("clf", self.estimator)])
             pipeline.fit(raw, targets)
             self._fitted = pipeline
         else:
@@ -302,15 +270,9 @@ class SmartSklearnClassifier(TrainableClassifier[T]):
             raise RuntimeError(_MODEL_NOT_FITTED_ERROR)
         raw = self._inputs_to_raw(inputs)
         labels = list(self._fitted.predict(raw))
-        proba = (
-            list(self._fitted.predict_proba(raw))
-            if hasattr(self._fitted, "predict_proba")
-            else None
-        )
+        proba = list(self._fitted.predict_proba(raw)) if hasattr(self._fitted, "predict_proba") else None
         return [
-            ClassificationPrediction(
-                label_id=str(label), score=float(max(proba[i])) if proba else None
-            )
+            ClassificationPrediction(label_id=str(label), score=float(max(proba[i])) if proba else None)
             for i, label in enumerate(labels)
         ]
 
@@ -390,12 +352,14 @@ class SmartSklearnMultiLabelClassifier(TrainableMultiLabelClassifier[T]):
                 "best_params": search.best_params_,
                 "cv_score": round(float(search.best_score_), 4),
                 "cv_score_std": round(float(search.cv_results_["std_test_score"][best_idx]), 4),
-                "n_folds": k, "n_samples": len(raw), "scoring": "f1_macro",
+                "n_folds": k,
+                "n_samples": len(raw),
+                "scoring": "f1_macro",
             }
             # print_color("cyan", f"[smart_train] multi-label best={search.best_params_} f1_macro={search.best_score_:.3f} ({k} folds)")
         except Exception as exc:
             self.cv_warning_ = f"Grid search failed: {exc}"
-            print_color("yellow", f"[smart_train] multi-label grid search failed ({exc}), fitting directly")
+            logger.warning("smart_train_multilabel_grid_search_failed", error=str(exc))
             return False
         else:
             self._fitted = search.best_estimator_
@@ -419,8 +383,19 @@ class SmartSklearnMultiLabelClassifier(TrainableMultiLabelClassifier[T]):
             scores = cross_val_score(model, raw, y, cv=kf, scoring=make_scorer(_f1_macro), error_score=0.0)
             mean_score, std_score = float(np.mean(scores)), float(np.std(scores))
             if not (math.isnan(mean_score) or math.isnan(std_score)):
-                self.cv_results_ = {"cv_score": round(mean_score, 4), "cv_score_std": round(std_score, 4), "n_folds": k, "n_samples": len(raw), "scoring": "f1_macro"}
-                print_color("cyan", f"[smart_train] multi-label f1_macro={mean_score:.3f}±{std_score:.3f} ({k} folds)")
+                self.cv_results_ = {
+                    "cv_score": round(mean_score, 4),
+                    "cv_score_std": round(std_score, 4),
+                    "n_folds": k,
+                    "n_samples": len(raw),
+                    "scoring": "f1_macro",
+                }
+                logger.info(
+                    "smart_train_multilabel_cv_diagnostics",
+                    f1_macro_mean=mean_score,
+                    f1_macro_std=std_score,
+                    n_folds=k,
+                )
         except Exception as exc:
             self.cv_warning_ = f"Cross-validation failed: {exc}"
 
@@ -442,27 +417,18 @@ class SmartSklearnMultiLabelClassifier(TrainableMultiLabelClassifier[T]):
         else:
             features = raw
         per_label_proba = [
-            est.predict_proba(features)[:, 1]
-            if hasattr(est, "predict_proba")
-            else None
-            for est in mo_clf.estimators_
+            est.predict_proba(features)[:, 1] if hasattr(est, "predict_proba") else None for est in mo_clf.estimators_
         ]
         n_samples = len(inputs)
         return [
             [
                 ClassificationPrediction(
                     label_id=self._classes[i],
-                    score=float(per_label_proba[i][sample_idx])
-                    if per_label_proba[i] is not None
-                    else None,
+                    score=float(per_label_proba[i][sample_idx]) if per_label_proba[i] is not None else None,
                 )
                 for i in range(len(self._classes))
-                if (
-                    per_label_proba[i] is not None
-                    and float(per_label_proba[i][sample_idx]) >= threshold
-                ) or (
-                    per_label_proba[i] is None and threshold <= 0.5
-                )
+                if (per_label_proba[i] is not None and float(per_label_proba[i][sample_idx]) >= threshold)
+                or (per_label_proba[i] is None and threshold <= 0.5)
             ]
             for sample_idx in range(n_samples)
         ]

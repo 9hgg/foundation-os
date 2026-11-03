@@ -53,4 +53,33 @@ describe('OfflineInterceptor', () => {
     expect(result).toBeInstanceOf(HttpResponse);
     expect(notificationMock.warning).not.toHaveBeenCalled();
   });
+
+  it('warns and gives up without retrying when still offline after 20 seconds', async () => {
+    vi.useFakeTimers();
+    try {
+      Object.defineProperty(navigator, 'onLine', { value: false, writable: true, configurable: true });
+
+      const req = new HttpRequest('GET', '/api/test');
+      const handler = makeHandler();
+
+      const events: unknown[] = [];
+      let completed = false;
+      TestBed.runInInjectionContext(() => OfflineInterceptor(req, handler)).subscribe({
+        next: (event) => events.push(event),
+        complete: () => (completed = true),
+      });
+
+      expect(handler).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(20000);
+
+      expect(notificationMock.warning).toHaveBeenCalledWith('Timeout after 20 seconds offline', 'Timeout', { dialogTarget: 'connection-state' });
+      // takeUntil fires before the online event ever arrives, so the request is never retried.
+      expect(handler).not.toHaveBeenCalled();
+      expect(events).toEqual([]);
+      expect(completed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

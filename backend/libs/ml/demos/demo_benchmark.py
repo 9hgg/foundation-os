@@ -900,7 +900,7 @@ def _make_edf_diesel_bpe_fd_dataset(merge_non_zero: bool = False) -> JSONClassif
             normalized = str(value).strip()
             return normalized if normalized.startswith("<fd>") else f"<fd>{normalized}"
         return f"<fd>{numeric:.1f}"
-    
+
     def _merged_fd_label(value: Any) -> str:
         label = _fd_label(value)
         if label != "<fd>0.0":
@@ -1283,7 +1283,7 @@ def _merge_evaluation_confusion_matrices(
         }
     )
     combined = {
-        true_label: {predicted_label: 0 for predicted_label in labels}
+        true_label: dict.fromkeys(labels, 0)
         for true_label in labels
     }
     for matrix in matrices:
@@ -1447,16 +1447,16 @@ def _print_dataset_class_summary(
 
 def _benchmark_datasets() -> list[Dataset]:
     return [
-        # _make_text_classification_dataset(),
+        _make_text_classification_dataset(),
         _make_text_multilabel_dataset(),
-        # _make_fv_classification_dataset(),
-        # _make_regression_dataset(),
-        # _make_json_classification_dataset(),
-        # _make_json_structured_classification_dataset(),
+        _make_fv_classification_dataset(),
+        _make_regression_dataset(),
+        _make_json_classification_dataset(),
+        _make_json_structured_classification_dataset(),
         # _make_edf_diesel_bpe_fd_dataset(),
         # _make_openml_credit_g_dataset(),
         # _make_openml_spambase_dataset(),
-        # _make_json_multilabel_dataset(),
+        _make_json_multilabel_dataset(),
     ]
 
 
@@ -1476,7 +1476,7 @@ def _dataset_class_counts(dataset: Dataset) -> dict[str, int] | None:
 
 def run_benchmark() -> list[DatasetBenchmark]:
     datasets = _benchmark_datasets()
-    include_llm = os.environ.get("ML_INCLUDE_LLM") == "1"
+    include_llm = os.environ.get("ML_INCLUDE_LLM") == "0"
     registry = create_default_ml_registry(include_llm=include_llm)
     methods = registry.list()
 

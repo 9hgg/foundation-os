@@ -4,7 +4,7 @@ import { TranslationService } from '@foundation/translations/services';
 import { TranslationTableComponent } from '@foundation/translations/ui';
 import { TranslatePipe, TranslateDirective } from '@foundation/translations/services';
 import { NotificationService } from '@foundation/notification';
-import { Team } from '@foundation/teams/models';
+import { Team, TeamInvitation } from '@foundation/teams/models';
 import { TeamsRepository } from '@foundation/teams/state';
 import { UsersRepository } from '@foundation/users/state';
 import { BehaviorSubjectReplayedProxied } from '@foundation/utils';
@@ -54,6 +54,21 @@ export class TeamBuilderPageComponent {
 	newMemberEmail = signal('');
 	newMemberRole = signal('member');
 	availableRoles = ['admin', 'member'];
+
+	isSendingInvitation = signal(false);
+
+	/**
+	 * Read off the team rather than fetched: a team already carries its invitations, and asking
+	 * the backend for them again would only be the same rows a second time.
+	 */
+	pendingInvitations = computed(() => {
+		const invitations = this.team()?.config?.invitations;
+		if (!invitations) return [];
+		const now = Date.now();
+		return Object.values(invitations)
+			.map((invitation) => ({ ...invitation, expired: Date.parse(invitation.expiresAt) < now }))
+			.sort((first, second) => first.email.localeCompare(second.email));
+	});
 
 	// Owner details fetched separately from membership
 	teamOwnerPublicDetails = signal<{ id: string; nameToUse: string; publicName?: string; starredEmail?: string } | null>(null);
@@ -187,35 +202,65 @@ export class TeamBuilderPageComponent {
 			.subscribe();
 	}
 
-	addMember() {
+	/** Invitations live on the team, so refreshing them means pulling the team again. */
+	reloadTeam(teamId: string) {
+		this._teamsRepository.store.pullObject$(teamId).subscribe();
+	}
+
+	inviteMember() {
 		const team = this.team();
 		const email = this.newMemberEmail().trim();
 		const role = this.newMemberRole();
 
 		if (!team || !email) return;
 
-		// Add the user to the team by email in one request
+		this.isSendingInvitation.set(true);
 		this._teamsRepository
-			.addUserToTeamByEmail$(team.id, email, role)
+			.inviteUserToTeamByEmail$(team.id, email, role)
 			.pipe(
 				tap((response) => {
+					this.isSendingInvitation.set(false);
 					if (response.error) {
-						this._notificationService.snackError(`Failed to add member: ${response.error.title}`);
+						this._notificationService.snackError(`Failed to invite member: ${response.error.title}`);
 						return;
 					}
 
-					// Success - reload team members and clear form
-					this._notificationService.snackSuccess(`Successfully added ${email} to the team`);
-					this.loadTeamMembers(team.id);
+					// Nobody joined yet -- say so, rather than letting "added" suggest they are in.
+					this._notificationService.snackSuccess(`Invitation sent to ${email}`);
+					this.reloadTeam(team.id);
 					this.newMemberEmail.set('');
 					this.newMemberRole.set('member');
 				})
 			)
 			.subscribe({
 				error: (error) => {
-					console.error('Error adding member:', error);
-					this._notificationService.snackError('Failed to add member: Network error');
+					this.isSendingInvitation.set(false);
+					console.error('Error inviting member:', error);
+					this._notificationService.snackError('Failed to invite member: Network error');
 				},
+			});
+	}
+
+	resendInvitation(invitation: TeamInvitation) {
+		this.newMemberEmail.set(invitation.email);
+		this.newMemberRole.set(invitation.role);
+		this.inviteMember();
+	}
+
+	revokeInvitation(invitation: TeamInvitation) {
+		const team = this.team();
+		if (!team) return;
+
+		this._notificationService
+			.confirm(`Revoke the invitation sent to ${invitation.email}?`, 'Revoke invitation', {
+				confirmButtonText: 'Revoke',
+			})
+			.closed.subscribe((confirmed) => {
+				if (!confirmed) return;
+
+				this._teamsRepository.revokeTeamInvitation$(team.id, invitation.id).subscribe(() => {
+					this.reloadTeam(team.id);
+				});
 			});
 	}
 

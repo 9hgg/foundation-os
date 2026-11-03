@@ -9,7 +9,7 @@ at call sites and make intent explicit.
 """
 
 import random
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
@@ -26,7 +26,7 @@ TargetT = TypeVar("TargetT")
 _TEST_SIZE_ERROR = "test_size must be less than dataset size."
 
 
-class DatasetSample(BaseModel, Generic[InputT, TargetT]):
+class DatasetSample[InputT: AlgorithmInput, TargetT](BaseModel):
     """One supervised sample: an input paired with an optional ground-truth target."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -36,7 +36,7 @@ class DatasetSample(BaseModel, Generic[InputT, TargetT]):
     metadata: dict[str, Any] | None = None
 
 
-class Dataset(BaseModel, Generic[InputT, TargetT]):
+class Dataset[InputT: AlgorithmInput, TargetT](BaseModel):
     """An ordered collection of DatasetSample objects."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

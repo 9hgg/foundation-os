@@ -14,7 +14,6 @@ from libs.ml.llm.structured import (
     structured_completion,
 )
 
-
 # ─── Fake client ──────────────────────────────────────────────────────────────
 
 class _FakeLLMClient:

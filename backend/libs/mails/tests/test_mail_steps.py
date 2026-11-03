@@ -1,9 +1,8 @@
 import uuid
 from textwrap import dedent
 
+from libs.mails.methods import add_mail_to_db
 from libs.tasks.models import Task
-
-from ..methods import add_mail_to_db
 
 if __name__ == "__main__":
     # Example:

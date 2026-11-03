@@ -1,11 +1,13 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+
+from libs.i18n.deps import get_translator
 from libs.users.api import create_crud_user_router
 from libs.users.methods import get_current_user_optional
 from libs.users.models import User, UserConfig
-from libs.i18n.deps import get_translator
 
 app = FastAPI()
 router = create_crud_user_router()
@@ -35,9 +37,9 @@ def mock_translator():
 @patch("libs.users.api.User.patch")
 @patch("libs.users.api.add_mail_to_db")
 @patch("libs.users.api.TasksManager.create_task")
-@patch("libs.users.api.launch_tasks_processing")
+@patch("libs.users.api.run_task_here")
 def test_request_password_reset(
-    mock_launch, mock_create_task, mock_add_mail, mock_patch, mock_get_first_by, client, mock_translator
+    mock_run_task, mock_create_task, mock_add_mail, mock_patch, mock_get_first_by, client, mock_translator
 ):
     app.dependency_overrides[get_translator] = lambda: mock_translator
 
@@ -68,9 +70,9 @@ def test_request_password_reset(
 @patch("libs.users.api.User.patch")
 @patch("libs.users.api.add_mail_to_db")
 @patch("libs.users.api.TasksManager.create_task")
-@patch("libs.users.api.launch_tasks_processing")
+@patch("libs.users.api.run_task_here")
 def test_send_verification_email_renders_expiry_hours(
-    mock_launch, mock_create_task, mock_add_mail, mock_patch, client, mock_translator
+    mock_run_task, mock_create_task, mock_add_mail, mock_patch, client, mock_translator
 ):
     user = MagicMock()
     user.id = "user_id"
@@ -110,13 +112,13 @@ def test_request_password_reset_no_email(mock_get_first_by, client, mock_transla
 @patch("libs.users.api.User.patch")
 @patch("libs.users.api.add_mail_to_db")
 @patch("libs.users.api.TasksManager.create_task")
-@patch("libs.users.api.launch_tasks_processing")
+@patch("libs.users.api.run_task_here")
 @patch("libs.users.api.libs.utils.emails.is_email_valid", return_value=True)
 @patch("libs.users.api.models.User.get_first_by", return_value=None)
 def test_request_email_change_success(
     mock_get_first_by,
     mock_is_valid,
-    mock_launch,
+    mock_run_task,
     mock_create_task,
     mock_add_mail,
     mock_patch,
@@ -243,7 +245,7 @@ def test_confirm_email_change_token_expired(mock_context_db, mock_patch, client,
     from datetime import datetime, timedelta
 
     user = MagicMock()
-    user.change_email_token = "expired-token"
+    user.change_email_token = "expired-token"  # noqa: S105 — a test fixture, not a credential
     user.change_email_token_expires = (datetime.now() - timedelta(hours=1)).isoformat()
     user.pending_email = "new@example.com"
 
@@ -276,7 +278,7 @@ def test_confirm_email_change_success(mock_context_db, mock_patch, client, mock_
     user.id = "user-id"
     user.email = "old@example.com"
     user.pending_email = "new@example.com"
-    user.change_email_token = "valid-token"
+    user.change_email_token = "valid-token"  # noqa: S105 — a test fixture, not a credential
     user.change_email_token_expires = (datetime.now() + timedelta(hours=1)).isoformat()
     user.config = config
 
@@ -313,7 +315,7 @@ def test_confirm_email_change_archives_former_email_with_timestamp(mock_context_
     user.id = "user-id"
     user.email = "old@example.com"
     user.pending_email = "new@example.com"
-    user.change_email_token = "valid-token"
+    user.change_email_token = "valid-token"  # noqa: S105 — a test fixture, not a credential
     user.change_email_token_expires = (datetime.now() + timedelta(hours=1)).isoformat()
     user.config = config
 

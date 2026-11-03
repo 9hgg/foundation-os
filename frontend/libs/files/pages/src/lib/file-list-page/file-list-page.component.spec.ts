@@ -159,6 +159,66 @@ describe('FileListPageComponent', () => {
 		expect(component.fileTable().explicitItems()).toEqual([]);
 	});
 
+	it('picks the requested folder even when it is not the first row of the subtree', () => {
+		requestService.getBasic$.mockReturnValue(
+			of({
+				result: {
+					folderId: 'folder-1',
+					subfolders: [],
+					subfoldersAndResources: [
+						{
+							id: 'other-folder',
+							for_id: null,
+							for_kind: null,
+							children: [],
+							resources: [{ id: 'file-of-another-folder', kind: 'file' }],
+						},
+						{
+							id: 'folder-1',
+							for_id: null,
+							for_kind: null,
+							children: [],
+							resources: [{ id: 'file-1', kind: 'file' }],
+						},
+					],
+				},
+			})
+		);
+
+		component.folderId.set('folder-1');
+		fixture.detectChanges();
+
+		expect(filesRepository.store.getObjectByIdPullOnce$$$).toHaveBeenCalledWith('file-1');
+		expect(filesRepository.store.getObjectByIdPullOnce$$$).not.toHaveBeenCalledWith('file-of-another-folder');
+		expect(component.fileTable().explicitItems()).toEqual([file]);
+	});
+
+	it('sets an empty explicit list when the requested folder is absent from the response', () => {
+		requestService.getBasic$.mockReturnValue(
+			of({
+				result: {
+					folderId: 'folder-1',
+					subfolders: [],
+					subfoldersAndResources: [
+						{
+							id: 'other-folder',
+							for_id: null,
+							for_kind: null,
+							children: [],
+							resources: [{ id: 'file-of-another-folder', kind: 'file' }],
+						},
+					],
+				},
+			})
+		);
+
+		component.folderId.set('folder-1');
+		fixture.detectChanges();
+
+		expect(component.fileTable().explicitItems()).toEqual([]);
+		expect(filesRepository.store.getObjectByIdPullOnce$$$).not.toHaveBeenCalledWith('file-of-another-folder');
+	});
+
 	it('refreshes the file table after uploads', () => {
 		component.processUploadedFiles([file]);
 

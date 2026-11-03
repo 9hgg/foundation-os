@@ -36,7 +36,7 @@ from ..metrics import (
     recall,
     rmse,
 )
-from ..models import ClassificationPrediction, FeatureVectorInput, Prediction, RegressionPrediction, TextInput
+from ..models import ClassificationPrediction, Prediction, RegressionPrediction
 from ..targets import ClassificationTarget, MultiLabelClassificationTarget, RegressionTarget
 
 

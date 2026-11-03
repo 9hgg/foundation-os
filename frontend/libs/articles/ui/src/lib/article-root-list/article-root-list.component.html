@@ -2,22 +2,21 @@
 @let allArticlesPaginatorState = allArticlesPaginator.state$ | async;
 
 <!-- Hero / Intro -->
-<section class="from-primary via-secondary to-accent text-primary-content relative overflow-hidden bg-linear-to-br px-6 py-16">
-	<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iNCIvPjwvZz48L2c+PC9zdmc+')] opacity-40"></div>
+<section class="bg-base-200 border-base-300 relative border-b px-6 py-16">
 	<div class="relative mx-auto max-w-4xl text-center">
-		<h1 class="mb-4 text-4xl font-bold tracking-tight md:text-5xl">{{ listName() }}</h1>
-		<p class="mx-auto max-w-2xl text-lg opacity-80">{{ listDescription() }}</p>
+		<h1 class="text-base-content mb-4 text-4xl font-bold tracking-tight md:text-5xl">{{ listName() }}</h1>
+		<p class="text-base-content/70 mx-auto max-w-2xl text-lg">{{ listDescription() }}</p>
 		<div class="mt-8">
 			<div class="mx-auto max-w-md">
 				<div class="relative">
 					<input
 						type="search"
 						placeholder="Search articles..."
-						class="input input-lg w-full rounded-xl border-none bg-white/20 pl-12 text-white placeholder-white/60 backdrop-blur-sm focus:bg-white/30 focus:outline-none"
+						class="input input-lg border-base-300 bg-base-100 w-full rounded-xl pl-12"
 						[(ngModel)]="filterByFields$_['title']"
 					/>
 					<svg
-						class="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-white/60"
+						class="text-base-content/40 absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -65,7 +64,9 @@
 									@if (article) {
 										<li>
 											<a
+												tabindex="0"
 												(click)="goToArticle(article.slug ?? article.id)"
+												(keydown.enter)="goToArticle(article.slug ?? article.id)"
 												class="hover:bg-primary/10 hover:text-primary block cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors"
 												>{{ article.title }}</a
 											>
@@ -96,7 +97,9 @@
 									@if (article) {
 										<li>
 											<a
+												tabindex="0"
 												(click)="goToArticle(article.slug ?? article.id)"
+												(keydown.enter)="goToArticle(article.slug ?? article.id)"
 												class="hover:bg-base-300 hover:text-base-content block cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors"
 												>{{ article.title }}</a
 											>
@@ -148,7 +151,10 @@
 					@if (article) {
 						<article
 							class="card card-compact bg-base-200 border-base-300 group cursor-pointer border shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+							tabindex="0"
+							role="button"
 							(click)="filterByFields$_['title'] = ''; goToArticle(article.slug ?? article.id)"
+							(keydown.enter)="filterByFields$_['title'] = ''; goToArticle(article.slug ?? article.id)"
 						>
 							<div class="card-body">
 								@let pictureId = article.config.images?.['thumbnail']?.entityFileId;
@@ -197,7 +203,10 @@
 					@if (article) {
 						<article
 							class="card card-side bg-base-200 border-base-300 group hover:border-primary compact cursor-pointer border shadow-sm transition-all hover:shadow-md"
+							tabindex="0"
+							role="button"
 							(click)="filterByFields$_['title'] = ''; goToArticle(article.slug ?? article.id)"
+							(keydown.enter)="filterByFields$_['title'] = ''; goToArticle(article.slug ?? article.id)"
 						>
 							<div class="card-body flex-row items-center justify-between gap-4 p-6">
 								<div class="min-w-0 flex-1">

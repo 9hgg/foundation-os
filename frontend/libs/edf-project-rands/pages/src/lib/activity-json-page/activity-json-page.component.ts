@@ -18,7 +18,7 @@ export class ActivityJsonPageComponent {
 	public activityId = model<string | null>(null);
 
 	activity$$$ = new BehaviorSubjectReplayedProxied<string | null, Activity | null>((id: string | null) => {
-		return id ? this._activitiesRepository.store.getObjectById$$$(id).$ : of(null);
+		return id ? this._activitiesRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	constructor() {

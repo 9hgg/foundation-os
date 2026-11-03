@@ -11,15 +11,17 @@ content) that the generic filter system cannot express as a single query.
 """
 
 import sqlalchemy as sa
+import structlog
 from mcp.server.fastmcp import FastMCP
 
 from libs.acl.models import Operation
 from libs.db import context_db
 from libs.endpoints.endpoints import apply_operation_access_filter
-from libs.logger.customLogger import print_color
 from libs.mcp.auth import get_user_from_token
 
 from .models import Article
+
+logger = structlog.get_logger(__name__)
 
 
 def register_article_mcp_tools(mcp: FastMCP) -> None:
@@ -72,7 +74,7 @@ def register_article_mcp_tools(mcp: FastMCP) -> None:
         - "Search articles about corrosion."
         - "Find the most recent published articles I can see."
         """
-        print_color("cyan", f"[MCP] search_articles: query={query!r} auth={bool(auth_token)}")
+        logger.debug("search_articles", authenticated=bool(auth_token))
         user = get_user_from_token(auth_token)
         query = query.strip()
 
@@ -95,7 +97,7 @@ def register_article_mcp_tools(mcp: FastMCP) -> None:
             )
             rows: list[Article] = base_query.order_by(Article.time_published.desc().nullslast()).limit(20).all()
 
-        print_color("cyan", f"[MCP] search_articles: found {len(rows)} articles")
+        logger.debug("search_articles_complete", article_count=len(rows))
         return [
             {
                 "id": str(a.id),

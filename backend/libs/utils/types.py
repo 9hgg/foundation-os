@@ -1,6 +1,6 @@
 import typing
 import uuid
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from humps import (
     camelize,
@@ -100,7 +100,7 @@ class BasicType(SQLModelBaseModelWithConfig):
 
 
 def serialize(obj, keep_unserializable=False, ignore_unserializable=False):
-    if isinstance(obj, (int, float, str, bool, type(None))):
+    if isinstance(obj, int | float | str | bool | type(None)):
         # Basic types (int, float, str, bool, None) can be directly serialized.
         return obj
     elif isinstance(obj, list):
@@ -141,7 +141,18 @@ class EndpointError(SQLModelBaseModelWithConfig):
     details: dict[str, typing.Any] | None = None
 
 
-class EndpointOutput(BaseModelWithConfig, Generic[T]):
+class EndpointOutput[T](BaseModelWithConfig):
     error: EndpointError | None = None
     result: T | None = None
     message: str | None = None
+
+
+def unauthorized_output(translator, description: str = "You are not authorized to do this.", code: str = "unauthorized") -> "EndpointOutput":
+    """Shared 'not authorized' endpoint result, so callers don't re-inline the same EndpointError."""
+    return EndpointOutput(
+        error=EndpointError(
+            title=translator.translate("Not authorized"),
+            description=translator.translate(description),
+            code=code,
+        )
+    )

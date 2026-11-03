@@ -7,3 +7,5 @@ describe('UserModals', () => {
 
         it('exposes an openUsersSelectionDialog method on its prototype', () => {
                 expect(typeof UserModals.prototype.openUsersSelectionDialog).toBe('function');
+        });
+});

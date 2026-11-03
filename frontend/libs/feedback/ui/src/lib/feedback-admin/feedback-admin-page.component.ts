@@ -21,6 +21,7 @@ import {
 	FEEDBACK_INTERACTION_PREFIX,
 	FeedbackBlockResponse,
 	FeedbackResponse,
+	isCtaFeedbackResponse,
 	isFeedbackResponse,
 	isMCQFeedbackResponse,
 	isNPSFeedbackResponse,
@@ -47,6 +48,8 @@ interface FeedbackGroup {
 	responses: FeedbackResponse[];
 	identifiedAnsweredUserIds: string[];
 	anonymousAnsweredCount: number;
+	/** Every response is a click rather than an answer: a card, not a question. */
+	isAnnouncement: boolean;
 }
 
 const INITIAL_VISIBLE_ANSWERED_USERS = 10;
@@ -99,11 +102,19 @@ const ANSWERED_USERS_PAGE_STEP = 10;
 									<span class="text-base-content/50 text-xs">{{ group.key }}</span>
 								</div>
 								<div class="flex items-center gap-2">
-									<span class="badge badge-neutral">{{ group.responses.length }}/{{ group.interactions.length }} answered</span>
-									<lib-question-mark-helper
-										[title]="'Answered vs seen'"
-										[message]="'First number: users who submitted feedback. Second number: users who saw the widget (interaction tracked even if no answer was submitted).'"
-									/>
+									@if (group.isAnnouncement) {
+										<span class="badge badge-neutral">{{ group.responses.length }}/{{ group.interactions.length }} clicked ({{ clickThroughRate(group) }})</span>
+										<lib-question-mark-helper
+											[title]="'Click-through rate'"
+											[message]="'First number: people who clicked a link on the card. Second: people who saw it. An interaction is created on display, a response only on a click, so the ratio is the click-through rate.'"
+										/>
+									} @else {
+										<span class="badge badge-neutral">{{ group.responses.length }}/{{ group.interactions.length }} answered</span>
+										<lib-question-mark-helper
+											[title]="'Answered vs seen'"
+											[message]="'First number: users who submitted feedback. Second number: users who saw the widget (interaction tracked even if no answer was submitted).'"
+										/>
+									}
 								</div>
 							</div>
 
@@ -145,6 +156,16 @@ const ANSWERED_USERS_PAGE_STEP = 10;
 												}
 												@case ('nps') {
 													<div [id]="'chart-' + group.slug + '-' + bi" class="h-64 w-full"></div>
+												}
+												@case ('cta') {
+													<ul class="space-y-2">
+														@for (link of ctaLinkCounts(group, bi); track link.id) {
+															<li class="bg-base-200/60 flex items-center justify-between rounded-lg px-4 py-2 text-sm">
+																<span>{{ link.id }}</span>
+																<span class="text-base-content/60">{{ link.count }} click{{ link.count === 1 ? '' : 's' }} · {{ link.rate }}</span>
+															</li>
+														}
+													</ul>
 												}
 												@default {
 													<div class="max-h-64 overflow-y-auto">
@@ -192,6 +213,29 @@ export class FeedbackAdminPageComponent implements AfterViewInit, OnDestroy {
 	readonly isTextareaFeedbackResponse = isTextareaFeedbackResponse;
 	readonly isRatingFeedbackResponse = isRatingFeedbackResponse;
 	readonly isNPSFeedbackResponse = isNPSFeedbackResponse;
+	readonly isCtaFeedbackResponse = isCtaFeedbackResponse;
+
+	/** Clicks over impressions. An interaction exists per person who saw the card. */
+	clickThroughRate(group: FeedbackGroup): string {
+		if (group.interactions.length === 0) return '0%';
+		return `${Math.round((group.responses.length / group.interactions.length) * 100)}%`;
+	}
+
+	/** How each link on a card fared, against the number of people who saw it. */
+	ctaLinkCounts(group: FeedbackGroup, blockIndex: number): { id: string; count: number; rate: string }[] {
+		const counts = new Map<string, number>();
+		for (const response of group.responses) {
+			const block = response.blocks[blockIndex];
+			if (!block || !isCtaFeedbackResponse(block)) continue;
+			for (const clickedId of block.clickedIds) {
+				counts.set(clickedId, (counts.get(clickedId) ?? 0) + 1);
+			}
+		}
+		const seen = group.interactions.length || 1;
+		return Array.from(counts.entries())
+			.map(([id, count]) => ({ id, count, rate: `${Math.round((count / seen) * 100)}%` }))
+			.sort((left, right) => right.count - left.count);
+	}
 
 	readonly feedbackGroups = computed<FeedbackGroup[]>(() => {
 		const interactions = this.allInteractions();
@@ -222,9 +266,12 @@ export class FeedbackAdminPageComponent implements AfterViewInit, OnDestroy {
 			);
 			const anonymousAnsweredCount = answeredInteractions.filter((interaction) => !interaction.userId).length;
 
+			const isAnnouncement = responses.length > 0 && responses.every((response) => response.blocks.every((block) => isCtaFeedbackResponse(block)));
+
 			return {
 				slug,
 				key,
+				isAnnouncement,
 				interactions: interactionList,
 				answeredInteractions,
 				responses,

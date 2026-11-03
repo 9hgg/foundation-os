@@ -6,7 +6,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { getOverheadCoefficient, Purchase } from '@edf/edf-project-rands/models';
 import { PurchasesRepository } from '@edf/edf-project-rands/state';
 import { AccessService } from '@foundation/shared/access';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { switchMap } from 'rxjs';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -16,7 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 @Component({
 	selector: 'lib-purchase-table',
 	standalone: true,
-	imports: [CommonModule, TranslateDirective, TranslatePipe, ReactiveFormsModule, FormsModule, CdkMenuModule, CdkMenu, CdkMenuItem],
+	imports: [TablePaginatorComponent, CommonModule, TranslateDirective, TranslatePipe, ReactiveFormsModule, FormsModule, CdkMenuModule, CdkMenu, CdkMenuItem],
 	templateUrl: './purchase-table.component.html',
 	styleUrl: './purchase-table.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,

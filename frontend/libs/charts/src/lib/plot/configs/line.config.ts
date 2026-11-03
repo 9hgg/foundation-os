@@ -17,9 +17,16 @@ function isLineTooltipParam(p: unknown): p is LineTooltipParam {
 
 // ─── Line chart ───────────────────────────────────────────────────────────────
 
-export function buildLineOption({ series, title, downloadFilename, thresholds, annotations, periods, xAxisName, yAxisName, xAxisScale, i18nDownload }: BuildOptionParams): echarts.EChartsOption {
+export function buildLineOption({ series, title, downloadFilename, thresholds, annotations, periods, xAxisName, yAxisName, xAxisScale, i18nDownload, showLegend, stacked, step }: BuildOptionParams): echarts.EChartsOption {
 	// Auto-detect: if first x > 1e11 treat as Unix-millisecond timestamps.
 	const isTimeSeries = series.some((s) => s.points.length > 0 && (s.points[0]?.[0] ?? 0) > 1e11);
+
+	// Legend lists the main series only — overlay bounds (names ending in " min"/" max") are excluded.
+	const legendNames = series.filter((s) => !/ (min|max)$/.test(s.name)).map((s) => s.name);
+	const legend: echarts.LegendComponentOption | undefined = showLegend
+		? { type: 'scroll', top: 28, data: legendNames, textStyle: { color: '#666' } }
+		: undefined;
+	const grid = showLegend ? { ...GRID, top: 84 } : GRID;
 
 	const chartSeries: echarts.SeriesOption[] = series.map((s, idx) => {
 		const color = s.color ?? DEFAULT_PALETTE[idx % DEFAULT_PALETTE.length];
@@ -29,8 +36,10 @@ export function buildLineOption({ series, title, downloadFilename, thresholds, a
 			type: 'line',
 			data: s.points,
 			symbol: 'none',
-			smooth: true,
-			lineStyle: { color, width: 2, opacity },
+			smooth: !stacked && !step,
+			...(step ? { step: 'end' } : {}),
+			...(stacked ? { stack: 'total' } : {}),
+			lineStyle: { color, width: 2, opacity, type: s.dashed ? 'dashed' : 'solid' },
 			itemStyle: { color, opacity },
 			sampling: 'lttb',
 		};
@@ -38,6 +47,7 @@ export function buildLineOption({ series, title, downloadFilename, thresholds, a
 
 	return {
 		title: { text: title, left: 'center', textStyle: { color: '#333', fontSize: 14, fontWeight: 'bold' } },
+		legend,
 		tooltip: {
 			trigger: 'axis',
 			backgroundColor: 'rgba(50, 50, 50, 0.9)',
@@ -71,7 +81,7 @@ export function buildLineOption({ series, title, downloadFilename, thresholds, a
 			: { type: xAxisScale === 'log' ? 'log' : 'value', name: xAxisName || 'Temps (s)', nameTextStyle: { color: '#666' }, splitLine: { show: false } },
 		yAxis: { type: 'value', name: yAxisName, nameTextStyle: { color: '#666' }, splitLine: { show: true, lineStyle: { color: '#f0f0f0' } } },
 		toolbox: buildToolbox(downloadFilename, i18nDownload),
-		grid: GRID,
+		grid,
 		dataZoom: DATA_ZOOM,
 		series: [...chartSeries, ...buildOverlaySeries({ thresholds, annotations, periods })],
 	};

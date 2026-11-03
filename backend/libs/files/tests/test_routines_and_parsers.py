@@ -1,8 +1,7 @@
 import json
 import runpy
 import uuid
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -180,3 +179,105 @@ def test_routine_generate_files_alternatives_exits_gracefully_when_shutdown():
 
     mock_generate_file_alternatives.assert_called_once_with(None, file_ids[0][0])
     mock_exit.assert_called_once_with(0)
+
+
+def test_file_hash_backfill_is_preview_only_by_default():
+    from libs.files.routines.routine_backfill_file_hashes import backfill_file_hashes
+
+    missing_id = uuid.uuid4()
+    existing_id = uuid.uuid4()
+    with (
+        patch(
+            "libs.files.routines.routine_backfill_file_hashes._fetch_file_batch",
+            side_effect=[
+                [(missing_id, None), (existing_id, "already-hashed")],
+                [],
+            ],
+        ) as mock_fetch_batch,
+        patch("libs.files.routines.routine_backfill_file_hashes.fill_file_hash") as mock_fill_file_hash,
+    ):
+        assert backfill_file_hashes() == (1, 0)
+
+    mock_fill_file_hash.assert_not_called()
+    assert mock_fetch_batch.call_args_list == [
+        call(after_id=None, batch_size=500),
+        call(after_id=existing_id, batch_size=500),
+    ]
+
+
+def test_file_hash_backfill_fetches_bounded_pages_in_short_db_contexts():
+    from libs.files.routines.routine_backfill_file_hashes import _fetch_file_batch
+
+    after_id = uuid.uuid4()
+    expected_rows = [(uuid.uuid4(), {})]
+    context_manager = MagicMock()
+    db = context_manager.__enter__.return_value
+    base_query = db.query.return_value
+    in_storage_query = base_query.filter.return_value
+    cursor_query = in_storage_query.filter.return_value
+    ordered_query = cursor_query.order_by.return_value
+    limited_query = ordered_query.limit.return_value
+    limited_query.all.return_value = expected_rows
+
+    with patch(
+        "libs.files.routines.routine_backfill_file_hashes.context_db",
+        return_value=context_manager,
+    ):
+        assert _fetch_file_batch(after_id=after_id, batch_size=25) == expected_rows
+
+    base_query.filter.assert_called_once()
+    in_storage_query.filter.assert_called_once()
+    ordered_query.limit.assert_called_once_with(25)
+    limited_query.all.assert_called_once_with()
+    context_manager.__exit__.assert_called_once()
+
+
+def test_file_hash_backfill_processes_only_missing_hashes_when_applied():
+    from libs.files.routines.routine_backfill_file_hashes import backfill_file_hashes
+
+    missing_id = uuid.uuid4()
+    existing_id = uuid.uuid4()
+    with (
+        patch(
+            "libs.files.routines.routine_backfill_file_hashes._fetch_file_batch",
+            side_effect=[
+                [(missing_id, None), (existing_id, "already-hashed")],
+                [],
+            ],
+        ),
+        patch(
+            "libs.files.routines.routine_backfill_file_hashes.fill_file_hash",
+            return_value="new-hash",
+        ) as mock_fill_file_hash,
+    ):
+        assert backfill_file_hashes(apply=True) == (1, 1)
+
+    mock_fill_file_hash.assert_called_once_with(missing_id)
+
+
+def test_file_hash_backfill_continues_after_unreadable_file():
+    from libs.files.routines.routine_backfill_file_hashes import backfill_file_hashes
+
+    unreadable_id = uuid.uuid4()
+    readable_id = uuid.uuid4()
+    with (
+        patch(
+            "libs.files.routines.routine_backfill_file_hashes._fetch_file_batch",
+            side_effect=[[(unreadable_id, None), (readable_id, None)], []],
+        ),
+        patch(
+            "libs.files.routines.routine_backfill_file_hashes.fill_file_hash",
+            side_effect=[OSError("storage object missing"), "new-hash"],
+        ) as mock_fill_file_hash,
+        patch("libs.files.routines.routine_backfill_file_hashes.logger") as mock_logger,
+    ):
+        assert backfill_file_hashes(apply=True) == (2, 1)
+
+    assert mock_fill_file_hash.call_args_list == [
+        call(unreadable_id),
+        call(readable_id),
+    ]
+    mock_logger.exception.assert_called_once_with(
+        "file_hash_backfill_file_failed",
+        file_id=str(unreadable_id),
+    )

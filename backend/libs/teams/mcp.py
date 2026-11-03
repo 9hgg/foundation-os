@@ -9,10 +9,12 @@ Note: basic list/get operations are handled by the generic CRUD proxy
 require custom logic live here.
 """
 
+import structlog
 from mcp.server.fastmcp import FastMCP
 
-from libs.logger.customLogger import print_color
 from libs.teams.methods import get_team_with_members_with_roles
+
+logger = structlog.get_logger(__name__)
 
 
 def register_team_mcp_tools(mcp: FastMCP) -> None:
@@ -57,14 +59,14 @@ def register_team_mcp_tools(mcp: FastMCP) -> None:
         - "Show me all members of team 3fa85f64-5717-4562-b3fc-2c963f66afa6."
         - "Who is in the Operations team and what are their roles?"
         """
-        print_color("cyan", f"[MCP] get_team_members: team_id={team_id!r}")
+        logger.debug("get_team_members", team_id=str(team_id))
         result = get_team_with_members_with_roles(team_id=team_id)  # type: ignore[arg-type]
         team = result.get("team")
         if not team:
-            print_color("yellow", f"[MCP] get_team_members: team {team_id!r} not found")
+            logger.warning("team_not_found", team_id=str(team_id))
             return {"error": "not_found", "message": f"Team {team_id} not found."}
 
-        print_color("cyan", f"[MCP] get_team_members: found team {team.name!r} with {len(result.get('members', []))} members")
+        logger.debug("team_members_loaded", team_id=str(team_id), member_count=len(result.get("members", [])))
         return {
             "team": {
                 "id": str(team.id),

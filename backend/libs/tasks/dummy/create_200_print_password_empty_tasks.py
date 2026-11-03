@@ -1,4 +1,4 @@
-from libs.logger import print
+from builtins import print
 from libs.tasks.tasks_manager import TasksManager
 from libs.users.tasks import print_users_without_passwords  # noqa: F401
 

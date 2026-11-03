@@ -1,5 +1,7 @@
-import pytest
 from datetime import datetime, timedelta
+
+import pytest
+
 from libs.endpoints.endpoints import check_concurrency_conflict, decode_filters
 
 

@@ -1,11 +1,14 @@
+import datetime
 import uuid
 
+import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from libs.db import context_db
 from libs.users.models import User
+from libs.utils.types import serialize
 
-from .models import Membership, Team
+from .models import Membership, Team, TeamInvitation
 
 
 def add_to_team(
@@ -148,3 +151,31 @@ def change_team_owner(
         team.owner_id = new_owner_id
         db.commit()
         return True
+
+
+def set_team_invitations(
+    *,
+    team_id: uuid.UUID,
+    invitations: dict[str, TeamInvitation],
+    _db: Session | None = None,
+) -> None:
+    """Replace a team's invitations wholesale.
+
+    Not `Team.patch`: that deep-merges dicts, so a revoked or claimed invitation would be merged
+    straight back in and the deletion would silently do nothing. The rest of the config is read and
+    written back untouched, so this stays a change to one field.
+    """
+    with context_db(_db) as db:
+        team = Team.by_id(team_id, _db=db)
+        if team is None:
+            raise ValueError(f"(set_team_invitations) no team {team_id}")  # noqa: TRY003
+        config = team.config.model_copy(update={"invitations": invitations})
+        db.execute(
+            sa.update(Team)
+            .where(Team.id == team_id)
+            .values(
+                config=serialize(config),
+                time_updated=datetime.datetime.now(datetime.UTC),
+            )
+        )
+        db.commit()

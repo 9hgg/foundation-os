@@ -1,9 +1,12 @@
 from typing import ClassVar
 
-from libs.logger.customLogger import print
+import structlog
+
 from libs.utils.types import BaseModelWithConfig
 
 from ._generic import Translator
+
+logger = structlog.get_logger(__name__)
 
 
 class AlreadyEnlistedTranslatorError(Exception):
@@ -47,7 +50,7 @@ class TranslatorsManager:
                 return
             translator_class = EnlistedTranslator(config_name=translator_name, translator=fn)
             cls.translators[translator_name] = translator_class
-            print(f"Translator {translator_name} enlisted")
+            logger.debug("translator_enlisted", translator=translator_name)
             return fn
 
         return decorator

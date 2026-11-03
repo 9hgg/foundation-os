@@ -1,6 +1,7 @@
 import typing
 import uuid
 
+import structlog
 from pydantic import BaseModel, ConfigDict
 
 from libs.acl.methods import (
@@ -18,12 +19,13 @@ from libs.folders.methods import (
     get_subfolders_and_resources,
     remove_from_folder,
 )
-from libs.logger import print
 from libs.resource import Resource, ResourceManager
 from libs.utils.deps import ClassicDeps__dep
 from libs.utils.types import EndpointError, EndpointOutput, to_camel
 
 from .models import Folder
+
+logger = structlog.get_logger(__name__)
 
 T = typing.TypeVar("T", bound=Resource, covariant=True)
 
@@ -180,7 +182,7 @@ def create_crud_folder_router(prefix: str = "/api/folders"):
     )
     async def get_folder_public_resources(folder_id: uuid.UUID):
         resources = get_folder_children(folder_id=folder_id)
-        print("Public resources", resources, folder_id)
+        logger.debug("folder_public_resources", folder_id=folder_id, resource_count=len(resources))
 
         filtered_resources = {}
         for resource in resources:
@@ -197,9 +199,7 @@ def create_crud_folder_router(prefix: str = "/api/folders"):
                     )
                     r_db = resource_type.get_first_by(id=resource.resource_id)
                     if not r_db:
-                        print(
-                            f"Resource {resource.resource_id} of kind {resource.resource_kind} not found"
-                        )
+                        logger.warning("folder_resource_not_found", resource_id=resource.resource_id, resource_kind=resource.resource_kind)
                         continue
                     # r_db.model_post_init(None)
                     # # Ensure the resource is serialized correctly
@@ -208,7 +208,7 @@ def create_crud_folder_router(prefix: str = "/api/folders"):
                         r_db.model_dump(by_alias=True, exclude_none=True)
                     )
                 except KeyError:
-                    print(f"Resource kind {resource.resource_kind} not found in models")
+                    logger.warning("folder_resource_kind_unknown", resource_kind=resource.resource_kind)
                     continue
 
         # todo : replace with resource ?

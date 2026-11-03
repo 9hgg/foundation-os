@@ -365,6 +365,19 @@ function _createBehaviorSubjectProxy<T extends object>(obj_: T, onGet?: (path: s
 							behaviorSubjects[existingObsKey].next(Reflect.get(originalObject, existingObsKey));
 						}
 					});
+
+					// 3) update the observable over the root property, as `set` does: a root subscriber
+					// (localStorage persistence, most notably) must see a removal too, otherwise the key
+					// comes back on the next page load.
+					if (behaviorSubjects['$']) {
+						const rootValue = cloneDeep(originalObject);
+						if (!isEqual(rootValue, behaviorSubjects['$'].value)) {
+							if (DEBUG_SET) console.log('[deleteProperty] UPDATE.observed$ ROOT updated:', originalObject);
+							behaviorSubjects['$'].next(rootValue);
+						}
+					}
+
+					return result;
 				}
 				return Reflect.deleteProperty(target, property);
 			},

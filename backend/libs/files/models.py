@@ -1,12 +1,12 @@
 import uuid
-from typing import Optional
 
 import sqlalchemy as sa
 import sqlmodel
+from pydantic import ConfigDict, Field
 from sqlalchemy.dialects.postgresql import JSONB
 
-from libs.mcp.display import ResourceDisplayProfile
 from libs.resource import (
+    ResourceDisplayProfile,
     ResourceWithConfig,
 )
 from libs.utils.types import BaseModelWithConfig
@@ -44,31 +44,37 @@ class StorageSettings(ResourceWithConfig, table=True):
 
 
 class FileAlternative(BaseModelWithConfig):
-    description: Optional[str] = None
+    description: str | None = None
     # e.g. "squared.jpg"
-    alternative_filename: Optional[str] = None
+    alternative_filename: str | None = None
     # vs "original" or "default". e.g. "squared", "720p", "1080p", "audio_only", ...
     storage_suffix: str
-    size: Optional[float] = None
+    size: float | None = None
     mime: str  # e.g. "image/jpeg"
     kind: str  # e.g. "image", "video", "audio", ...
     extension: str  # e.g. ".jpg", ".mp4", ".mp3", ...
-    presigned_url: Optional[str] = None
-    presigned_url_expiration: Optional[float] = None
+    presigned_url: str | None = None
+    presigned_url_expiration: float | None = None
 
 
 class ExtraDetailsFile(BaseModelWithConfig):
+    # Tolerate unknown keys (e.g. the legacy "hash" key, now promoted to the top-level
+    # File.hash/hash_client columns) instead of the base model's extra="forbid" -- this is
+    # stored JSONB that accumulates fields across schema versions, and rows written before a
+    # field was removed must still load without crashing until backfilled.
+    model_config = ConfigDict(**{**BaseModelWithConfig.model_config, "extra": "ignore"})
+
     # audio/video only
-    duration: Optional[float] = None
-    has_audio: Optional[bool] = False
-    has_video: Optional[bool] = False
-    width: Optional[float] = None
-    height: Optional[float] = None
-    sample_rate: Optional[float] = None
-    channels: Optional[float] = None
-    codec_audio: Optional[str] = None
-    codec_video: Optional[str] = None
-    alternative_formats: list[FileAlternative] = []
+    duration: float | None = None
+    has_audio: bool | None = False
+    has_video: bool | None = False
+    width: float | None = None
+    height: float | None = None
+    sample_rate: float | None = None
+    channels: float | None = None
+    codec_audio: str | None = None
+    codec_video: str | None = None
+    alternative_formats: list[FileAlternative] = Field(default_factory=list)
 
 
 class FileConfig(BaseModelWithConfig):
@@ -78,7 +84,7 @@ class FileConfig(BaseModelWithConfig):
     __private__ = True
     __category__ = "config"
 
-    client_duration: Optional[float] = None
+    client_duration: float | None = None
 
 
 class File(ResourceWithConfig, table=True):
@@ -88,7 +94,7 @@ class File(ResourceWithConfig, table=True):
     __description__ = "A file holds the data to retrieve a file from the server."
     __config_type__ = FileConfig
     __extra_type__ = ExtraDetailsFile
-    __mcp_display__ = ResourceDisplayProfile(
+    __display_profile__ = ResourceDisplayProfile(
         kind="file",
         title_fields=("public_filename", "original_filename", "filename", "name", "id"),
         subtitle_fields=("description", "mime"),
@@ -97,26 +103,28 @@ class File(ResourceWithConfig, table=True):
         metadata_fields=("kind", "mime", "extension", "size", "size_client", "duration", "width", "height", "has_audio", "has_video"),
     )
 
-    public_filename: Optional[str] = sqlmodel.Field(default=None, description="Human-readable name shown to users. Use this field to search by file name.")
-    description: Optional[str] = sqlmodel.Field(default=None, description="Optional free-text description of the file.")
+    public_filename: str | None = sqlmodel.Field(default=None, description="Human-readable name shown to users. Use this field to search by file name.")
+    description: str | None = sqlmodel.Field(default=None, description="Optional free-text description of the file.")
 
-    extension: Optional[str] = sqlmodel.Field(default=None, description="File extension resolved after processing, e.g. '.mp4', '.jpg', '.pdf'.")
-    kind: Optional[str] = sqlmodel.Field(default=None, description="Media kind: 'audio', 'video', 'image', 'pdf', or other.")
+    extension: str | None = sqlmodel.Field(default=None, description="File extension resolved after processing, e.g. '.mp4', '.jpg', '.pdf'.")
+    kind: str | None = sqlmodel.Field(default=None, description="Media kind: 'audio', 'video', 'image', 'pdf', or other.")
 
     # FROM CLIENT
-    extension_client: Optional[str] = sqlmodel.Field(default=None, description="Extension as reported by the client before server-side processing.")
-    mime_client: Optional[str] = sqlmodel.Field(default=None, description="MIME type as reported by the client, e.g. 'video/quicktime'.")
-    original_filename: Optional[str] = sqlmodel.Field(default=None, description="Original filename as uploaded by the client, before any renaming.")
-    size_client: Optional[float] = sqlmodel.Field(default=None, description="File size in bytes as reported by the client.")
+    extension_client: str | None = sqlmodel.Field(default=None, description="Extension as reported by the client before server-side processing.")
+    mime_client: str | None = sqlmodel.Field(default=None, description="MIME type as reported by the client, e.g. 'video/quicktime'.")
+    original_filename: str | None = sqlmodel.Field(default=None, description="Original filename as uploaded by the client, before any renaming.")
+    size_client: float | None = sqlmodel.Field(default=None, description="File size in bytes as reported by the client.")
+    hash_client: str | None = sqlmodel.Field(default=None, description="SHA-256 hex digest as computed by the client before upload, e.g. for immediate content-based duplicate detection before the server-side hash is ready.")
 
-    unprocessable: Optional[bool] = sqlmodel.Field(default=None, description="True if the file could not be processed; None while status is unknown.")
-    mime: Optional[str] = sqlmodel.Field(default=None, description="Server-resolved MIME type, e.g. 'image/jpeg'.")
-    size: Optional[float] = sqlmodel.Field(default=None, description="File size in bytes resolved after upload.")
+    unprocessable: bool | None = sqlmodel.Field(default=None, description="True if the file could not be processed; None while status is unknown.")
+    mime: str | None = sqlmodel.Field(default=None, description="Server-resolved MIME type, e.g. 'image/jpeg'.")
+    size: float | None = sqlmodel.Field(default=None, description="File size in bytes resolved after upload.")
+    hash: str | None = sqlmodel.Field(default=None, description="SHA-256 hex digest of the file content, computed server-side independently of media processing. None for files not hashed yet.")
 
-    storage_id: Optional[uuid.UUID] = sqlmodel.Field(default=None, nullable=False, foreign_key="storage_settings.id", description="ID of the storage backend that holds this file.")
-    storage_folder_path: Optional[str] = sqlmodel.Field(default=None, description="Internal path within the storage backend.")
+    storage_id: uuid.UUID | None = sqlmodel.Field(default=None, nullable=False, foreign_key="storage_settings.id", description="ID of the storage backend that holds this file.")
+    storage_folder_path: str | None = sqlmodel.Field(default=None, description="Internal path within the storage backend.")
     in_storage: bool = sqlmodel.Field(sa_column=sa.Column(sa.Boolean, nullable=False, server_default="false"), description="True once the file has been successfully uploaded to storage.")
-    upload_url: Optional[str] = sqlmodel.Field(default=None, description="Temporary pre-signed URL for the client to upload the file.")
+    upload_url: str | None = sqlmodel.Field(default=None, description="Temporary pre-signed URL for the client to upload the file.")
 
     # extra data, can be used by the StorageClass
     # to store extra data like alternative formats, ...

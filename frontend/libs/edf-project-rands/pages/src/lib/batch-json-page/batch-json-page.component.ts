@@ -18,7 +18,7 @@ export class BatchJsonPageComponent {
 	public batchId = model<string | null>(null);
 
 	batch$$$ = new BehaviorSubjectReplayedProxied<string | null, Batch | null>((id: string | null) => {
-		return id ? this._batchesRepository.store.getObjectById$$$(id).$ : of(null);
+		return id ? this._batchesRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	constructor() {

@@ -3,10 +3,12 @@ import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+// eslint-disable-next-line @nx/enforce-module-boundaries -- pre-existing access/users UI cycle
 import { AccessService } from '@foundation/shared/access';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
+import { ClipboardService } from '@foundation/notification';
 import { User } from '@foundation/users/models';
 import { UsersRepository } from '@foundation/users/state';
 import { FullSpanRowDirective } from '@foundation/utils';
@@ -16,6 +18,7 @@ import { switchMap } from 'rxjs';
 	selector: 'lib-user-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		//
 		CommonModule,
 		TranslateDirective,
@@ -33,6 +36,7 @@ import { switchMap } from 'rxjs';
 })
 export class UserTableComponent extends RepositoryTableComponent<User, UsersRepository> {
 	private _accessService = inject(AccessService);
+	private _clipboardService = inject(ClipboardService);
 
 	constructor(
 		private _repository: UsersRepository,
@@ -65,6 +69,14 @@ export class UserTableComponent extends RepositoryTableComponent<User, UsersRepo
 	private _i18n_connectAsLinkCopied = this._translationService.prep('Connect-as link copied to clipboard.');
 	private _i18n_connectAsLinkCopyFailed = this._translationService.prep('Failed to copy connect-as link.');
 	public isAdmin = toSignal(this._accessService.checkAdmin$(), { initialValue: false });
+
+	public displayLanguage(user: User): string {
+		return user.config?.language || '—';
+	}
+
+	public displayTheme(user: User): string {
+		return user.config?.theme?.mode || 'system';
+	}
 
 	public renameFirstUser(user: User) {
 		this._notificationService
@@ -134,14 +146,9 @@ export class UserTableComponent extends RepositoryTableComponent<User, UsersRepo
 				return;
 			}
 
-			navigator.clipboard
-				.writeText(connectAsLink)
-				.then(() => {
-					this._notificationService.snackSuccess(this._i18n_connectAsLinkCopied());
-				})
-				.catch(() => {
-					this._notificationService.snackError(this._i18n_connectAsLinkCopyFailed());
-				});
+			// ClipboardService copies over plain http too, and falls back to a
+			// manual-copy dialog when automatic copy is unavailable.
+			this._clipboardService.copy(connectAsLink, { successMessage: this._i18n_connectAsLinkCopied() }).subscribe();
 		});
 	}
 }

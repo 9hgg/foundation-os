@@ -21,6 +21,8 @@ export interface Article extends Resource {
 	summary?: string;
 	content?: string;
 	authorId?: string;
+	/** Undefined or null is live; 'archived' keeps it out of the lists without deleting it. */
+	state?: string | null;
 	draft: boolean;
 	timePublished?: Date;
 	tags: string[];

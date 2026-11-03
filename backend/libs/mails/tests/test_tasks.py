@@ -1,15 +1,16 @@
-import pytest
 import uuid
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from libs.mails.tasks import (
-    exponential_backoff,
-    send_email,
-    process_emails,
     MailIdRequiredException,
     MailNotFoundException,
     MailSettingsNotFoundException,
+    exponential_backoff,
+    process_emails,
+    send_email,
 )
-from libs.mails.config import MAILS_SETTINGS
 
 
 def test_exponential_backoff():
@@ -33,6 +34,7 @@ def test_send_email(mock_smtp, mock_attempt, mock_settings, mock_mail):
     mail_obj.subject = "Subject"
     mail_obj.body = "Body"
     mail_obj.body_html = "HTML"
+    mail_obj.config.cc = ["owner@example.com"]
     mock_mail.by_id.return_value = mail_obj
 
     settings_obj = MagicMock()
@@ -61,6 +63,7 @@ def test_send_email(mock_smtp, mock_attempt, mock_settings, mock_mail):
         subject="Subject",
         text_content="Body",
         html_content="HTML",
+        cc_emails=["owner@example.com"],
     )
     mock_mail.patch.assert_called_with(obj_id=mail_id, update_dict={"status": "sent"})
     mock_attempt.patch.assert_called_with(obj_id=attempt_obj.id, update_dict={"status": "sent"})

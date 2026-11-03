@@ -1,12 +1,10 @@
 import uuid
-from typing import Optional
 
 import sqlalchemy as sa
 import sqlmodel
 from sqlalchemy import Index
 
-from libs.mcp.display import ResourceDisplayProfile
-from libs.resource import ResourceWithConfig
+from libs.resource import ResourceDisplayProfile, ResourceWithConfig
 from libs.utils.types import SQLMODEL_BASE_CONFIG_DICT, BaseModelWithConfig
 
 
@@ -26,7 +24,7 @@ class Folder(ResourceWithConfig, table=True):
     __title__ = "Folder"
     __private__ = False
     __config_type__ = FolderConfig
-    __mcp_display__ = ResourceDisplayProfile(
+    __display_profile__ = ResourceDisplayProfile(
         kind="folder",
         title_fields=("name", "title", "id"),
         metadata_fields=("for_kind",),
@@ -35,7 +33,7 @@ class Folder(ResourceWithConfig, table=True):
 
     name: str | None
 
-    parent_id: Optional[uuid.UUID] = sqlmodel.Field(
+    parent_id: uuid.UUID | None = sqlmodel.Field(
         sa_column=sa.Column(
             sa.ForeignKey("folders.id", ondelete="SET NULL"),
         ),

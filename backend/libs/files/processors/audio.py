@@ -1,30 +1,101 @@
 import math
 import os
-import sys
-import traceback
 from copy import deepcopy
 
 import ffmpeg
 import ffmpegio
+import structlog
 from PIL import Image
 
 from libs.files.config import FILES_SETTINGS
-from libs.logger import print, print_color
-from libs.logger.customLogger import print_error, print_warning
 
 from ..models import FileAlternative
 from ..storage import GenericStorage
 from ._generic import GenericProcessor
+from .audiogram import (
+    AUDIOGRAM_ALTERNATIVE,
+    AUDIOGRAM_FILENAME,
+    AUDIOGRAM_MIME,
+    AudiogramExtractionError,
+    write_audiogram,
+)
 from .utils import audio as audio_utils
 from .utils.media import analyze_local_file_with_ffprobe
 
 cwd = os.getcwd()
 
 
+class _NonFatalLogger:
+    """Keep diagnostic failures from changing media-processing behavior."""
+
+    def __init__(self) -> None:
+        self._logger = structlog.get_logger(__name__)
+
+    def __getattr__(self, name: str):
+        method = getattr(self._logger, name)
+
+        def emit(*args, **kwargs):
+            try:
+                return method(*args, **kwargs)
+            except Exception:
+                return None
+
+        return emit
+
+
+logger = _NonFatalLogger()
+
+
 class AudioProcessor(GenericProcessor):
     __kind__ = "audio"
 
     # ALTERNATIVES
+
+    def _generate_audiogram(self, *, force: bool = False) -> FileAlternative | None:
+        """The shape of this file's sound, for a player to draw without fetching the file itself.
+
+        A file with no readable audio -- a silent video, a truncated upload -- simply has no
+        audiogram. That is a missing drawing, not a failed processing run, so it is logged and
+        skipped rather than raised.
+        """
+        if self.storage is None or self.storage_folder_path is None:
+            logger.error("audiogram_storage_unavailable")
+            raise PermissionError
+
+        if not force and self.storage.exists_in_storage(
+            storage_folder_path=self.storage_folder_path,
+            alternative=AUDIOGRAM_ALTERNATIVE,
+        ):
+            logger.debug("audiogram_already_exists")
+            return None
+
+        output_path = GenericStorage.get_temporary_local_path(suffix=".bin")
+        try:
+            size = write_audiogram(self.local_path, output_path)
+        except AudiogramExtractionError as error:
+            logger.info("audiogram_skipped", reason=str(error))
+            return None
+        except Exception as error:
+            logger.warning("audiogram_generation_failed", error_type=type(error).__name__)
+            return None
+
+        self.storage.upload(
+            local_path=output_path,
+            storage_folder_path=self.storage_folder_path,
+            alternative=AUDIOGRAM_ALTERNATIVE,
+            force=True,
+        )
+        os.remove(output_path)
+
+        return FileAlternative(
+            alternative_filename=AUDIOGRAM_FILENAME,
+            storage_suffix=AUDIOGRAM_ALTERNATIVE,
+            description="audiogram",
+            size=size,
+            kind="data",
+            mime=AUDIOGRAM_MIME,
+            extension=".bin",
+        )
 
     def generate_alternatives(self, *, force: bool = False) -> list[FileAlternative]:
         """
@@ -38,7 +109,7 @@ class AudioProcessor(GenericProcessor):
         alternative_files = []
 
         # alternative: "thumbnail" (embedded artwork, if present)
-        print("generate_alternatives: thumbnail")
+        logger.debug("audio_alternative_generation_started", alternative="thumbnail")
         alternative__thumbnail = self.__generate_audio_thumbnail(force=force)
         if alternative__thumbnail is not None:
             alternative_files.append(alternative__thumbnail)
@@ -49,14 +120,14 @@ class AudioProcessor(GenericProcessor):
             alternative_files.append(alternative__default)
 
         # alternative: "flac" (lossless from original file)
-        print("generate_alternatives: flac")
+        logger.debug("audio_alternative_generation_started", alternative="flac")
         alternative__flac = self.__generate_flac_audio(force=force)
         if alternative__flac is not None:
             alternative_files.append(alternative__flac)
 
         if FILES_SETTINGS.WHISPER_PATH:
             # alternative: "whisper_transcript"
-            print("generate_alternatives: whisper_transcript")
+            logger.debug("audio_alternative_generation_started", alternative="whisper_transcript")
             transcript_files = self.__generate_whisper_transcript(force=force)
             if transcript_files is not None:
                 (
@@ -66,22 +137,28 @@ class AudioProcessor(GenericProcessor):
                 alternative_files.append(alternative__whisper_transcript_json)
                 alternative_files.append(alternative__whisper_transcript_srt)
 
+        # alternative: "audiogram" -- what a player draws instead of downloading this file to
+        # decode it in the browser.
+        alternative__audiogram = self._generate_audiogram(force=force)
+        if alternative__audiogram is not None:
+            alternative_files.append(alternative__audiogram)
+
         return alternative_files
 
-    def __generate_audio_thumbnail(self, *, force: bool = False) -> FileAlternative | None:
+    def __generate_audio_thumbnail(self, *, force: bool = False) -> FileAlternative | None:  # noqa: C901
         """
         Extract the embedded artwork (cover art) from the audio file and use it as a thumbnail.
         Returns None if no embedded artwork is found.
         """
 
-        print("generate_audio_thumbnail")
+        logger.debug("audio_thumbnail_generation_started")
 
         if self.storage is None:
-            print_error("Storage is not available")
+            logger.error("audio_processor_storage_unavailable", missing="storage")
             raise PermissionError
 
         if self.storage_folder_path is None:
-            print_error("Storage is not available")
+            logger.error("audio_processor_storage_unavailable", missing="storage_folder_path")
             raise PermissionError
 
         STORAGE_SUFFIX = "thumbnail"
@@ -90,12 +167,7 @@ class AudioProcessor(GenericProcessor):
             storage_folder_path=self.storage_folder_path,
             alternative=STORAGE_SUFFIX,
         ):
-            print_color(
-                "green",
-                "(__generate_audio_thumbnail): alternative already exists",
-                self.storage_folder_path,
-                STORAGE_SUFFIX,
-            )
+            logger.debug("audio_alternative_already_exists", alternative=STORAGE_SUFFIX)
             return None
 
         raw_artwork_path = GenericStorage.get_temporary_local_path(suffix=".jpg")
@@ -112,20 +184,20 @@ class AudioProcessor(GenericProcessor):
             )
         except ffmpeg.Error:
             # No embedded artwork — expected for audio files without cover art.
-            print_color("green", "(__generate_audio_thumbnail): no embedded artwork found, skipping thumbnail")
+            logger.debug("audio_embedded_artwork_missing")
             for path in (raw_artwork_path, output_path):
                 if os.path.exists(path):
                     os.remove(path)
             return None
 
         try:
-            # Resize the artwork to a standard 200×200 thumbnail.
+            # Resize the artwork to a standard 200x200 thumbnail.
             with Image.open(raw_artwork_path) as pil_image:
                 pil_image = pil_image.convert("RGB")
                 pil_image.thumbnail((200, 200), Image.Resampling.LANCZOS)
                 pil_image.save(output_path, format="JPEG", quality=85, optimize=True)
         except Exception as error:
-            print_warning("(__generate_audio_thumbnail): failed to resize embedded artwork:", error)
+            logger.warning("audio_thumbnail_resize_failed", error_type=type(error).__name__)
             for path in (raw_artwork_path, output_path):
                 if os.path.exists(path):
                     os.remove(path)
@@ -158,14 +230,14 @@ class AudioProcessor(GenericProcessor):
         Generate a compressed audio file from the original file
         """
 
-        print("generate_same_compressed_audio")
+        logger.debug("audio_default_generation_started")
 
         if self.storage is None:
-            print_error("Storage is not available")
+            logger.error("audio_processor_storage_unavailable", missing="storage")
             raise PermissionError
 
         if self.storage_folder_path is None:
-            print_error("Storage is not available")
+            logger.error("audio_processor_storage_unavailable", missing="storage_folder_path")
             raise PermissionError
 
         STORAGE_SUFFIX = "default"
@@ -174,12 +246,7 @@ class AudioProcessor(GenericProcessor):
             storage_folder_path=self.storage_folder_path,
             alternative=STORAGE_SUFFIX,
         ):
-            print_color(
-                "green",
-                "(__generate_same_compressed_audio): alternative already exists",
-                self.storage_folder_path,
-                STORAGE_SUFFIX,
-            )
+            logger.debug("audio_alternative_already_exists", alternative=STORAGE_SUFFIX)
             return None
 
         output_path = GenericStorage.get_temporary_local_path(suffix=".mp3")
@@ -193,7 +260,7 @@ class AudioProcessor(GenericProcessor):
                     "b:a": "96k",
                     # "ar": "44100",
                     "ac": "1",
-                },  # type: ignore
+                },  # type: ignore[arg-type]
                 overwrite=True,
             )
             self.storage.upload(
@@ -217,11 +284,8 @@ class AudioProcessor(GenericProcessor):
                 extension=".mp3",
             )
 
-        except Exception as e:
-            sys.stdout.flush()
-            traceback.print_exc()
-            print("Error while compressing audio")
-            print(e)
+        except Exception as error:
+            logger.warning("audio_compression_failed", error_type=type(error).__name__)
             return None
 
     def __generate_flac_audio(self, *, force: bool = False) -> FileAlternative | None:
@@ -229,14 +293,14 @@ class AudioProcessor(GenericProcessor):
         Generate a lossless audio file from the original file, in the flac format
         """
 
-        print("generate_flac_audio")
+        logger.debug("audio_flac_generation_started")
 
         if self.storage is None:
-            print_error("Storage is not available")
+            logger.error("audio_processor_storage_unavailable", missing="storage")
             raise PermissionError
 
         if self.storage_folder_path is None:
-            print_error("Storage is not available")
+            logger.error("audio_processor_storage_unavailable", missing="storage_folder_path")
             raise PermissionError
 
         STORAGE_SUFFIX = "flac"
@@ -245,12 +309,7 @@ class AudioProcessor(GenericProcessor):
             storage_folder_path=self.storage_folder_path,
             alternative=STORAGE_SUFFIX,
         ):
-            print_color(
-                "green",
-                "(__generate_flac_audio): alternative already exists",
-                self.storage_folder_path,
-                STORAGE_SUFFIX,
-            )
+            logger.debug("audio_alternative_already_exists", alternative=STORAGE_SUFFIX)
             return None
 
         output_path = GenericStorage.get_temporary_local_path(suffix=".flac")
@@ -264,7 +323,7 @@ class AudioProcessor(GenericProcessor):
                 #     # "b:a": "96k",
                 #     # "ar": "44100",
                 #     "ac": "1",
-                # },  # type: ignore
+                # },
                 overwrite=True,
             )
             self.storage.upload(
@@ -288,25 +347,22 @@ class AudioProcessor(GenericProcessor):
                 extension=".flac",
             )
 
-        except Exception as e:
-            sys.stdout.flush()
-            traceback.print_exc()
-            print("Error while compressing audio")
-            print(e)
+        except Exception as error:
+            logger.warning("audio_flac_generation_failed", error_type=type(error).__name__)
             return None
 
     def __generate_whisper_transcript(self, *, force: bool = False) -> tuple[FileAlternative, FileAlternative] | None:
         """
         Generate a whisper transcript from the original file
         """
-        print("generate_whisper_transcript")
+        logger.debug("audio_transcript_generation_started")
 
         if self.storage is None:
-            print_error("Storage is not available")
+            logger.error("audio_processor_storage_unavailable", missing="storage")
             raise PermissionError
 
         if self.storage_folder_path is None:
-            print_error("Storage is not available")
+            logger.error("audio_processor_storage_unavailable", missing="storage_folder_path")
             raise PermissionError
 
         STORAGE_SUFFIX_JSON = "whisper_transcript_json"
@@ -323,12 +379,7 @@ class AudioProcessor(GenericProcessor):
                 alternative=STORAGE_SUFFIX_SRT,
             )
         ):
-            print_color(
-                "green",
-                "(__generate_whisper_transcript): alternative already exists",
-                self.storage_folder_path,
-                STORAGE_SUFFIX_JSON,
-            )
+            logger.debug("audio_transcript_already_exists")
             return None
 
         output_path_json = GenericStorage.get_temporary_local_path(suffix=".json")
@@ -337,7 +388,11 @@ class AudioProcessor(GenericProcessor):
         model_folder = FILES_SETTINGS.WHISPER_PATH
 
         if not model_folder or not self.local_path:
-            print("Whisper model path or local audio file path is not set.")
+            logger.warning(
+                "audio_transcript_prerequisite_missing",
+                model_configured=bool(model_folder),
+                local_file_available=bool(self.local_path),
+            )
             return None
 
         try:
@@ -349,7 +404,7 @@ class AudioProcessor(GenericProcessor):
                 beam_size=5,
                 word_timestamps=True,
                 vad_filter=True,
-                vad_parameters=dict(min_silence_duration_ms=200),
+                vad_parameters={"min_silence_duration_ms": 200},
             )
             result: list[audio_utils.TranscribedData] = []
             for segment in segments:
@@ -375,7 +430,7 @@ class AudioProcessor(GenericProcessor):
             # JSON
             writer = audio_utils.WRITERS["json"](
                 result=deepcopy(result),
-                destination=output_path_json,  # type: ignore
+                destination=output_path_json,  # type: ignore[arg-type]
             )
             writer.write()
             self.storage.upload(
@@ -389,7 +444,7 @@ class AudioProcessor(GenericProcessor):
             # SRT
             writer = audio_utils.WRITERS["srt"](
                 result=deepcopy(result),
-                destination=output_path_srt,  # type: ignore
+                destination=output_path_srt,  # type: ignore[arg-type]
             )
             writer.write()
             self.storage.upload(
@@ -421,11 +476,8 @@ class AudioProcessor(GenericProcessor):
                 ),
             )
 
-        except Exception as e:
-            sys.stdout.flush()
-            traceback.print_exc()
-            print("Error while generating whisper transcript")
-            print(e)
+        except Exception as error:
+            logger.warning("audio_transcript_generation_failed", error_type=type(error).__name__)
         return None
 
     # EXTRA
@@ -434,7 +486,7 @@ class AudioProcessor(GenericProcessor):
         file_extra = self.file_db.extra_
 
         media_file_info = analyze_local_file_with_ffprobe(self.local_path)
-        print_color("green", "media_file_info:", media_file_info)
+        logger.debug("audio_media_analysis_completed", media_info_available=bool(media_file_info))
         if media_file_info:
             file_extra.duration = media_file_info.get("duration", file_extra.duration)
             file_extra.has_audio = media_file_info.get("has_audio", file_extra.has_audio)
@@ -446,7 +498,7 @@ class AudioProcessor(GenericProcessor):
             file_extra.width = media_file_info.get("width", file_extra.width)
             file_extra.sample_rate = media_file_info.get("sample_rate", file_extra.sample_rate)
         if not file_extra.duration:
-            print("Duration is missing on this file, using temporary flac file")
+            logger.debug("audio_duration_fallback_started")
             output_path = GenericStorage.get_temporary_local_path(suffix=".flac")
             try:
                 ffmpegio.transcode(
@@ -457,7 +509,7 @@ class AudioProcessor(GenericProcessor):
                     #     # "b:a": "96k",
                     #     # "ar": "44100",
                     #     "ac": "1",
-                    # },  # type: ignore
+                    # },
                     overwrite=True,
                 )
                 media_file_info_from_flac = analyze_local_file_with_ffprobe(output_path)
@@ -466,10 +518,7 @@ class AudioProcessor(GenericProcessor):
                 # delete the local file
                 os.remove(output_path)
 
-            except Exception as e:
-                sys.stdout.flush()
-                traceback.print_exc()
-                print("Error while getting duration from temporary flac file")
-                print(e)
+            except Exception as error:
+                logger.warning("audio_duration_fallback_failed", error_type=type(error).__name__)
                 return None
         return file_extra

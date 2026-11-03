@@ -1,5 +1,5 @@
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -131,3 +131,83 @@ def test_get_upload_details_invalid_folder_path(client, mock_user, mock_session,
     data = response.json()
     assert "error" in data
     assert data["error"]["code"] == "invalid_folder_path"
+
+
+def _override_deps(client, mock_file_storage, mock_user, mock_session, mock_translator):
+    from libs.files.methods.deps import get_default_file_storage
+    from libs.utils.deps import get_deps
+
+    client.app.dependency_overrides[get_deps] = lambda: (mock_user, mock_session, mock_translator)
+    client.app.dependency_overrides[get_default_file_storage] = lambda: mock_file_storage.return_value
+
+
+def test_get_upload_details_folder_id_targets_the_folder(
+    client,
+    mock_file_storage,
+    mock_file_cls,
+    mock_folder_cls,
+    mock_user,
+    mock_session,
+    mock_translator,
+    mock_add_to_folder,
+):
+    from libs.folders.models import Folder
+
+    _override_deps(client, mock_file_storage, mock_user, mock_session, mock_translator)
+
+    folder_id = uuid.uuid4()
+    folder = Folder(id=folder_id, name="Jingles")
+
+    with (
+        patch("libs.folders.models.Folder.by_id", return_value=folder),
+        patch("libs.files.api.cannot", return_value=False),
+    ):
+        response = client.post(
+            "/api/files/storage/get-upload-details",
+            json={"fileName": "jingle.mp3", "folderId": str(folder_id)},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["error"] is None
+    # The folder is used as-is: no path walking, so nothing gets created along the way.
+    assert not mock_folder_cls.create.called
+    assert mock_add_to_folder.call_args.kwargs["folder_id"] == folder_id
+
+
+def test_get_upload_details_folder_id_unknown_folder(
+    client, mock_file_storage, mock_file_cls, mock_folder_cls, mock_user, mock_session, mock_translator, mock_add_to_folder
+):
+    _override_deps(client, mock_file_storage, mock_user, mock_session, mock_translator)
+
+    with patch("libs.folders.models.Folder.by_id", return_value=None):
+        response = client.post(
+            "/api/files/storage/get-upload-details",
+            json={"fileName": "jingle.mp3", "folderId": str(uuid.uuid4())},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["error"]["code"] == "folder_not_found"
+    assert not mock_add_to_folder.called
+
+
+def test_get_upload_details_folder_id_without_write_access(
+    client, mock_file_storage, mock_file_cls, mock_folder_cls, mock_user, mock_session, mock_translator, mock_add_to_folder
+):
+    from libs.folders.models import Folder
+
+    _override_deps(client, mock_file_storage, mock_user, mock_session, mock_translator)
+
+    folder_id = uuid.uuid4()
+
+    with (
+        patch("libs.folders.models.Folder.by_id", return_value=Folder(id=folder_id, name="Someone else's")),
+        patch("libs.files.api.cannot", return_value=True),
+    ):
+        response = client.post(
+            "/api/files/storage/get-upload-details",
+            json={"fileName": "jingle.mp3", "folderId": str(folder_id)},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["error"]["code"] == "access_denied"
+    assert not mock_add_to_folder.called

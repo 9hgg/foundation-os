@@ -1,73 +1,111 @@
+import os
 import uuid
 
 import ffmpegio
+import structlog
 from magika import Magika
 
+from libs.files.methods.basic import compute_and_persist_file_hash
 from libs.files.storage._generic import GenericStorage
-from libs.logger import print, print_color, print_warning
 from libs.tasks.tasks_manager import TasksManager
 from libs.utils.methods import deep_update
 from libs.utils.types import serialize
 
-from .models import ExtraDetailsFile, File, FileAlternative
 from .methods.simulation import infer_simulation_file_details
+from .models import ExtraDetailsFile, File, FileAlternative
 from .processors import PROCESSOR_MAPPING
 from .processors.magic_bytes.ffprobe_parser import get_possible_type_via_ffprobe
 from .processors.magic_bytes.parser import get_possible_types
 from .storage import get_file_storage
 
+logger = structlog.get_logger(__name__)
+
 magika = Magika()
 
 
-def _set_task_progress(task, task_manager, progress: float) -> None:
-    if task is None or task_manager is None:
-        return
-    task_manager.update_task(task.id, {"progress": progress})
+@TasksManager.enlist_task()
+def fill_file_hash(file_id: uuid.UUID, force: bool = False, **kwargs) -> str | None:
+    """Populate the SHA-256 digest for one file, regardless of its kind."""
+    task = kwargs.get("task")
+    TasksManager.set_task_progress(task, 5.0)
+    file_db = File.by_id(obj_id=file_id)
+    if file_db is None:
+        logger.warning("file_hash_file_not_found", file_id=str(file_id))
+        return None
+
+    digest = compute_and_persist_file_hash(file_db, force=force)
+    TasksManager.set_task_progress(task, 100.0)
+    return digest
+
+
+def narrow_by_ffprobe_kind(possible_types: list, ffprobe_kind: str) -> list:
+    """Keep only the candidates ffprobe agrees with -- unless that leaves nothing.
+
+    ffprobe answers "video" or "audio" and never "image". A still image in a container it can
+    read is therefore always contradicted: a .webp is a RIFF file, so it matches both the webp
+    signature and the wav one, the wav match is what sends it to ffprobe in the first place, and
+    ffprobe then calls it a video. Narrowing unconditionally would drop every candidate and leave
+    the file with no kind, no mime and no extension at all.
+
+    A filter that eliminates everything has learned nothing, so it keeps what it had -- the same
+    guard the mime_client filter already applies.
+    """
+    narrowed = [possible_type for possible_type in possible_types if possible_type.type == ffprobe_kind]
+    return narrowed or possible_types
 
 
 @TasksManager.enlist_task()
-def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
+def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):  # noqa: C901
     """
     Fill the details of a file like:
     - mime
     - extension
-    - etc...
+    - kind
+    then ask to generate the alternatives for this file kind.
     """
     task = kwargs.get("task")
-    task_manager = kwargs.get("task_manager")
 
-    _set_task_progress(task, task_manager, 5.0)
+    TasksManager.set_task_progress(task, 5.0)
     file_db = File.by_id(obj_id=file_id)
     if file_db is None:
-        print("File not found")
+        logger.warning("file_details_file_not_found", file_id=str(file_id))
         return
     if file_db.storage_folder_path is None or file_db.storage_id is None:
-        print("File has no storage folder path or storage id")
+        logger.warning("file_details_storage_metadata_missing", file_id=str(file_id))
         return
     storage = get_file_storage(file_db.storage_id)
 
-    _set_task_progress(task, task_manager, 20.0)
-    original_alternative = storage.get_original_alternative(storage_folder_path=file_db.storage_folder_path)
+    TasksManager.set_task_progress(task, 20.0)
+    original_alternative = storage.get_original_alternative(
+        storage_folder_path=file_db.storage_folder_path
+    )
     if original_alternative is None:
-        print_warning("No original file to process (original | original-stream)")
+        logger.warning("file_details_original_missing", file_id=str(file_id))
         File.patch(
             obj_id=file_db.id,
             update_dict={"unprocessable": True},
         )
         return
 
+    # Persist identity as soon as the original exists. This is independent of
+    # type inference and therefore also covers files whose first bytes cannot
+    # be classified or processed.
+    compute_and_persist_file_hash(file_db, force=force)
+
     first_bytes = storage.get_first_bytes(
         storage_folder_path=file_db.storage_folder_path,
         alternative=original_alternative,
     )
     if first_bytes is None:
-        print("File has no first bytes")
+        logger.warning("file_details_first_bytes_missing", file_id=str(file_id))
         return
 
     inferred_simulation_details = infer_simulation_file_details(
         extension_client=file_db.extension_client,
         extension=file_db.extension,
     )
+
+    # processing a fmu, mo or mos file, we can directly fill the details and generate alternatives
     if inferred_simulation_details is not None:
         File.patch(
             obj_id=file_db.id,
@@ -87,28 +125,33 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
                 "force": force,
             },
         )
-        _set_task_progress(task, task_manager, 100.0)
+        TasksManager.set_task_progress(task, 100.0)
         return {"task_id": generate_file_alternatives_task.id}
 
-    _set_task_progress(task, task_manager, 40.0)
+    TasksManager.set_task_progress(task, 40.0)
     # NAIVE dict of first bytes approach
     possible_types = get_possible_types(first_bytes=first_bytes)
 
     if len(possible_types) == 0:
         # nothing found -> using Magika
-        print_warning(
-            "No possible types from custom bytes parser",
-            file_db.original_filename,
-            file_db.mime_client,
-            "|",
-            file_db.extension_client,
-            magika.identify_bytes(first_bytes).output.mime_type,
+        logger.debug(
+            "file_details_types_parser_empty",
+            file_id=str(file_id),
+            original_filename=file_db.original_filename,
+            mime_client=file_db.mime_client,
+            extension_client=file_db.extension_client,
         )
-        print("Using magika")
+        logger.info("file_details_using_magika", file_id=str(file_id))
         magika_output = magika.identify_bytes(first_bytes).output
         magika_mime_type = magika_output.mime_type
         magika_group = magika_output.group
-        print(file_db.original_filename, magika_mime_type, magika_group)
+        logger.debug(
+            "file_details_magika_identified",
+            file_id=str(file_id),
+            original_filename=file_db.original_filename,
+            mime_type=magika_mime_type,
+            kind=magika_group,
+        )
 
         File.patch(
             obj_id=file_db.id,
@@ -119,15 +162,14 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
             },
         )
     else:
-        _set_task_progress(task, task_manager, 60.0)
-        print_color(
-            "red",
-            "Possible types",
-            file_db.original_filename,
-            file_db.mime_client,
-            "|",
-            file_db.extension_client,
-            possible_types,
+        TasksManager.set_task_progress(task, 60.0)
+        logger.debug(
+            "file_details_possible_types",
+            file_id=str(file_id),
+            original_filename=file_db.original_filename,
+            mime_client=file_db.mime_client,
+            extension_client=file_db.extension_client,
+            possible_types=possible_types,
         )
 
         audio_is_possible = False
@@ -142,42 +184,44 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
             possible_types_from_ffprobe = get_possible_type_via_ffprobe(
                 storage, file_db.storage_folder_path, original_alternative
             )
-            print_warning(
-                "Possible types from ffprobe:",
-                possible_types_from_ffprobe,
+            logger.debug(
+                "file_details_ffprobe_types",
+                file_id=str(file_id),
+                possible_types=possible_types_from_ffprobe,
             )
             if possible_types_from_ffprobe is not None:
                 audio_or_video = possible_types_from_ffprobe.get("kind_from_ffmpeg")
                 if audio_or_video is not None:
-                    possible_types = [
-                        possible_type for possible_type in possible_types if possible_type.type == audio_or_video
-                    ]
+                    possible_types = narrow_by_ffprobe_kind(possible_types, audio_or_video)
 
-        print(
-            'Possible type for "' + (file_db.original_filename if file_db.original_filename else file_db.id.hex) + '":',
-            possible_types,
+        logger.debug(
+            "file_details_possible_types_filtered",
+            file_id=str(file_id),
+            possible_types=possible_types,
         )
 
         if file_db.mime_client is not None:
             possible_types_filtered_by_mime_client = [
                 possible_type
                 for possible_type in possible_types
-                if possible_type.mime == file_db.mime_client or possible_type.extension == file_db.extension_client
+                if possible_type.mime == file_db.mime_client
+                or possible_type.extension == file_db.extension_client
             ]
-            print(
-                "Possible types after filtering by client mime/extension:",
-                possible_types_filtered_by_mime_client,
+            logger.debug(
+                "file_details_client_types_filtered",
+                file_id=str(file_id),
+                possible_types=possible_types_filtered_by_mime_client,
             )
             if len(possible_types_filtered_by_mime_client) > 0:
                 possible_types = possible_types_filtered_by_mime_client
 
         if len(possible_types) == 0:
-            print_warning(
-                "No possible types from ffprobe",
-                file_db.original_filename,
-                file_db.mime_client,
-                "|",
-                file_db.extension_client,
+            logger.warning(
+                "file_details_no_possible_types",
+                file_id=str(file_id),
+                original_filename=file_db.original_filename,
+                mime_client=file_db.mime_client,
+                extension_client=file_db.extension_client,
             )
         else:
             # if we have possible types, we take the first one matching the file_db.mime_client
@@ -191,64 +235,96 @@ def fill_file_details(file_id: uuid.UUID, force=False, **kwargs):
                 },
             )
 
-    _set_task_progress(task, task_manager, 85.0)
+    # Only `update_after_upload` wrote this, so a file whose client never made that call stayed
+    # sizeless for ever even with its bytes safely in storage.
+    if file_db.size is None:
+        size_in_storage = storage.get_size(
+            storage_folder_path=file_db.storage_folder_path
+        )
+        if size_in_storage:
+            File.patch(
+                obj_id=file_db.id, update_dict={"size": float(size_in_storage)}
+            )
+            logger.info(
+                "file_size_filled_from_storage",
+                file_id=str(file_id),
+                size=size_in_storage,
+            )
+
+    TasksManager.set_task_progress(task, 85.0)
     # # create the generate_file_alternatives task
     generate_file_alternatives_task = TasksManager.create_task(
         title="Generate alternatives",
         method_name="generate_file_alternatives",
         description="Generate file alternatives for "
-        + (file_db.original_filename if file_db.original_filename else file_db.id.hex[:8]),
+        + (
+            file_db.original_filename
+            if file_db.original_filename
+            else file_db.id.hex[:8]
+        ),
         args=[file_id],
         kwargs={
             "force": force,
         },
     )
 
-    _set_task_progress(task, task_manager, 100.0)
+    TasksManager.set_task_progress(task, 100.0)
     return {"task_id": generate_file_alternatives_task.id}
 
 
 @TasksManager.enlist_task()
 def generate_file_alternatives(file_id: uuid.UUID, force=False, **kwargs):
-    task = kwargs.get("task")
-    task_manager = kwargs.get("task_manager")
+    """
+    Generate alternatives for a file based on its kind.
+    This function retrieves the file from the database, checks its kind, and uses the appropriate processor.
+    It only updates the file.extra.
+    """
 
-    _set_task_progress(task, task_manager, 5.0)
+    task = kwargs.get("task")
+
+    TasksManager.set_task_progress(task, 5.0)
     file_db = File.by_id(obj_id=file_id)
 
     if file_db is None:
-        print("File not found")
+        logger.warning("file_alternatives_file_not_found", file_id=str(file_id))
         return
 
+    # This must happen before every processor-specific early return. Unknown
+    # kinds and metadata sidecars still require hashes for folder sync.
+    compute_and_persist_file_hash(file_db, force=force)
+
     if file_db.kind is None:
-        print("File has no mime")
+        logger.warning("file_alternatives_kind_missing", file_id=str(file_id))
         return
 
     if file_db.kind not in PROCESSOR_MAPPING:
-        print("No processor found for kind:", file_db.mime)
+        logger.warning(
+            "file_alternatives_processor_missing",
+            file_id=str(file_id),
+            kind=file_db.kind,
+        )
         return
 
     if file_db.storage_folder_path is None:
-        print("File has no storage folder path")
+        logger.warning("file_alternatives_storage_path_missing", file_id=str(file_id))
         return
 
-    _set_task_progress(task, task_manager, 20.0)
+    TasksManager.set_task_progress(task, 20.0)
     ProcessorClass = PROCESSOR_MAPPING[file_db.kind]
     processor = ProcessorClass(file_db=file_db)
-    # print("Processor:", processor)
 
-    _set_task_progress(task, task_manager, 45.0)
+    TasksManager.set_task_progress(task, 45.0)
     new_alternatives = processor.generate_alternatives(force=force)
-    # print("Alternatives:", new_alternatives)
 
-    _set_task_progress(task, task_manager, 70.0)
-    new_extra_data: ExtraDetailsFile = processor.generate_extra_data(force=force) or ExtraDetailsFile()
-    # print("Extra data:", new_extra_data)
+    TasksManager.set_task_progress(task, 70.0)
+    new_extra_data: ExtraDetailsFile = (
+        processor.generate_extra_data(force=force) or ExtraDetailsFile()
+    )
 
     # delete local copy of the original
     processor.clear_local_file()
 
-    _set_task_progress(task, task_manager, 85.0)
+    TasksManager.set_task_progress(task, 85.0)
     # concat the new alternatives with the old ones
     all_alternatives_as_list: list[FileAlternative] = []
     all_alternatives_as_dict: dict[str, FileAlternative] = {}
@@ -259,11 +335,16 @@ def generate_file_alternatives(file_id: uuid.UUID, force=False, **kwargs):
     for alternative in all_alternatives_as_dict.values():
         all_alternatives_as_list.append(alternative)
     all_alternatives_as_list.sort(key=lambda x: x.storage_suffix)
-    all_alternatives_as_list = [alternative for alternative in all_alternatives_as_list if alternative is not None]
+    all_alternatives_as_list = [
+        alternative
+        for alternative in all_alternatives_as_list
+        if alternative is not None
+    ]
     new_extra_data.alternative_formats = all_alternatives_as_list
 
-    # new_config = deep_update(resource_db.config, update_dict.get("config", {}))
-    new_extra_data_dict = deep_update(serialize(file_db.extra), serialize(new_extra_data))
+    new_extra_data_dict = deep_update(
+        serialize(file_db.extra), serialize(new_extra_data)
+    )
 
     File.patch(
         obj_id=file_db.id,
@@ -272,14 +353,19 @@ def generate_file_alternatives(file_id: uuid.UUID, force=False, **kwargs):
         },
     )
 
-    _set_task_progress(task, task_manager, 100.0)
+    TasksManager.set_task_progress(task, 100.0)
 
 
 def _download_and_sort_chunks(
-    storage: GenericStorage, file_db: File, alternative: str, storage_folder_path_chunked: str
+    storage: GenericStorage,
+    file_db: File,
+    alternative: str,
+    storage_folder_path_chunked: str,
 ):
     """Download chunks locally and sort them by range."""
-    all_files = storage.get_files_in_folder(storage_folder_path=storage_folder_path_chunked)
+    all_files = storage.get_files_in_folder(
+        storage_folder_path=storage_folder_path_chunked
+    )
 
     # Filter files to only include valid chunk files (format: chunk-{start}-{end})
     chunks = []
@@ -293,11 +379,15 @@ def _download_and_sort_chunks(
                 chunks.append(file_name)
             except ValueError:
                 # Skip files that don't have valid integer byte ranges
-                print_warning(f"Skipping file with invalid chunk format: {file_name}")
+                logger.warning("file_chunks_invalid_name", file_name=file_name)
                 continue
 
     if len(chunks) == 0:
-        print("No valid chunk files found in folder:", storage_folder_path_chunked, storage.storage_type)
+        logger.warning(
+            "file_chunks_none_found",
+            storage_folder_path=storage_folder_path_chunked,
+            storage_type=storage.storage_type,
+        )
         return None, None
 
     # order by start byte (second part after splitting by "-")
@@ -308,14 +398,21 @@ def _download_and_sort_chunks(
         current_end = int(chunks[i].split("-")[2])
         next_start = int(chunks[i + 1].split("-")[1])
         if next_start - current_end > 1:
-            print("Missing bytes between chunks:", chunks[i], "and", chunks[i + 1])
+            logger.warning(
+                "file_chunks_gap_detected",
+                previous_chunk=chunks[i],
+                next_chunk=chunks[i + 1],
+            )
 
     # download each chunk locally
     chunk_files = {}
     for chunk in chunks:
         output_path = GenericStorage.get_temporary_local_path(prefix=chunk)
         local_path = storage.download(
-            storage_folder_path=file_db.storage_folder_path + "/" + alternative + "_chunked",
+            storage_folder_path=file_db.storage_folder_path
+            + "/"
+            + alternative
+            + "_chunked",
             alternative=chunk,
             local_path=output_path,
             force=True,
@@ -326,10 +423,13 @@ def _download_and_sort_chunks(
 
 
 def _merge_and_upload_chunks(
-    storage: GenericStorage, file_db: File, alternative: str, chunks: list[str], chunk_files: dict[str, str]
+    storage: GenericStorage,
+    file_db: File,
+    alternative: str,
+    chunks: list[str],
+    chunk_files: dict[str, str],
 ):
     """Merge chunks into a single file and upload to storage."""
-    import os
 
     merged_path = GenericStorage.get_temporary_local_path(prefix="merged")
     total_chunks_size = 0
@@ -344,26 +444,39 @@ def _merge_and_upload_chunks(
                 data = chunk_file.read()
                 merged_file.write(data)
 
-            print(f"Merged chunk {i + 1}/{len(chunks)}: {chunk} (size: {chunk_size:,} bytes)")
+            logger.debug(
+                "file_chunk_merged",
+                chunk=chunk,
+                chunk_index=i + 1,
+                chunk_count=len(chunks),
+                chunk_size=chunk_size,
+            )
 
     # Get the final merged file size
     merged_file_size = os.path.getsize(merged_path)
 
-    print("Chunk merge summary:")
-    print(f"  - Total chunks: {len(chunks)}")
-    print(f"  - Sum of chunk sizes: {total_chunks_size:,} bytes")
-    print(f"  - Final merged file size: {merged_file_size:,} bytes")
-    print(f"  - Size difference: {merged_file_size - total_chunks_size:,} bytes")
+    logger.info(
+        "file_chunks_merged",
+        chunk_count=len(chunks),
+        total_chunks_size=total_chunks_size,
+        merged_file_size=merged_file_size,
+        size_difference=merged_file_size - total_chunks_size,
+    )
 
     if merged_file_size != total_chunks_size:
-        print_warning(f"Size mismatch! Expected {total_chunks_size:,} bytes, got {merged_file_size:,} bytes")
+        logger.warning(
+            "file_chunks_size_mismatch",
+            expected_size=total_chunks_size,
+            actual_size=merged_file_size,
+        )
 
     file_path_to_upload = merged_path
 
-    if "webm" in file_db.extension_client or "webm" in file_db.extension:
+    # `extension` is null until fill_file_details runs, which is after this.
+    if "webm" in (file_db.extension_client or "") or "webm" in (file_db.extension or ""):
         # Output path
         output_path = merged_path + ".webm"
-        print(f"Retranscoding webm file: {output_path}")
+        logger.info("file_webm_retranscoding", output_path=output_path)
 
         # Transcode without re-encoding, just fix container/metadata
         ffmpegio.transcode(
@@ -387,29 +500,32 @@ def _merge_and_upload_chunks(
     )
     os.remove(file_path_to_upload)  # remove the local copy after upload
 
-    print(f"Uploaded merged file to storage (size: {merged_file_size:,} bytes)")
+    logger.info(
+        "file_chunks_uploaded",
+        merged_file_size=merged_file_size,
+        alternative=alternative,
+    )
 
     return merged_path
 
 
 def _cleanup_temporary_files(chunk_files):
     """Clean up temporary files and optionally chunks folder."""
-    import os
 
     # cleanup temporary files
     for chunk_file_path in chunk_files.values():
         try:
             os.remove(chunk_file_path)
-        except Exception as e:
-            print_warning(f"Failed to cleanup temporary files: {e}")
-    print("Cleaned up temporary files")
+        except Exception:
+            logger.exception("file_chunks_cleanup_failed", path=chunk_file_path)
+    logger.debug("file_chunks_cleanup_succeeded", file_count=len(chunk_files))
 
 
 @TasksManager.enlist_task()
 def merge_chunks(file_id: uuid.UUID, alternative: str, force=False, **kwargs):
     file_db = File.by_id(file_id)
     if file_db is None:
-        print("File not found")
+        logger.warning("merge_chunks_file_not_found", file_id=str(file_id))
         return
 
     storage = get_file_storage(file_db.storage_id)
@@ -419,20 +535,33 @@ def merge_chunks(file_id: uuid.UUID, alternative: str, force=False, **kwargs):
         storage_folder_path=file_db.storage_folder_path, alternative=alternative
     )
     if alternative_exists and not force:
-        print("Alternative already exists and not forced:", alternative)
+        logger.info(
+            "merge_chunks_alternative_exists",
+            file_id=str(file_id),
+            alternative=alternative,
+        )
         return
 
-    storage_folder_path_chunked = file_db.storage_folder_path + "/" + (alternative or "original") + "_chunked"
+    storage_folder_path_chunked = (
+        file_db.storage_folder_path + "/" + (alternative or "original") + "_chunked"
+    )
 
     # Download and sort chunks
-    chunks, chunk_files = _download_and_sort_chunks(storage, file_db, alternative, storage_folder_path_chunked)
+    chunks, chunk_files = _download_and_sort_chunks(
+        storage, file_db, alternative, storage_folder_path_chunked
+    )
     if chunks is None:
         return
 
     # Merge chunks and upload
     _merge_and_upload_chunks(storage, file_db, alternative, chunks, chunk_files)
 
-    print(f"Successfully merged {len(chunks)} chunks into alternative '{alternative}' for file {file_id}")
+    logger.info(
+        "merge_chunks_succeeded",
+        file_id=str(file_id),
+        alternative=alternative,
+        chunk_count=len(chunks),
+    )
 
     if alternative == "original":
         File.patch(

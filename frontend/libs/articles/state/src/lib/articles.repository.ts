@@ -2,7 +2,7 @@ import { Article } from '@foundation/articles/models';
 import { GenericRepository } from '@foundation/table/state';
 import { slugify } from '@foundation/utils';
 import { Injectable } from '@angular/core';
-import { map, of, switchMap, take, tap } from 'rxjs';
+import { catchError, EMPTY, filter, map, of, switchMap, take, tap, timeout } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable({ providedIn: 'root' })
@@ -18,13 +18,20 @@ export class ArticlesRepository extends GenericRepository<Article> {
 			inNewTab: options_?.inNewTab ?? false,
 		};
 		this.store
-			.getObjectById$$$(articleId, true)
-			.pipe(take(1))
-			.subscribe((article) => {
-				if (!article) {
+			.getObjectByIdPullOnce$$$(articleId)
+			// The store seeds this subject with null and fills it when the article lands, so wait for
+			// a value instead of sampling the seed and declaring the article missing. The timeout is
+			// what "missing" actually looks like: nothing ever arrives, here or without read rights.
+			.$.pipe(
+				filter((article): article is Article => !!article),
+				take(1),
+				timeout({ first: 10000 }),
+				catchError(() => {
 					console.error('Article not found:', articleId);
-					return;
-				}
+					return EMPTY;
+				})
+			)
+			.subscribe((article) => {
 
 				if (article.kind === 'support') {
 					console.log('Article is a support article, redirecting to support page:', articleId);

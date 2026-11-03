@@ -4,9 +4,11 @@ import { AfterViewInit, Directive, ElementRef, Input } from '@angular/core';
 @Directive({ selector: '[focusauto]', standalone: true })
 export class AutofocusDirective implements AfterViewInit {
 	@Input() focusauto: boolean = true;
+	// Opt-in: keep the page from scrolling the focused element into view.
+	// Defaults to false so existing pages that rely on the scroll keep working.
+	@Input() preventScroll: boolean = false;
 	constructor(private element: ElementRef<HTMLElement>) {}
 	ngAfterViewInit() {
-		// console.log('AutofocusDirective.ngAfterViewInit', this.focusauto, this.element.nativeElement);
-		this.element.nativeElement.focus();
+		this.element.nativeElement.focus({ preventScroll: this.preventScroll });
 	}
 }

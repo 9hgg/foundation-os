@@ -1,5 +1,6 @@
 from typing import Any
 
+
 def _contains_text(data: Any, query: str) -> bool:
     query = query.casefold()
     if not query:

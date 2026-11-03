@@ -1,9 +1,12 @@
 from datetime import timedelta
 from typing import TypedDict
 
+from pydantic import BaseModel
+
 import libs.utils.tokens
 from libs.db import context_db
 from libs.endpoints import create_crud_endpoints
+from libs.endpoints.endpoints import get_resource_if_WRITE_allowed
 from libs.resource.resource import ResourceManager
 from libs.utils.deps import ClassicDeps__dep
 from libs.utils.types import EndpointError, EndpointOutput
@@ -18,7 +21,11 @@ class InteractionAndToken(TypedDict):
     interaction: Interaction
 
 
-def create_crud_interaction_router(prefix: str = "/api/interactions"):
+class SetInteractionStateRequest(BaseModel):
+    state: str | None = None
+
+
+def create_crud_interaction_router(prefix: str = "/api/interactions"):  # noqa: C901
     crud_interaction_router = create_crud_endpoints(
         Interaction,
         prefix=prefix,
@@ -39,6 +46,32 @@ def create_crud_interaction_router(prefix: str = "/api/interactions"):
             f"[get_interactions_by_items] Found {len(interactions)} interactions for resource kind '{resource_kind}'"
         )
         return EndpointOutput(result=interactions)
+
+    @crud_interaction_router.post("/{interaction_id}/state")
+    async def set_interaction_state(
+        interaction_id: str,
+        body: SetInteractionStateRequest,
+        classic_deps: ClassicDeps__dep,
+    ) -> EndpointOutput[Interaction]:
+        """Set a host-side lifecycle marker ('archived' hides, 'deleted' also releases the
+        storage its files were counting for; None restores.
+        Interactions carry no ACLs, so authorization is deferred to the parent resource named
+        in the key ('{kind}.{id}', e.g. 'form.<uuid>'): the caller must have WRITE on it."""
+        current_user_db, session_db, translator = classic_deps
+
+        if body.state not in (None, "archived", "deleted"):
+            return EndpointOutput(error=EndpointError(title=translator.translate("Invalid state"), code="invalid_state"))
+
+        interaction = Interaction.by_id(obj_id=interaction_id)
+        if interaction is None or not interaction.key:
+            return EndpointOutput(error=EndpointError(title=translator.translate("Interaction not found")))
+
+        kind, _, resource_id = interaction.key.partition(".")
+        if not kind or not resource_id or get_resource_if_WRITE_allowed(current_user_db, session_db, kind, resource_id) is None:
+            return EndpointOutput(error=EndpointError(title=translator.translate("Access denied"), code="access_denied"))
+
+        updated = Interaction.patch(obj_id=interaction_id, update_dict={"state": body.state})
+        return EndpointOutput(result=updated)
 
     @crud_interaction_router.get("/by-token/{interactionToken}")
     async def get_interaction_by_token(
@@ -92,6 +125,13 @@ def create_crud_interaction_router(prefix: str = "/api/interactions"):
             print(
                 f"[update_interaction_by_token_route] Resource kind '{item_kind}' is not registered, skipping resource lookup"
             )
+
+        # A guest answering into an archived or deleted session brings it back (see /{id}/state
+        # for the host-side marker). Neither may silently swallow new answers: the host puts a
+        # response away, the respondent keeps going, and their answers would otherwise land in a
+        # row the host cannot see and look lost. The guest's browser holds their answers, so this
+        # is what a returning respondent actually does. Any other state a guest save cannot set.
+        interaction_update.state = None if interaction_db.state in ("archived", "deleted") else interaction_db.state
 
         updated_interaction = interaction_db.update(
             obj_id=interaction_db.id, new_obj=interaction_update
@@ -178,9 +218,17 @@ def create_crud_interaction_router(prefix: str = "/api/interactions"):
         if not key:
             return EndpointOutput(error=EndpointError(title="key is required"))
 
+        # A signed-in respondent starting a new response asks for a fresh one explicitly: the
+        # lookup below would otherwise hand back the session they just submitted (this endpoint is
+        # get-*or*-create by design), and dropping the local token cannot help since the server
+        # resolves it from the user + key.
+        force_new = bool(data.get("forceNew") or data.get("force_new"))
+
         with context_db() as db:
             interaction_db = (
-                db.query(Interaction)
+                None
+                if force_new
+                else db.query(Interaction)
                 .filter(Interaction.key == key, Interaction.user_id == current_user_db.id)
                 .first()
             )

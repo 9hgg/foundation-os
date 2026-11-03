@@ -2,9 +2,11 @@ import json
 import uuid
 from typing import Any
 
-from libs.logger.customLogger import print
+import structlog
 
 from .normalization import compact_item, find_primary_list, normalize_collection
+
+logger = structlog.get_logger(__name__)
 
 STORE_RESULT_CHAR_THRESHOLD = 6_000
 STORE_RESULT_LIST_THRESHOLD = 12
@@ -23,7 +25,10 @@ def contains_text(data: Any, query: str) -> bool:
     if not normalized_query:
         return True
     if isinstance(data, dict):
-        return any(contains_text(key, normalized_query) or contains_text(value, normalized_query) for key, value in data.items())
+        return any(
+            contains_text(key, normalized_query) or contains_text(value, normalized_query)
+            for key, value in data.items()
+        )
     if isinstance(data, list):
         return any(contains_text(item, normalized_query) for item in data)
     if data is None:
@@ -52,9 +57,12 @@ class ToolResultStore:
         self._results[result_ref] = {"tool": tool_name, "args": args, "payload": payload}
         preview_source = primary_list if primary_list is not None else [payload]
         preview = [compact_item(item, tool_name=tool_name) for item in preview_source[:STORE_RESULT_PREVIEW_LIMIT]]
-        print(
-            f"Stored large tool result {result_ref} from {tool_name}: "
-            f"{payload_size} chars, {list_size if list_size is not None else 'unknown'} items"
+        logger.debug(
+            "mcp_tool_result_stored",
+            result_ref=result_ref,
+            tool_name=tool_name,
+            payload_size_chars=payload_size,
+            item_count=list_size,
         )
         return {
             "stored_tool_result": True,
@@ -115,9 +123,7 @@ class ToolResultStore:
         if stored is None:
             return {"error": "Unknown result_ref", "result_ref": result_ref}
         primary_list = find_primary_list(stored["payload"])
-        matches = (
-            [stored["payload"]] if primary_list is None and contains_text(stored["payload"], query) else []
-        )
+        matches = [stored["payload"]] if primary_list is None and contains_text(stored["payload"], query) else []
         if primary_list is not None:
             matches = [item for item in primary_list if contains_text(item, query)]
         limit = min(100, max(1, int(limit)))

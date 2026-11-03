@@ -1,3 +1,6 @@
+import os
+
+import structlog
 from anyio import to_thread
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.gzip import GZipMiddleware
@@ -15,12 +18,12 @@ import libs.access.api as access_api
 import libs.acl.api as acl_api
 import libs.articles.api as articles_api
 import libs.conversations.api as conversations_api
+import libs.edf_project_rands.api as edf_project_rands_api
 import libs.endpoints.api as endpoints_api
 import libs.files.api as files_api
 import libs.folders.api as folders_api
 import libs.i18n.api as i18n_api
 import libs.interactions.api as interactions_api
-import libs.edf_project_rands.api as edf_project_rands_api
 import libs.mails.api as mails_api
 import libs.messages.api as messages_api
 import libs.notifications.api as notifications_api
@@ -37,7 +40,7 @@ from libs.i18n.deps import Translator__dep
 from libs.i18n.translators._generic import dummy_translator
 from libs.i18n.translators.argos_translator import get_argos_translator
 from libs.i18n.translators.translator_manager import TranslatorsManager
-from libs.logger.customLogger import init_logging, print_color
+from libs.logger.structured import RequestContextMiddleware, configure_logging
 from libs.middlewares import middlewares
 from libs.sessions.deps import CurrentSession__dep
 from libs.tasks.tasks_manager import TasksManager
@@ -134,7 +137,12 @@ if asgi_app.swagger_ui_oauth2_redirect_url:
 
 ########## END OF DOCS
 
-init_logging()
+configure_logging(
+    json=GLOBAL_APP_SETTINGS.CURRENT_ENV == "prod",
+    level="DEBUG" if GLOBAL_APP_SETTINGS.CURRENT_ENV == "devLocal" else "INFO",
+    log_levels_env=os.environ.get("LOG_LEVELS"),
+)
+logger = structlog.get_logger(__name__)
 
 
 ##################################################
@@ -158,7 +166,7 @@ asgi_app.add_middleware(
 )
 
 # add Logger middleware
-asgi_app.add_middleware(middlewares.LoggerMiddleware)
+asgi_app.add_middleware(RequestContextMiddleware)
 
 # add 405 middleware
 asgi_app.add_middleware(middlewares.Catch405Middleware)
@@ -235,7 +243,7 @@ async def api_catcher(path: str = ""):
 # handle robots
 @asgi_app.get("/robots.txt", response_class=HTMLResponse)
 async def serve_robots() -> FileResponse:
-    return FileResponse("apps/default/robots.txt", status_code=200)
+    return FileResponse("apps/leopar/robots.txt", status_code=200)
 
 
 # handle favicon
@@ -274,11 +282,11 @@ async def root_endpoint(classic_deps: ClassicDeps__dep):
 
 # Print registered workers and tasks
 for worker_name in TasksManager.workers_methods:
-    print_color("green", f"- 👷 Registered worker: {worker_name}")
+    logger.info("worker_registered", worker_name=worker_name)
 for task_name in TasksManager.tasks_methods:
-    print_color("green", f"- ✅ Registered task: {task_name}")
+    logger.info("task_registered", task_name=task_name)
 # Print auth providers
 for auth_provider_name in AuthProvidersManager.auth_providers:
-    print_color("green", f"- 📋 Registered auth provider: {auth_provider_name}")
+    logger.info("auth_provider_registered", auth_provider_name=auth_provider_name)
 
 print_leopar_welcome()

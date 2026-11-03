@@ -19,7 +19,7 @@ with context_db() as db:
         current_count = db.execute(text(f"SELECT COUNT(*) FROM {table_to_purge}")).scalar()
         print(f"Table {table_to_purge} has {current_count} rows")
         # only the same number is accepted:
-        count_to_confirm = input(f"Enter the number of rows to confirm deletion: ")
+        count_to_confirm = input("Enter the number of rows to confirm deletion: ")
         if count_to_confirm != str(current_count):
             print("Confirmation failed, aborting")
         else:

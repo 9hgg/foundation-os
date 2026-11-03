@@ -18,7 +18,7 @@ export class ContributorJsonPageComponent {
 	public contributorId = model<string | null>(null);
 
 	contributor$$$ = new BehaviorSubjectReplayedProxied<string | null, Contributor | null>((id: string | null) => {
-		return id ? this._contributorsRepository.store.getObjectById$$$(id).$ : of(null);
+		return id ? this._contributorsRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	constructor() {

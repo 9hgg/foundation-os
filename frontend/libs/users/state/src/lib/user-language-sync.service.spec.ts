@@ -22,7 +22,7 @@ describe('UserLanguageSyncService', () => {
                                 UserLanguageSyncService,
                                 {
                                         provide: UsersRepository,
-                                        useValue: { currentProfile$$$: currentProfileSubject },
+                                        useValue: { currentProfile$$$: Object.assign(currentProfileSubject, { $: currentProfileSubject.asObservable() }) },
                                 },
                                 {
                                         provide: TranslationService,

@@ -48,3 +48,60 @@ Because the mailer is task-driven, multiple emails can be queued and retried (wi
 ## When to add environment variables
 
 Only introduce env vars when you need to override the values consumed by your provider’s `BaseSettings` (for example, pointing Mailpit to a remote host). Otherwise keep configuration in the seeded `MailSettings` row and just change `MAIL_SETTINGS_ID` per environment.
+## Email verifications
+
+Proves that someone holds an address **for one occasion**, not in general.
+
+The question this library answers is "did the holder of this address click the link we sent for
+key XYZ", not "is this address verified". The same person proving the same address for a different
+question counts as unproven there. That distinction is the whole point: a form asking for an email
+in step 3 wants proof about *that* answer, not a badge earned elsewhere.
+
+### The occasion, and its key
+
+Callers never invent a key. They pass whatever identifies the occasion to
+`build_verification_key(*parts)`, which hashes it:
+
+```python
+from libs.mails.methods import build_verification_key
+
+key = build_verification_key(str(interaction.id), str(step.id))
+```
+
+Hashed so the key carries no readable ids, and derived in one place so every caller agrees on the
+format. The key is not a secret — the token is.
+
+### Verification flow
+
+1. `POST /api/email-verifications/request` — `{email, interactionId, stepId, redirectUrl?}`.
+   Mints a token, queues the mail, answers `{sent, verified, secondsBeforeResend}`.
+2. `GET /api/email-verifications/verify/{token}` — the link inside the mail. Flips `verified`,
+   then redirects to `redirect_url` when the caller asked for one, otherwise shows a plain page.
+3. `POST /api/email-verifications/status` — `{email, interactionId, stepId}` →
+   `{requested, verified, secondsBeforeResend}`. This is what a "I clicked the link" button polls.
+
+Re-requesting **rotates the token on the same row**: the previous link stops working as soon as a
+new one is sent, and a row already verified stays verified.
+
+### Why these routes are open
+
+Every route is reachable without an account, because the people proving an address are form
+respondents, who never sign in. What guards them:
+
+- The status route only answers yes/no about a pair the caller already knows. It discloses nothing.
+- Sending is rate limited per `(email, key)` **server-side** (`RESEND_COOLDOWN`, 60s). A cooldown
+  in the UI alone would leave an open relay pointed at any address in the world.
+- Tokens expire (`TOKEN_LIFETIME`, 24h) and are `secrets.token_urlsafe(32)`.
+
+### Sending the verification mail
+
+The mail is created with `libs.mails.methods.add_mail_to_db` and executed with
+`libs.tasks.methods.run_task_here`, so it goes out from the API process instead of waking a worker.
+Someone is staring at "check your inbox" while it happens: a container start would dominate the
+wait, and on a capped job the mail might never leave. It is still a tracked `Task`.
+
+### Using it from a form step
+
+`libs/forms/ui/src/lib/steps/email-request` is the reference consumer. It only shows the machinery
+when the step's `verifiedEmailRequired` is on, mirrors `verified` into the step response so the
+host sees it in the Responses table, and refuses to advance until the click is confirmed.

@@ -100,6 +100,11 @@ describe('ActivityBuilderPageComponent', () => {
 				getObjectByIdPullOnce$$$: vi.fn((id: string) => ({ $: of({ id, name: `Facility ${id}` }) })),
 			},
 		};
+		component._filesRepository = {
+			store: {
+				getObjectByIdPullOnce$$$: vi.fn((id: string) => ({ $: of(id === 'missing-file' ? null : { id, name: `File ${id}` }) })),
+			},
+		};
 		component._projectCostService = {
 			getContributionBilledAmountKeur: vi.fn((contribution: any) => contribution.days),
 			getFacilityUsageBilledAmountKeur: vi.fn((usage: any) => usage.cost),
@@ -259,5 +264,60 @@ describe('ActivityBuilderPageComponent', () => {
 		component._resetActivityAttachments();
 		expect(component.annualContributions()).toEqual([]);
 		expect(component.updateFilesByUpdateId()).toEqual({});
+	});
+
+	it('resolves linked files for updates and proposals, dedupes ids, drops missing files, and short-circuits empty lists', async () => {
+		const component = createComponent();
+
+		const emptyUpdatesResult = await firstValueFrom(component._loadFilesForUpdates$([]));
+		expect(emptyUpdatesResult).toEqual({});
+		expect(component._filesRepository.store.getObjectByIdPullOnce$$$).not.toHaveBeenCalled();
+
+		const updates = [
+			{ id: 'update-1', fileIds: ['file-1', 'missing-file'] },
+			{ id: 'update-2', fileIds: ['file-1'] },
+			{ id: 'update-3', fileIds: undefined },
+		];
+		const filesByUpdateId = await firstValueFrom(component._loadFilesForUpdates$(updates as any));
+		// Three fileId references across the updates, but only two distinct ids ('file-1' shared by
+		// update-1 and update-2, plus 'missing-file') -- the fetch itself is deduped by id.
+		expect(component._filesRepository.store.getObjectByIdPullOnce$$$).toHaveBeenCalledTimes(2);
+		expect(filesByUpdateId).toEqual({
+			'update-1': [{ id: 'file-1', name: 'File file-1' }],
+			'update-2': [{ id: 'file-1', name: 'File file-1' }],
+			'update-3': [],
+		});
+
+		const emptyProposalsResult = await firstValueFrom(component._loadFilesForProposals$([]));
+		expect(emptyProposalsResult).toEqual({});
+
+		const proposals = [{ id: 'proposal-1', fileIds: ['file-2', 'missing-file'] }];
+		const filesByProposalId = await firstValueFrom(component._loadFilesForProposals$(proposals as any));
+		expect(filesByProposalId).toEqual({ 'proposal-1': [{ id: 'file-2', name: 'File file-2' }] });
+	});
+
+	it('derives project years from a date range, and the year-range helpers built on top of it', () => {
+		const component = createComponent();
+
+		expect(component._deriveProjectYears(null)).toEqual([]);
+		expect(component._deriveProjectYears({} as any)).toEqual([]);
+		expect(component._deriveProjectYears({ startDate: '2025-06-01' } as any)).toEqual([2025]);
+		expect(component._deriveProjectYears({ endDate: '2027-06-01' } as any)).toEqual([2027]);
+		expect(component._deriveProjectYears({ startDate: '2026-01-01', endDate: '2024-01-01' } as any)).toEqual([2024, 2025, 2026]);
+
+		component.projectYears.set([]);
+		component.annualContributions.set([{ year: 2022 } as any]);
+		component.annualFacilityUsages.set([]);
+		component.purchases.set([]);
+		expect(component._getYearsFromData()).toEqual([2022]);
+		expect(component._getYearRange()).toEqual([2022]);
+
+		component.projectYears.set([2020, 2021]);
+		component.annualContributions.set([]);
+		expect(component._getYearRange()).toEqual([2020, 2021]);
+
+		component.projectYears.set([2020]);
+		component.annualContributions.set([{ year: 2022 } as any]);
+		expect(component._getYearRange()).toEqual([2020, 2021, 2022]);
 	});
 });

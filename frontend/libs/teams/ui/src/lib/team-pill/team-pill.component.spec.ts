@@ -9,14 +9,14 @@ const team: Team = { id: 'team-1', name: 'Research and development', config: {} 
 describe('TeamPillComponent', () => {
 	let repository: {
 		store: {
-			getObjectById$$$: ReturnType<typeof vi.fn>;
+			getObjectByIdPullOnce$$$: ReturnType<typeof vi.fn>;
 		};
 	};
 
 	beforeEach(async () => {
 		repository = {
 			store: {
-				getObjectById$$$: vi.fn().mockReturnValue(of(team)),
+				getObjectByIdPullOnce$$$: vi.fn().mockReturnValue(of(team)),
 			},
 		};
 
@@ -34,7 +34,7 @@ describe('TeamPillComponent', () => {
 		fixture.componentRef.setInput('teamId', 'team-1');
 		fixture.detectChanges();
 
-		expect(repository.store.getObjectById$$$).toHaveBeenCalledWith('team-1', true);
+		expect(repository.store.getObjectByIdPullOnce$$$).toHaveBeenCalledWith('team-1');
 		expect(fixture.componentInstance.teamName()).toBe('Research and development');
 	});
 
@@ -44,11 +44,11 @@ describe('TeamPillComponent', () => {
 		fixture.componentRef.setInput('team', team);
 		fixture.detectChanges();
 
-		expect(repository.store.getObjectById$$$).toHaveBeenCalledWith('team-1', true);
+		expect(repository.store.getObjectByIdPullOnce$$$).toHaveBeenCalledWith('team-1');
 	});
 
 	it('falls back to a default name when the loaded team has no name', () => {
-		repository.store.getObjectById$$$.mockReturnValue(of({ id: 'team-2', config: {} }));
+		repository.store.getObjectByIdPullOnce$$$.mockReturnValue(of({ id: 'team-2', config: {} }));
 		const fixture = TestBed.createComponent(TeamPillComponent);
 
 		fixture.componentRef.setInput('teamId', 'team-2');

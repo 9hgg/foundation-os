@@ -136,26 +136,6 @@
 				}
 			</tfoot>
 		</table>
-		@if (paginatorState.totalNumberOfItems > 10) {
-			<div name="table-footer" class="bg-base-200/30 border-base-200 flex items-center justify-between border-t p-4">
-				<div class="join">
-					<button (click)="paginatorState.hasPrev ? paginator.previousPage() : null" [disabled]="!paginatorState.hasPrev" class="btn btn-sm join-item">«</button>
-					<button class="btn btn-sm join-item no-animation cursor-default">
-						<span class="text-xs font-medium">Page {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }}</span>
-					</button>
-					<button (click)="paginatorState.hasNext ? paginator.nextPage() : null" [disabled]="!paginatorState.hasNext" class="btn btn-sm join-item">»</button>
-				</div>
-				<div class="flex items-center gap-3">
-					<label class="text-base-content/50 text-xs font-medium whitespace-nowrap">Page size</label>
-					<select class="select select-bordered select-xs" [ngModel]="paginatorState.numberOfItemsPerPage" (ngModelChange)="paginator.setPageSize(+$event)">
-						<option [value]="10">10</option>
-						<option [value]="20">20</option>
-						<option [value]="50">50</option>
-						<option [value]="100">100</option>
-					</select>
-					<div class="text-base-content/40 text-xs font-medium whitespace-nowrap">Total: {{ paginatorState.totalNumberOfItems }} items</div>
-				</div>
-			</div>
-		}
+		<lib-table-paginator [paginator]="paginator" />
 	</div>
 }

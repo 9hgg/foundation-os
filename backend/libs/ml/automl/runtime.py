@@ -111,7 +111,7 @@ def _extract_cv_selection_score(*, cv_results: dict[str, Any] | None) -> float |
     if not isinstance(cv_results, dict):
         return None
     score = cv_results.get("cv_score")
-    if isinstance(score, (int, float)):
+    if isinstance(score, int | float):
         return float(score)
     return None
 
@@ -145,7 +145,7 @@ def _cross_validate_algorithm(
             dataset=test_dataset,
         )
         metric_value = evaluation.metrics.get(metric_name)
-        if isinstance(metric_value, (int, float)):
+        if isinstance(metric_value, int | float):
             fold_scores.append(float(metric_value))
 
     if not fold_scores:

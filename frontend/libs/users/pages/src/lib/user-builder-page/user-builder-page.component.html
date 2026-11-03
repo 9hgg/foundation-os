@@ -17,7 +17,23 @@
 			</div>
 			<span class="text-lg font-semibold">User Editor</span>
 		</a>
-		<div class="badge badge-outline">ID: {{ user.id.substring(0, 8) }}</div>
+		<div class="flex items-center gap-2">
+			<button
+				type="button"
+				class="btn btn-ghost btn-sm"
+				(click)="copyConnectAsLink(user.id)"
+			>
+				<span [translate]>Copy "connect as" link</span>
+			</button>
+			<button
+				type="button"
+				class="badge badge-outline cursor-pointer"
+				[title]="('Copy the full id' | translate | async) ?? ''"
+				(click)="copyUserId(user.id)"
+			>
+				ID: {{ user.id.substring(0, 8) }}
+			</button>
+		</div>
 	</nav>
 
 	<div class="m-2 grid flex-1 grid-cols-1 gap-4 overflow-auto xl:grid-cols-[420px_1fr]">
@@ -86,6 +102,104 @@
 		</aside>
 
 		<main class="space-y-4">
+			<div
+				role="tablist"
+				class="border-base-200 flex gap-6 border-b px-1"
+			>
+				@for (tab of tabs; track tab.key) {
+					<button
+						role="tab"
+						type="button"
+						class="border-b-2 px-1 py-3 text-sm font-medium transition-colors"
+						[class]="activeTab() === tab.key ? 'border-primary text-primary' : 'text-base-content/40 hover:text-base-content hover:border-base-300 border-transparent'"
+						(click)="activeTab.set(tab.key)"
+					>
+						{{ tab.label }}
+					</button>
+				}
+			</div>
+
+			@if (activeTab() === 'tickets') {
+				<section class="bg-base-100 border-base-200 rounded-xl border p-5 shadow-sm">
+					<h2 class="mb-4 text-lg font-semibold">Last tickets</h2>
+					@if (isLoadingTab()) {
+						<span class="loading loading-spinner loading-sm"></span>
+					} @else if (tickets().length === 0) {
+						<p class="text-base-content/50 text-sm italic">This person has opened no ticket.</p>
+					} @else {
+						<table class="table-zebra table w-full">
+							<tbody>
+								@for (ticket of tickets(); track ticket.id) {
+									<tr>
+										<td class="w-24">
+											<span class="badge badge-ghost badge-sm">{{ ticket.kind }}</span>
+										</td>
+										<td>
+											<a
+												class="link link-hover font-medium"
+												[routerLink]="'/host/dashboard/support/' + ticket.id"
+											>
+												{{ ticket.title }}
+											</a>
+											@if (ticket.state === 'archived') {
+												<span class="badge badge-outline badge-xs ml-2">archived</span>
+											}
+										</td>
+										<td class="text-base-content/50 w-32 text-right text-xs whitespace-nowrap">
+											{{ ticket.timeCreated | date: 'short' }}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					}
+				</section>
+			}
+
+			@if (activeTab() === 'subscriptions') {
+				<section class="bg-base-100 border-base-200 rounded-xl border p-5 shadow-sm">
+					<h2 class="mb-4 text-lg font-semibold">Subscriptions</h2>
+					@if (isLoadingTab()) {
+						<span class="loading loading-spinner loading-sm"></span>
+					} @else if (subscriptions().length === 0) {
+						<p class="text-base-content/50 text-sm italic">This person has no subscription.</p>
+					} @else {
+						<table class="table-zebra table w-full">
+							<thead>
+								<tr>
+									<th>Name</th>
+									<th>From</th>
+									<th>Until</th>
+									<th class="text-right">Cost</th>
+								</tr>
+							</thead>
+							<tbody>
+								@for (subscription of subscriptions(); track subscription.id) {
+									<tr>
+										<td>
+											<div class="font-medium">{{ subscription.name || '—' }}</div>
+											@if (subscription.adminDetails) {
+												<div class="text-base-content/50 text-xs">{{ subscription.adminDetails }}</div>
+											}
+										</td>
+										<td class="text-xs whitespace-nowrap">{{ subscription.timeValidFrom | date: 'shortDate' }}</td>
+										<td class="text-xs whitespace-nowrap">
+											@if (subscription.timeValidTo) {
+												{{ subscription.timeValidTo | date: 'shortDate' }}
+											} @else {
+												<span class="badge badge-success badge-xs">running</span>
+											}
+										</td>
+										<td class="text-right text-xs">{{ subscription.config.cost ?? 0 }}</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					}
+				</section>
+			}
+
+			@if (activeTab() === 'profile') {
 			<section class="bg-base-100 border-base-200 rounded-xl border p-5 shadow-sm">
 				<h2 class="mb-4 text-lg font-semibold">Preferences</h2>
 
@@ -177,6 +291,52 @@
 				</div>
 			</section>
 
+			<section class="bg-base-100 border-base-200 rounded-xl border p-5 shadow-sm">
+				<div class="mb-4 flex items-center justify-between">
+					<h2 class="text-lg font-semibold">Feature flags</h2>
+					<button
+						type="button"
+						class="btn btn-sm btn-primary"
+						(click)="openFlagSelectionForAttribution()"
+					>
+						Attribute flag...
+					</button>
+				</div>
+
+				<ul class="divide-base-200 divide-y">
+					@for (item of flagAttributions(); track item.attribution.id) {
+						<li class="flex items-center justify-between py-2">
+							<span class="text-base-content/80 font-mono text-sm">{{ item.flag?.key ?? item.attribution.flagId }}</span>
+							<div class="flex items-center gap-2">
+								<span
+									class="badge badge-sm"
+									[class.badge-neutral]="item.attribution.source !== 'manual'"
+									>{{ item.attribution.source }}</span
+								>
+								<button
+									type="button"
+									class="btn btn-ghost btn-xs"
+									[class.text-success]="item.attribution.enabled"
+									[class.text-error]="!item.attribution.enabled"
+									(click)="toggleFlagAttributionEnabled(item.attribution)"
+								>
+									{{ item.attribution.enabled ? 'Enabled' : 'Disabled' }}
+								</button>
+								<button
+									type="button"
+									class="btn btn-ghost btn-xs text-error"
+									(click)="removeFlagAttribution(item.attribution)"
+								>
+									Remove
+								</button>
+							</div>
+						</li>
+					} @empty {
+						<li class="text-base-content/50 py-6 text-center italic">This user has no feature flags attributed yet.</li>
+					}
+				</ul>
+			</section>
+
 			@if (user.config.formerEmails?.length) {
 			<section class="bg-base-100 border-base-200 rounded-xl border p-5 shadow-sm">
 				<h2 class="mb-4 text-lg font-semibold">Former Emails</h2>
@@ -208,9 +368,53 @@
 			}
 
 			<section class="bg-base-100 border-base-200 rounded-xl border p-5 shadow-sm">
-				<h2 class="mb-3 text-lg font-semibold">Full Details</h2>
-				<pre class="bg-base-200/60 max-h-[400px] overflow-auto rounded-lg p-3 text-xs">{{ user | json }}</pre>
+				<div class="mb-3 flex items-center justify-between">
+					<h2 class="text-lg font-semibold">Full Details</h2>
+					@if (jsonEditMode()) {
+						<div class="flex items-center gap-2">
+							<button
+								type="button"
+								class="btn btn-ghost btn-xs"
+								(click)="cancelJsonEdit()"
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								class="btn btn-primary btn-xs"
+								[disabled]="!!jsonEditError()"
+								(click)="saveJsonEdit(user.id)"
+							>
+								Save JSON
+							</button>
+						</div>
+					} @else {
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs"
+							(click)="enterJsonEditMode(user)"
+						>
+							Edit JSON
+						</button>
+					}
+				</div>
+
+				@if (jsonEditMode()) {
+					<textarea
+						class="textarea textarea-bordered max-h-[600px] min-h-[400px] w-full font-mono text-xs"
+						[class.textarea-error]="jsonEditError()"
+						spellcheck="false"
+						[value]="jsonEditText()"
+						(input)="jsonEditText.set($any($event.target).value)"
+					></textarea>
+					@if (jsonEditError(); as error) {
+						<p class="text-error mt-1 text-xs">{{ error }}</p>
+					}
+				} @else {
+					<pre class="bg-base-200/60 max-h-[400px] overflow-auto rounded-lg p-3 text-xs">{{ user | json }}</pre>
+				}
 			</section>
+			}
 		</main>
 	</div>
 </div>

@@ -188,24 +188,61 @@ class OllamaEmbeddingClient(EmbeddingClient):
                 headers={"Content-Type": "application/json"},
             )
             response = connection.getresponse()
-            raw_payload = json.loads(response.read().decode())
-        except (OSError, error.HTTPError, json.JSONDecodeError) as exc:
-            raise LLMEmptyResponseError(
-                f"Ollama embedding request failed: {exc}"
+            status = response.status
+            body_text = response.read().decode(errors="replace")
+        except (OSError, error.HTTPError) as exc:
+            raise LLMEmptyResponseError(  # noqa: TRY003
+                f"Ollama embed request to {self.base_url} failed ({exc}). "
+                f"Is Ollama running? Try `ollama serve` and verify the base URL."
             ) from exc
         finally:
             connection.close()
 
+        try:
+            raw_payload = json.loads(body_text)
+        except json.JSONDecodeError as exc:
+            raise LLMEmptyResponseError(  # noqa: TRY003
+                f"Ollama embed model {chosen_model!r}: non-JSON response "
+                f"(HTTP {status}): {body_text[:200]!r}"
+            ) from exc
+
+        if status >= 400:
+            ollama_error = (
+                raw_payload.get("error") if isinstance(raw_payload, dict) else None
+            ) or body_text[:200]
+            raise LLMEmptyResponseError(  # noqa: TRY003
+                f"Ollama embed model {chosen_model!r}: HTTP {status} — {ollama_error}. "
+                f"If the model is missing, run `ollama pull {chosen_model}`."
+            )
+
         raw_embeddings = raw_payload.get("embeddings") or raw_payload.get("embedding")
         if (
-            raw_embeddings
+            isinstance(raw_embeddings, list)
             and raw_embeddings
-            and isinstance(raw_embeddings[0], (int, float))
+            and isinstance(raw_embeddings[0], int | float)
         ):
             raw_embeddings = [raw_embeddings]
-        if not isinstance(raw_embeddings, list) or len(raw_embeddings) != len(texts):
-            raise LLMEmptyResponseError(
-                f"Ollama returned invalid embeddings for model {chosen_model!r}"
+        if not isinstance(raw_embeddings, list):
+            ollama_error = (
+                raw_payload.get("error") if isinstance(raw_payload, dict) else None
+            )
+            detail = (
+                f": {ollama_error}"
+                if ollama_error
+                else (
+                    f" (response keys: {list(raw_payload)[:6]})"
+                    if isinstance(raw_payload, dict)
+                    else ""
+                )
+            )
+            raise LLMEmptyResponseError(  # noqa: TRY003
+                f"Ollama embed model {chosen_model!r}: no 'embeddings' field in response{detail}. "
+                f"Verify the model exists (`ollama list`) and supports embeddings."
+            )
+        if len(raw_embeddings) != len(texts):
+            raise LLMEmptyResponseError(  # noqa: TRY003
+                f"Ollama embed model {chosen_model!r}: received {len(raw_embeddings)} "
+                f"embedding(s) for {len(texts)} input(s)."
             )
 
         embeddings = [[float(value) for value in row] for row in raw_embeddings]
@@ -241,7 +278,7 @@ class OpenAILLMClient(LLMClient):
         chosen_model = model if model is not None else self.model
         api_key = self.api_key or os.getenv(self.api_key_env, "").strip()
         if not api_key:
-            raise LLMConfigurationError(
+            raise LLMConfigurationError(  # noqa: TRY003
                 f"OpenAI API key is missing. Set environment variable {self.api_key_env!r}."
             )
 
@@ -269,7 +306,9 @@ class OpenAILLMClient(LLMClient):
             response = connection.getresponse()
             raw_payload = json.loads(response.read().decode())
         except (OSError, error.HTTPError, json.JSONDecodeError) as exc:
-            raise LLMEmptyResponseError(f"OpenAI request failed: {exc}") from exc
+            raise LLMEmptyResponseError(  # noqa: TRY003
+                f"OpenAI request failed: {exc}"
+            ) from exc
         finally:
             connection.close()
 
@@ -282,7 +321,7 @@ class OpenAILLMClient(LLMClient):
                 if isinstance(p, dict) and p.get("type") == "text"
             )
         if not isinstance(content, str) or not content.strip():
-            raise LLMEmptyResponseError(
+            raise LLMEmptyResponseError(  # noqa: TRY003
                 f"OpenAI returned empty content for model {chosen_model!r}"
             )
 
@@ -305,7 +344,9 @@ class OpenAILLMClient(LLMClient):
                 temperature=0.0,
             )
         except Exception as exc:
-            raise LLMConfigurationError(f"OpenAI client check failed: {exc}") from exc
+            raise LLMConfigurationError(  # noqa: TRY003
+                f"OpenAI client check failed: {exc}"
+            ) from exc
 
 
 POSSIBLE_EDF_IAG_MODELS = {
@@ -341,13 +382,13 @@ class EDFIAGLLMClient(LLMClient):
 
         # check against available list
         if chosen_model not in POSSIBLE_EDF_IAG_MODELS:
-            raise LLMEmptyResponseError(
+            raise LLMEmptyResponseError(  # noqa: TRY003
                 f"Model {chosen_model!r} is not in the list of possible EDF IAG models from code base: {POSSIBLE_EDF_IAG_MODELS}"
             )
 
         api_key = (self.api_key or os.getenv(self.api_key_env, "")).strip()
         if not api_key:
-            raise LLMEmptyResponseError(
+            raise LLMEmptyResponseError(  # noqa: TRY003
                 f"EDF IAG API key is missing (env var {self.api_key_env!r})"
             )
 

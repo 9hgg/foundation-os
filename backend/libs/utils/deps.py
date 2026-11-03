@@ -9,13 +9,16 @@ if TYPE_CHECKING:
 
 
 def get_deps(request: Request):
-    user: Optional[User] = request.state.user
-    session: Optional[AppSession] | None = request.state.session
-    translator: Optional[SimpleTranslator] | None = request.state.translator
+    user: User | None = request.state.user
+    session: AppSession | None = request.state.session
+    translator: SimpleTranslator = request.state.translator
     return user, session, translator
 
 
+# The user is None on anonymous requests -- every endpoint's `if current_user_db is None`
+# check is real, and the type must say so. The translator always resolves (Translator__dep
+# falls back to a default language), so it stays required.
 ClassicDeps__dep = Annotated[
-    tuple["User", Optional["AppSession"], "SimpleTranslator"],
+    tuple[Optional["User"], Optional["AppSession"], "SimpleTranslator"],
     Depends(get_deps),
 ]

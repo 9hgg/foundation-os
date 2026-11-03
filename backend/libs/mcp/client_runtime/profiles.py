@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-from libs.mcp.display import ResourceDisplayProfile
+from libs.resource import ResourceDisplayProfile
 
 
 def singularize(value: str) -> str:
@@ -55,9 +55,8 @@ def get_resource_display_profile(kind: str | None, raw: dict[str, Any] | None = 
     detected_kind = singularize(kind or "")
     if detected_kind and ResourceManager is not None and ResourceManager.is_resource_registered(detected_kind):
         resource_cls = ResourceManager.get_resource_by_kind(detected_kind)
-        profile = getattr(resource_cls, "__mcp_display__", None)
-        if isinstance(profile, ResourceDisplayProfile):
-            return profile
+        if resource_cls.__display_profile__ is not None:
+            return resource_cls.__display_profile__
         return ResourceDisplayProfile(
             kind=detected_kind,
             title_fields=("title", "name", "label", "subject", "email", "id"),
@@ -75,9 +74,8 @@ def get_resource_display_profile(kind: str | None, raw: dict[str, Any] | None = 
                 break
         if detected_kind and ResourceManager is not None and ResourceManager.is_resource_registered(detected_kind):
             resource_cls = ResourceManager.get_resource_by_kind(detected_kind)
-            profile = getattr(resource_cls, "__mcp_display__", None)
-            if isinstance(profile, ResourceDisplayProfile):
-                return profile
+            if resource_cls.__display_profile__ is not None:
+                return resource_cls.__display_profile__
 
     return ResourceDisplayProfile(
         kind=detected_kind or "resource",

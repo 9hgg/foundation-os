@@ -9,7 +9,7 @@ from libs.utils.types import BaseModelWithConfig, to_camel
 M = typing.TypeVar("M")
 
 
-class PaginatedResponse(BaseModel, typing.Generic[M]):
+class PaginatedResponse[M](BaseModel):
     data: list[M] = pydantic.Field(
         description="List of items returned in the response",
     )
@@ -46,7 +46,7 @@ class PaginatedResponse(BaseModel, typing.Generic[M]):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
-class SimpleResponse(BaseModelWithConfig, typing.Generic[M]):
+class SimpleResponse[M](BaseModelWithConfig):
     """
     Simple response for a single item
     with optional self and all URLs.

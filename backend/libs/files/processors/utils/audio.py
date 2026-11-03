@@ -71,7 +71,7 @@ class WriteSRT(SubtitlesWriter):
 
     def _write_result(self, result: list[TranscribedData], file: TextIO):
         for i, (start, end, text) in enumerate(self.iterate_result(result), start=1):
-            print(f"{i}\n{start} --> {end}\n{text}\n", file=file, flush=True)
+            file.write(f"{i}\n{start} --> {end}\n{text}\n")
 
 
 @dataclass(kw_only=True)
@@ -79,9 +79,9 @@ class WriteVTT(SubtitlesWriter):
     decimal_marker: str = "."
 
     def _write_result(self, result: list[TranscribedData], file: TextIO):
-        print("WEBVTT\n", file=file)
+        file.write("WEBVTT\n\n")
         for start, end, text in self.iterate_result(result):
-            print(f"{start} --> {end}\n{text}\n", file=file, flush=True)
+            file.write(f"{start} --> {end}\n{text}\n")
 
 
 @dataclass(kw_only=True)

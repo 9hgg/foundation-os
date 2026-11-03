@@ -3,3 +3,14 @@
 	display: block;
 	width: 100%;
 }
+
+[name='floating-video-player']:fullscreen {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100vw;
+	height: 100vh;
+	border: 0;
+	border-radius: 0;
+	background: black;
+}

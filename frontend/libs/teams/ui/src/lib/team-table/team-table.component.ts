@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { FoldersModals } from '@foundation/folders/modals';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { Team } from '@foundation/teams/models';
 import { TeamsRepository } from '@foundation/teams/state';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
@@ -15,6 +15,7 @@ import { switchMap } from 'rxjs';
 	selector: 'lib-team-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		//
 		CommonModule,
 		ReactiveFormsModule,

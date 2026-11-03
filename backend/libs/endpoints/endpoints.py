@@ -6,9 +6,11 @@ from urllib.parse import unquote
 
 import fastapi
 import sqlalchemy as sa
+import structlog
 from fastapi import APIRouter, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Query as QuerySQLAlchemy
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.expression import and_, or_
@@ -17,9 +19,9 @@ from libs.acl.methods import create_default_acls
 from libs.acl.models import Acl, Operation, Who
 from libs.db import context_db
 from libs.folders.models import FolderToResource
-from libs.logger import print, print_color
 from libs.resource import (
     CanReadIfReadOver,
+    CanReadIfReadOverJsonArray,
     Resource,
     ResourceManager,
     SameAccessAs,
@@ -38,6 +40,8 @@ from libs.utils.types import (
 
 from .types import PaginatedResponse, SimpleResponse, get_paginated_results
 
+logger = structlog.get_logger(__name__)
+
 
 def check_concurrency_conflict(
     client_time_updated: str | datetime | None, resource_time_updated: datetime | None
@@ -53,30 +57,30 @@ def check_concurrency_conflict(
         True if there's a conflict (client is outdated), False otherwise
     """
     if client_time_updated is None or resource_time_updated is None:
-        print_color("red", "check_concurrency_conflict: One of the timestamps is None")
+        logger.debug(
+            "concurrency_check_timestamp_missing",
+            client_timestamp_missing=client_time_updated is None,
+            resource_timestamp_missing=resource_time_updated is None,
+        )
         return False
 
     # Convert client timestamp to datetime if it's a string
     if isinstance(client_time_updated, str):
         try:
             # Try ISO format first (most common from JavaScript)
-            client_dt = datetime.fromisoformat(
-                client_time_updated.replace("Z", "+00:00")
-            )
+            client_dt = datetime.fromisoformat(client_time_updated.replace("Z", "+00:00"))
         except ValueError:
             try:
                 # Fallback to basic strptime
-                client_dt = datetime.strptime(
-                    client_time_updated, "%Y-%m-%dT%H:%M:%S.%fZ"
-                )
+                client_dt = datetime.strptime(client_time_updated, "%Y-%m-%dT%H:%M:%S.%fZ")
             except ValueError:
                 return False  # If we can't parse the timestamp, assume no conflict
     elif isinstance(client_time_updated, datetime):
         client_dt = client_time_updated
     else:
-        print_color(
-            "red",
-            "check_concurrency_conflict: client_time_updated is not a valid datetime or string",
+        logger.debug(
+            "concurrency_check_client_timestamp_invalid",
+            client_timestamp_type=type(client_time_updated).__name__,
         )
         return False
     # Compare with database timestamp
@@ -88,11 +92,11 @@ class ItemFilter(BaseModel):
     field_name: str
     value: str | None | bool
     match_type: str = "exact"  # Default to exact match
-    comparison: typing.Optional[str] = None  # For numerical and datetime comparisons
+    comparison: str | None = None  # For numerical and datetime comparisons
 
 
-def decode_filters(
-    filters: typing.Optional[list[str]],
+def decode_filters(  # noqa: C901
+    filters: list[str] | None,
 ) -> list[ItemFilter]:
     if filters is None:
         return []
@@ -109,17 +113,17 @@ def decode_filters(
         elif len(parts) == 4:
             field, value, match_type, comparison = parts
         else:
-            raise ValueError("Invalid filter format")
+            raise ValueError("Invalid filter format")  # noqa: TRY003
 
         if match_type == "p":
             match_type = "partial"
         elif match_type == "e":
             match_type = "exact"
         if match_type not in ["partial", "exact"]:
-            raise ValueError("Invalid match type")
+            raise ValueError("Invalid match type")  # noqa: TRY003
 
         if comparison and comparison not in ["<", ">", "<=", ">=", "<>"]:
-            raise ValueError("Invalid comparison type")
+            raise ValueError("Invalid comparison type")  # noqa: TRY003
 
         if value == "~null":
             value = None
@@ -167,9 +171,7 @@ def add_acl_filters(
         ignore_session=ignore_session,
         include_admin=include_admin,
         team_ids_subquery_factory=(
-            lambda: query.session.query(membership_model.team_id).filter(
-                membership_model.user_id == current_user_db.id
-            )
+            lambda: query.session.query(membership_model.team_id).filter(membership_model.user_id == current_user_db.id)
         )
         if current_user_db is not None and membership_model is not None
         else None,
@@ -177,8 +179,6 @@ def add_acl_filters(
 
     if principal_filter is not None:
         query = query.filter(principal_filter)
-
-    # print_color("yellow", "🛑 ACL filters applied:", query.statement.compile())
 
     return query
 
@@ -222,7 +222,7 @@ def build_acl_principal_filter(
         )
 
         if team_ids_subquery_factory is not None:
-            # Team access – check if user is member of any team that has access.
+            # Team access - check if user is member of any team that has access.
             # The subquery is lazily evaluated so that calling code can control
             # which session / alias to use.
             user_teams_subquery = team_ids_subquery_factory()
@@ -277,7 +277,7 @@ def _build_direct_acl_cte(
     principal (user / session) is entitled to for the given *operation*.
 
     This is the **direct** step of the two-step CTE approach: it does not yet
-    consider any parent-resource inheritance rules – it simply selects all
+    consider any parent-resource inheritance rules - it simply selects all
     ``(resource_kind, resource_id)`` pairs from the ``acls`` table that match
     the principal's identity and the requested operation.
 
@@ -304,11 +304,7 @@ def _build_direct_acl_cte(
         ignore_anonymous=ignore_anonymous,
         ignore_session=ignore_session,
         include_admin=include_admin,
-        team_ids_subquery_factory=(
-            lambda: sa.select(team_ids_cte.c.team_id)
-            if team_ids_cte is not None
-            else None
-        ),
+        team_ids_subquery_factory=(lambda: sa.select(team_ids_cte.c.team_id) if team_ids_cte is not None else None),
     )
 
     # Select all distinct (resource_kind, resource_id) pairs the principal has
@@ -321,10 +317,10 @@ def _build_direct_acl_cte(
         .distinct()
         .where(Acl.operation == operation.value)
     )
-    if principal_filter is not None:
+    if principal_filter is not None:  # noqa: SIM108
         acl_query = acl_query.where(principal_filter)
     else:
-        # No principal condition matched at all – deny everything.
+        # No principal condition matched at all - deny everything.
         acl_query = acl_query.where(sa.false())
 
     return acl_query.cte("eligible_acls")
@@ -346,9 +342,9 @@ def _build_readable_ids_via_access_rules_cte(
 
     The logic is:
 
-    1. **Direct access** – IDs that appear in *eligible_acls_cte* for this
+    1. **Direct access** - IDs that appear in *eligible_acls_cte* for this
        resource kind are immediately readable.
-    2. **Inherited access** – for each ``SameAccessAs`` / ``CanReadIfReadOver``
+    2. **Inherited access** - for each ``SameAccessAs`` / ``CanReadIfReadOver``
        rule attached to *ResourceClass*, we recursively build the readable-ids
        CTE for the *target* (parent) resource, then JOIN the current resource
        table against that CTE to find children whose parent is accessible.
@@ -371,15 +367,7 @@ def _build_readable_ids_via_access_rules_cte(
         return cache[key]
     # Guard against infinite recursion caused by circular access rules.
     if key in visited:
-        raise NotImplementedError(
-            f"Cyclic SameAccessAs inheritance is not supported for {ResourceClass.__kind__}"
-        )
-
-    indent = "  " * nesting_level
-    # print_color(
-    #     "cyan",
-    #     f"{indent}[effective-acl] resource={ResourceClass.__kind__} operation={operation.value} level={nesting_level}",
-    # )
+        raise NotImplementedError(f"Cyclic SameAccessAs inheritance is not supported for {ResourceClass.__kind__}")
 
     # --- Step 1: direct access via eligible_acls_cte ---
     selects = [
@@ -390,24 +378,14 @@ def _build_readable_ids_via_access_rules_cte(
 
     next_visited = visited | {key}
     for rule in getattr(ResourceClass, "__access_rules__", ()) or ():
-        if not isinstance(rule, (SameAccessAs, CanReadIfReadOver)):
-            raise NotImplementedError(
-                f"Unsupported access rule {type(rule).__name__} on {ResourceClass.__kind__}"
-            )
+        if not isinstance(rule, SameAccessAs | CanReadIfReadOver | CanReadIfReadOverJsonArray):
+            raise NotImplementedError(f"Unsupported access rule {type(rule).__name__} on {ResourceClass.__kind__}")
         # Skip rules that do not apply to the requested operation
         # (e.g. CanReadIfReadOver only applies to READ).
         if not rule.supports_operation(operation):
-            # print_color(
-            #     "yellow",
-            #     f"{indent}[effective-acl] skip rule={type(rule).__name__} target={rule.target_resource.__kind__} reason=operation-not-enabled op={operation.value}",
-            # )
             continue
 
         target_resource = rule.target_resource
-        # print_color(
-        #     "cyan",
-        #     f"{indent}[effective-acl] traverse rule={type(rule).__name__} from={ResourceClass.__kind__} to={target_resource.__kind__} on={rule.local_field}=={rule.remote_field}",
-        # )
 
         # --- Step 2: inherited access through a parent resource ---
         # Recursively build the readable-ids CTE for the parent resource,
@@ -421,14 +399,20 @@ def _build_readable_ids_via_access_rules_cte(
             nesting_level=nesting_level + 1,
         )
         target_resource_alias = aliased(target_resource)
+        if isinstance(rule, CanReadIfReadOverJsonArray):
+            # Many-to-many kept in JSONB: the target's config array holds this resource's
+            # ids as strings, so join on `target.config[array_field] @> [this.id]`.
+            join_condition = target_resource_alias.config[rule.array_field].op("@>")(
+                sa.func.jsonb_build_array(sa.cast(getattr(ResourceClass, rule.local_field), sa.Text))
+            )
+        else:
+            join_condition = getattr(ResourceClass, rule.local_field) == getattr(
+                target_resource_alias, rule.remote_field
+            )
         selects.append(
             sa.select(ResourceClass.id.label("id"))
             .select_from(ResourceClass)
-            .join(
-                target_resource_alias,
-                getattr(ResourceClass, rule.local_field)
-                == getattr(target_resource_alias, rule.remote_field),
-            )
+            .join(target_resource_alias, join_condition)
             .join(
                 readable_parent_ids_cte,
                 readable_parent_ids_cte.c.id == target_resource_alias.id,
@@ -437,9 +421,7 @@ def _build_readable_ids_via_access_rules_cte(
 
     # Combine direct + all inherited branches into a single flat set of IDs.
     readable_ids_union = sa.union(*selects) if len(selects) > 1 else selects[0]
-    readable_ids_cte = readable_ids_union.cte(
-        f"readable_{ResourceClass.__kind__}_{operation.value}"
-    )
+    readable_ids_cte = readable_ids_union.cte(f"readable_{ResourceClass.__kind__}_{operation.value}")
     cache[key] = readable_ids_cte
     return readable_ids_cte
 
@@ -463,15 +445,15 @@ def build_effective_acl_clause(
 
     Combines the two CTE-building helpers:
 
-    1. :func:`_build_direct_acl_cte` – collects all ACL rows the principal is
+    1. :func:`_build_direct_acl_cte` - collects all ACL rows the principal is
        directly entitled to (``eligible_acls`` CTE).
-    2. :func:`_build_readable_ids_via_access_rules_cte` – expands the direct
+    2. :func:`_build_readable_ids_via_access_rules_cte` - expands the direct
        grants through ``SameAccessAs`` / ``CanReadIfReadOver`` chains to
        produce a flat set of readable IDs.
 
     The final clause is ``resource_expr.id IN (SELECT id FROM readable_<kind>_<op>)``.
     """
-    # Step 1 – build the eligible_acls CTE (direct grants for this principal)
+    # Step 1 - build the eligible_acls CTE (direct grants for this principal)
     eligible_acls_cte = _build_direct_acl_cte(
         current_user_db=current_user_db,
         session=session,
@@ -480,7 +462,7 @@ def build_effective_acl_clause(
         ignore_session=ignore_session,
         include_admin=include_admin,
     )
-    # Step 2 – expand through access rules to get the full set of readable IDs
+    # Step 2 - expand through access rules to get the full set of readable IDs
     readable_ids_cte = _build_readable_ids_via_access_rules_cte(
         ResourceClass=ResourceClass,
         eligible_acls_cte=eligible_acls_cte,
@@ -488,7 +470,7 @@ def build_effective_acl_clause(
         visited=visited,
         nesting_level=nesting_level,
     )
-    return getattr(resource_expr, "id").in_(sa.select(readable_ids_cte.c.id))
+    return resource_expr.id.in_(sa.select(readable_ids_cte.c.id))
 
 
 def apply_operation_access_filter(
@@ -518,17 +500,6 @@ def apply_operation_access_filter(
             include_admin=include_admin,
         )
     )
-
-    # try:
-    #     compiled_query = filtered_query.statement.compile(
-    #         compile_kwargs={"literal_binds": True}
-    #     )
-    # except Exception:
-    #     compiled_query = filtered_query.statement.compile()
-    # print_color(
-    #     "magenta",
-    #     f"[effective-acl-sql] resource={ResourceClass.__kind__} operation={operation.value}\n{compiled_query}",
-    # )
 
     return filtered_query
 
@@ -561,8 +532,7 @@ def get_resource_if_READ_allowed(
             operation=Operation.READ,
             ignore_anonymous=False,
         )
-
-    return query.first()
+        return query.first()
 
 
 def get_resource_if_WRITE_allowed(
@@ -593,8 +563,7 @@ def get_resource_if_WRITE_allowed(
             operation=Operation.WRITE,
             ignore_anonymous=True,
         )
-
-    return query.first()
+        return query.first()
 
 
 def read_all_resources(
@@ -632,10 +601,10 @@ class InputModelType(typing.Protocol[T]):
     def model_dump(self, exclude_unset: bool = False) -> dict: ...
 
 
-def create_crud_endpoints(
+def create_crud_endpoints[T: Resource](  # noqa: C901
     ResourceClass: type[T],
     prefix: str,
-    tags: typing.Optional[list[typing.Union[str, Enum]]] = None,
+    tags: list[str | Enum] | None = None,
     *,
     include_read: bool = True,
     include_all_by_app: bool = False,
@@ -645,7 +614,7 @@ def create_crud_endpoints(
     include_delete: bool = False,
     include_simplified: bool = False,
     include_bypass: bool = False,
-    possible_proxies: typing.Optional[dict] = None,
+    possible_proxies: dict | None = None,
 ):
     if tags is None:
         tags = []
@@ -664,7 +633,11 @@ def create_crud_endpoints(
     )
 
     if include_all_by_app:
-        print_color("red", "include_all_by_app is true for", ResourceClass.__name__)
+        logger.debug(
+            "crud_route_enabled",
+            operation="all_by_app",
+            resource_kind=ResourceClass.__kind__,
+        )
 
         @router.get(
             "/all",
@@ -692,22 +665,20 @@ def create_crud_endpoints(
             status_code=status.HTTP_200_OK,
             response_model=EndpointOutput[PaginatedResponse[ResponseModelType]],
             operation_id=f"list_{ResourceClass.__kind__}_paginated",
-            summary=(
-                f"List all accessible from {ResourceClass.__tablename__}, paginated"
-            ),
+            summary=(f"List all accessible from {ResourceClass.__tablename__}, paginated"),
             response_model_by_alias=True,
         )
-        def read_resources(
+        def read_resources(  # noqa: C901
             request: Request,
             classic_deps: ClassicDeps__dep,
             page: int = Query(1, gt=0),
             page_size: int = Query(100, gt=0, le=1000),
-            filters: typing.Optional[list[str]] = Query(None),
-            ordering_by: typing.Optional[str] = Query(None),
+            filters: list[str] | None = Query(None),
+            ordering_by: str | None = Query(None),
             ignore_anonymous: bool = Query(False),
             bypass_acls: bool = Query(False),
-            proxy: typing.Optional[str] = Query(None),
-            proxy_value: typing.Optional[str] = Query(None),
+            proxy: str | None = Query(None),
+            proxy_value: str | None = Query(None),
         ):
             """
             List all resources with pagination.
@@ -735,9 +706,7 @@ def create_crud_endpoints(
                         return EndpointOutput(
                             error=EndpointError(
                                 title=translator.translate("Unauthorized"),
-                                description=translator.translate(
-                                    "Invalid proxy parameter."
-                                ),
+                                description=translator.translate("Invalid proxy parameter."),
                                 code="Unauthorized",
                             )
                         )
@@ -745,9 +714,7 @@ def create_crud_endpoints(
                         return EndpointOutput(
                             error=EndpointError(
                                 title=translator.translate("Bad Request"),
-                                description=translator.translate(
-                                    "Missing proxy_value parameter."
-                                ),
+                                description=translator.translate("Missing proxy_value parameter."),
                                 code="BadRequest",
                             )
                         )
@@ -757,9 +724,7 @@ def create_crud_endpoints(
                         return EndpointOutput(
                             error=EndpointError(
                                 title=translator.translate("Bad Request"),
-                                description=translator.translate(
-                                    "Invalid proxy_value parameter."
-                                ),
+                                description=translator.translate("Invalid proxy_value parameter."),
                                 code="BadRequest",
                             )
                         )
@@ -770,9 +735,7 @@ def create_crud_endpoints(
                         return EndpointOutput(
                             error=EndpointError(
                                 title=translator.translate("Unauthorized"),
-                                description=translator.translate(
-                                    "Invalid proxy details configuration."
-                                ),
+                                description=translator.translate("Invalid proxy details configuration."),
                                 code="Unauthorized",
                             )
                         )
@@ -819,9 +782,7 @@ def create_crud_endpoints(
                             )
                         )
                     try:
-                        proxy_resource = ResourceManager.get_resource_by_kind(
-                            proxy_resource_kind
-                        )
+                        proxy_resource = ResourceManager.get_resource_by_kind(proxy_resource_kind)
                     except ResourceWithKindUndefinedError:
                         return EndpointOutput(
                             error=EndpointError(
@@ -834,14 +795,10 @@ def create_crud_endpoints(
                         )
 
                     # we join on the proxy resource and filter on the proxy value
-                    query = (
-                        query.join(
-                            proxy_resource,
-                            getattr(ResourceClass, proxy_field_name)
-                            == proxy_resource.id,
-                        )
-                        .filter(proxy_resource.id == proxy_value_uuid)
-                    )
+                    query = query.join(
+                        proxy_resource,
+                        getattr(ResourceClass, proxy_field_name) == proxy_resource.id,
+                    ).filter(proxy_resource.id == proxy_value_uuid)
                     query = apply_operation_access_filter(
                         query=query,
                         ResourceClass=proxy_resource,
@@ -906,9 +863,7 @@ def create_crud_endpoints(
                 if ordering_by:
                     ordering_field_name, direction = ordering_by.split(":", 2)
                     if ordering_field_name:
-                        ordering_field = getattr_by_alias_or_name(
-                            ResourceClass, ordering_field_name
-                        )
+                        ordering_field = getattr_by_alias_or_name(ResourceClass, ordering_field_name)
 
                         if isinstance(ordering_field.type, str):
                             # if the field is a string, we lowercase it
@@ -921,10 +876,9 @@ def create_crud_endpoints(
                 else:
                     query = query.order_by(ResourceClass.time_created.asc())
 
-                # print the query
-                # print_color("yellow", query)
-
-                root_url = f"{request.base_url.scheme}://{request.base_url.netloc}{router.url_path_for('read_resources')}"
+                root_url = (
+                    f"{request.base_url.scheme}://{request.base_url.netloc}{router.url_path_for('read_resources')}"
+                )
                 result = get_paginated_results(
                     query,
                     page,
@@ -944,13 +898,13 @@ def create_crud_endpoints(
             operation_id=f"find_page_{ResourceClass.__kind__}",
             summary=f"Find the page containing a specific resource in {ResourceClass.__tablename__}",
         )
-        def find_page(
+        def find_page(  # noqa: C901
             resource_id: str,
             request: Request,
             classic_deps: ClassicDeps__dep,
             page_size: int = Query(100, gt=0, le=1000),
-            filters: typing.Optional[list[str]] = Query(None),
-            ordering_by: typing.Optional[str] = Query(None),
+            filters: list[str] | None = Query(None),
+            ordering_by: str | None = Query(None),
         ):
             """
             Find the page containing a specific resource based on filters and ordering.
@@ -979,7 +933,7 @@ def create_crud_endpoints(
                 )
 
                 # Apply additional filters
-                for filter in filter_objs:
+                for filter in filter_objs:  # noqa: A001
                     if not hasattr(ResourceClass, filter.field_name):
                         raise fastapi.HTTPException(
                             status_code=400,
@@ -1029,11 +983,7 @@ def create_crud_endpoints(
                     func.row_number().over(order_by=None).label("position"),
                     subquery.c.id,
                 ).subquery()
-                position_result = (
-                    db.query(position_query.c.position)
-                    .filter(position_query.c.id == resource_id)
-                    .first()
-                )
+                position_result = db.query(position_query.c.position).filter(position_query.c.id == resource_id).first()
 
                 if not position_result:
                     raise fastapi.HTTPException(
@@ -1053,7 +1003,11 @@ def create_crud_endpoints(
                 )
 
     if include_create:
-        print_color("yellow", "include_create is true for", ResourceClass.__name__)
+        logger.debug(
+            "crud_route_enabled",
+            operation="create",
+            resource_kind=ResourceClass.__kind__,
+        )
 
         @router.post(
             "",
@@ -1076,9 +1030,7 @@ def create_crud_endpoints(
                 return EndpointOutput(
                     error=EndpointError(
                         title=translator.translate("Unauthorized"),
-                        description=translator.translate(
-                            "You must be logged in to create a resource."
-                        ),
+                        description=translator.translate("You must be logged in to create a resource."),
                         code="Unauthorized",
                     )
                 )
@@ -1088,8 +1040,11 @@ def create_crud_endpoints(
                 # obj_dict=resource_in.model_dump(exclude_unset=True),
             )
 
-            print("Resource created:", resource_db)
-            print("Creating default ACLs...")
+            logger.debug(
+                "resource_created",
+                resource_id=resource_db.id,
+                resource_kind=ResourceClass.__kind__,
+            )
             if current_user_db:
                 create_default_acls(
                     resource=resource_db,
@@ -1102,7 +1057,11 @@ def create_crud_endpoints(
                     who=Who.session,
                     who_id=session.id,
                 )
-            print("Default ACLs created.")
+            logger.debug(
+                "resource_default_acls_created",
+                resource_id=resource_db.id,
+                resource_kind=ResourceClass.__kind__,
+            )
 
             return EndpointOutput(
                 result=SimpleResponse(
@@ -1192,9 +1151,7 @@ def create_crud_endpoints(
             current_user_db, session, translator = classic_deps
 
             with context_db() as db:
-                query = db.query(ResourceClass).filter(
-                    getattr(ResourceClass, resource_key) == resource_value
-                )
+                query = db.query(ResourceClass).filter(getattr(ResourceClass, resource_key) == resource_value)
                 query = apply_operation_access_filter(
                     query=query,
                     ResourceClass=ResourceClass,
@@ -1202,8 +1159,6 @@ def create_crud_endpoints(
                     session=session,
                     operation=Operation.READ,
                 )
-
-                print("Query:", query)
 
                 result = query.first()
             if result is None:
@@ -1279,7 +1234,11 @@ def create_crud_endpoints(
             )
 
     if include_update:
-        print_color("yellow", "include_update is true for", ResourceClass.__name__)
+        logger.debug(
+            "crud_route_enabled",
+            operation="update",
+            resource_kind=ResourceClass.__kind__,
+        )
 
         @router.put(
             "/{resource_id}",
@@ -1288,7 +1247,7 @@ def create_crud_endpoints(
             operation_id=f"update_{ResourceClass.__kind__}",
             summary=f"Update a row in {ResourceClass.__tablename__}",
         )
-        def update_resource(
+        def update_resource(  # noqa: C901
             resource_id: str,
             resource_in: ResourceClass,
             classic_deps: ClassicDeps__dep,
@@ -1297,8 +1256,6 @@ def create_crud_endpoints(
             Update a resource by ID.
             """
             current_user_db, session, _ = classic_deps
-
-
 
             try:
                 uuid.UUID(resource_id)
@@ -1316,16 +1273,14 @@ def create_crud_endpoints(
             if hasattr(resource_in, "time_updated"):
                 time_updated = resource_in.time_updated
 
-            print_color(
-                "yellow",
-                "Updating resource:",
-                resource_id,
-                "with data. (",
-                resource_in.time_updated,
-                ")",
+            logger.debug(
+                "resource_update_started",
+                resource_id=resource_id,
+                resource_kind=ResourceClass.__kind__,
+                has_client_timestamp=time_updated is not None,
             )
 
-            resource_through_acl_db: typing.Optional[Resource] = None
+            resource_through_acl_db: Resource | None = None
             with context_db() as db:
                 query = db.query(ResourceClass).filter(ResourceClass.id == resource_id)
                 if not (include_bypass and current_user_db and current_user_db.is_admin()):
@@ -1341,11 +1296,9 @@ def create_crud_endpoints(
                 resource_through_acl_db = query.first()
 
                 # independant of ACLs
-                resource_already_exists = ResourceClass.in_db(
-                    obj_id=resource_id, _db=db
-                )
+                resource_already_exists = ResourceClass.in_db(obj_id=resource_id, _db=db)
 
-            resource_db: typing.Optional[Resource] = None
+            resource_db: Resource | None = None
 
             if resource_already_exists:
                 if resource_through_acl_db is None:
@@ -1353,34 +1306,19 @@ def create_crud_endpoints(
                     return EndpointOutput(
                         error=EndpointError(
                             title="Unauthorized",
-                            description=(
-                                "You do not have the right to write over this resource."
-                            ),
+                            description=("You do not have the right to write over this resource."),
                             code="Unauthorized",
                         )
                     )
 
                 else:
                     # resource exists and user has access
-                    print_color(
-                        "yellow",
-                        "Resource exists and user has access, updating resource:",
-                        resource_through_acl_db.id,
-                        resource_through_acl_db.time_updated,
-                    )
-
                     # Check for concurrency conflicts
-                    if check_concurrency_conflict(
-                        time_updated, resource_through_acl_db.time_updated
-                    ):
-                        print_color(
-                            "red",
-                            "Concurrency conflict detected for resource",
-                            resource_id,
-                            "Client time_updated:",
-                            time_updated,
-                            "Database time_updated:",
-                            resource_through_acl_db.time_updated,
+                    if check_concurrency_conflict(time_updated, resource_through_acl_db.time_updated):
+                        logger.warning(
+                            "resource_concurrency_conflict",
+                            resource_id=resource_id,
+                            resource_kind=ResourceClass.__kind__,
                         )
                         return EndpointOutput(
                             result=SimpleResponse(
@@ -1394,16 +1332,33 @@ def create_crud_endpoints(
                     #   - update will keep "unset" values to replace them with None
                     #   - if values are required, it will raise an error
                     #   - you should use patch in this case
-                    resource_db = ResourceClass.update(
-                        obj_id=resource_id, new_obj=resource_in
-                    )
+                    try:
+                        resource_db = ResourceClass.update(obj_id=resource_id, new_obj=resource_in)
+                    except IntegrityError as exc:
+                        # e.g. a unique constraint (slug, ...) collides with
+                        # another row. Return a clean 409-style error instead of
+                        # letting the raw DB exception surface as a 500.
+                        logger.warning(
+                            "resource_update_integrity_error",
+                            resource_id=resource_id,
+                            resource_kind=ResourceClass.__kind__,
+                            error_type=type(exc.orig).__name__,
+                        )
+                        return EndpointOutput(
+                            error=EndpointError(
+                                title="Conflict",
+                                description=(
+                                    "This change conflicts with an existing resource (a unique field is already taken)."
+                                ),
+                                code="IntegrityError",
+                                details={"resourceId": resource_id},
+                            )
+                        )
             else:
                 # resource does not exists
                 if current_user_db is not None or session is not None:
                     # if the user is logged in, we can create the missing resource
-                    resource_db = ResourceClass.create(
-                        obj_dict=resource_in.model_dump(exclude_unset=True)
-                    )
+                    resource_db = ResourceClass.create(obj_dict=resource_in.model_dump(exclude_unset=True))
                     if current_user_db:
                         create_default_acls(
                             resource=resource_db,
@@ -1428,7 +1383,6 @@ def create_crud_endpoints(
                         )
                     )
 
-            # print_color("yellow", "You reach the PUT:", resource_db)
             return EndpointOutput(
                 result=SimpleResponse(
                     data=resource_db,
@@ -1438,7 +1392,11 @@ def create_crud_endpoints(
             )
 
     if include_patch:
-        print_color("yellow", "include_patch is true for", ResourceClass.__name__)
+        logger.debug(
+            "crud_route_enabled",
+            operation="patch",
+            resource_kind=ResourceClass.__kind__,
+        )
 
         @router.patch(
             "/{resource_id}",
@@ -1492,20 +1450,14 @@ def create_crud_endpoints(
                         code="ItemNotFound",
                     )
                 )
-            # Extract time_updated from the resource data for concurrency control
-            time_updated = None
-            if hasattr(resource_db, "time_updated"):
-                time_updated = resource_db.time_updated
-            # Check for concurrency conflicts
-            if check_concurrency_conflict(time_updated, resource_db.time_updated):
-                print_color(
-                    "red",
-                    "Concurrency conflict detected for resource",
-                    resource_id,
-                    "Client time_updated:",
-                    time_updated,
-                    "Database time_updated:",
-                    resource_db.time_updated,
+            # The client's timestamp comes from the patch body, as the PUT endpoint reads it from
+            # the resource body. Absent, the check does not apply.
+            client_time_updated = update_dict_in.get("timeUpdated", update_dict_in.get("time_updated"))
+            if check_concurrency_conflict(client_time_updated, resource_db.time_updated):
+                logger.warning(
+                    "resource_concurrency_conflict",
+                    resource_id=resource_id,
+                    resource_kind=ResourceClass.__kind__,
                 )
                 return EndpointOutput(
                     result=SimpleResponse(
@@ -1537,7 +1489,11 @@ def create_crud_endpoints(
             )
 
     if include_delete:
-        print_color("red", "include_delete is true for", ResourceClass.__name__)
+        logger.debug(
+            "crud_route_enabled",
+            operation="delete",
+            resource_kind=ResourceClass.__kind__,
+        )
 
         @router.delete(
             "/{resource_id}",
@@ -1555,8 +1511,6 @@ def create_crud_endpoints(
             """
             current_user_db, session, translator = classic_deps
 
-
-
             try:
                 uuid.UUID(resource_id)
             except ValueError:
@@ -1567,7 +1521,6 @@ def create_crud_endpoints(
                         details={"resourceId": resource_id},
                     )
                 )
-
 
             # check ACLs
             with context_db() as db:

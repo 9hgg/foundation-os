@@ -33,7 +33,6 @@ from libs.ml.evaluation.plots import (
     print_precision_recall_table,
     save_precision_recall_curves,
 )
-from libs.ml.metrics import accuracy, macro_f1, macro_precision, macro_recall, per_class_f1
 from libs.ml.methods.keyword_classifier import (
     KeywordMultiLabelJsonClassifier,
 )
@@ -43,6 +42,7 @@ from libs.ml.methods.sklearn.json import (
     LogisticRegressionMultiLabelJsonClassifier,
     SVMMultiLabelJsonClassifier,
 )
+from libs.ml.metrics import accuracy, macro_f1, macro_precision, macro_recall, per_class_f1
 from libs.ml.models import ClassificationPrediction, Label, TrainableClassifier
 from libs.ml.registry import TaskFormalism
 
@@ -684,7 +684,7 @@ def run_single_label_cascade(
             break
         batch_preds = tier.classifier.classify([eval_inputs[i] for i in pending])
         remaining = []
-        for global_i, pred in zip(pending, batch_preds):
+        for global_i, pred in zip(pending, batch_preds, strict=False):
             if tier.threshold is None or _single_confidence(pred) >= tier.threshold:
                 predictions[global_i] = pred
                 tier_used[global_i] = tier.name
@@ -749,7 +749,7 @@ def run_multilabel_cascade(
             [eval_inputs[i] for i in pending], threshold=0.0
         )
         remaining = []
-        for global_i, preds in zip(pending, batch_preds):
+        for global_i, preds in zip(pending, batch_preds, strict=False):
             # Apply hard threshold to get actual predictions
             if tier.threshold is not None:
                 hard_preds = [p for p in preds if (p.score or 0.0) >= tier.threshold]

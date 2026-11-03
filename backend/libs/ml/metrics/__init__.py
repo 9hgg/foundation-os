@@ -54,7 +54,7 @@ def _per_class_counts(
     tp: Counter = Counter()
     fp: Counter = Counter()
     fn: Counter = Counter()
-    for t, p in zip(y_true, y_pred):
+    for t, p in zip(y_true, y_pred, strict=False):
         if t == p:
             tp[t] += 1
         else:
@@ -70,7 +70,7 @@ def accuracy(y_true: list[str], y_pred: list[str]) -> float:
     _check_lengths(y_true, y_pred)
     if not y_true:
         return 0.0
-    return sum(t == p for t, p in zip(y_true, y_pred)) / len(y_true)
+    return sum(t == p for t, p in zip(y_true, y_pred, strict=False)) / len(y_true)
 
 
 def precision(
@@ -263,7 +263,7 @@ def confusion_matrix(
     _check_lengths(y_true, y_pred)
     labels = _all_labels(y_true, y_pred)
     matrix: dict[str, dict[str, int]] = {t: dict.fromkeys(labels, 0) for t in labels}
-    for t, p in zip(y_true, y_pred):
+    for t, p in zip(y_true, y_pred, strict=False):
         matrix[t][p] += 1
     return matrix
 
@@ -277,7 +277,7 @@ def multilabel_exact_match(
     _check_lengths(y_true, y_pred)
     if not y_true:
         return 0.0
-    return sum(t == p for t, p in zip(y_true, y_pred)) / len(y_true)
+    return sum(t == p for t, p in zip(y_true, y_pred, strict=False)) / len(y_true)
 
 
 def multilabel_hamming_loss(
@@ -291,7 +291,7 @@ def multilabel_hamming_loss(
     if not all_labels:
         return 0.0
     total = 0
-    for t, p in zip(y_true, y_pred):
+    for t, p in zip(y_true, y_pred, strict=False):
         total += len(t.symmetric_difference(p))
     return total / (len(y_true) * len(all_labels))
 
@@ -306,8 +306,8 @@ def multilabel_precision(
         return 0.0
     per_label = []
     for label in labels:
-        tp = sum(1 for t, p in zip(y_true, y_pred) if label in t and label in p)
-        fp = sum(1 for t, p in zip(y_true, y_pred) if label not in t and label in p)
+        tp = sum(1 for t, p in zip(y_true, y_pred, strict=False) if label in t and label in p)
+        fp = sum(1 for t, p in zip(y_true, y_pred, strict=False) if label not in t and label in p)
         denom = tp + fp
         per_label.append(tp / denom if denom else zero_division)
     return sum(per_label) / len(per_label)
@@ -323,8 +323,8 @@ def multilabel_recall(
         return 0.0
     per_label = []
     for label in labels:
-        tp = sum(1 for t, p in zip(y_true, y_pred) if label in t and label in p)
-        fn = sum(1 for t, p in zip(y_true, y_pred) if label in t and label not in p)
+        tp = sum(1 for t, p in zip(y_true, y_pred, strict=False) if label in t and label in p)
+        fn = sum(1 for t, p in zip(y_true, y_pred, strict=False) if label in t and label not in p)
         denom = tp + fn
         per_label.append(tp / denom if denom else zero_division)
     return sum(per_label) / len(per_label)
@@ -347,7 +347,7 @@ def mae(y_true: list[float], y_pred: list[float]) -> float:
     _check_lengths(y_true, y_pred)
     if not y_true:
         return 0.0
-    return sum(abs(t - p) for t, p in zip(y_true, y_pred)) / len(y_true)
+    return sum(abs(t - p) for t, p in zip(y_true, y_pred, strict=False)) / len(y_true)
 
 
 def mse(y_true: list[float], y_pred: list[float]) -> float:
@@ -355,7 +355,7 @@ def mse(y_true: list[float], y_pred: list[float]) -> float:
     _check_lengths(y_true, y_pred)
     if not y_true:
         return 0.0
-    return sum((t - p) ** 2 for t, p in zip(y_true, y_pred)) / len(y_true)
+    return sum((t - p) ** 2 for t, p in zip(y_true, y_pred, strict=False)) / len(y_true)
 
 
 def rmse(y_true: list[float], y_pred: list[float]) -> float:
@@ -370,7 +370,7 @@ def r2_score(y_true: list[float], y_pred: list[float]) -> float:
         return 0.0
     mean_true = sum(y_true) / len(y_true)
     ss_tot = sum((t - mean_true) ** 2 for t in y_true)
-    ss_res = sum((t - p) ** 2 for t, p in zip(y_true, y_pred))
+    ss_res = sum((t - p) ** 2 for t, p in zip(y_true, y_pred, strict=False))
     return 1.0 - ss_res / ss_tot if ss_tot else 0.0
 
 

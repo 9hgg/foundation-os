@@ -4,7 +4,7 @@ import { Component, DestroyRef, computed, effect, inject, input, signal } from '
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RequestService } from '@foundation/network/services';
-import { TranslateDirective } from '@foundation/translations/services';
+import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { DateAsAgoPipe, MarkdownToHtmlDirective, NewlinesToBrPipe } from '@foundation/utils';
 import { Subscription, switchMap, take, timer } from 'rxjs';
 import { ConversationDisplayerComponent } from '../conversation-displayer/conversation-displayer.component';
@@ -35,6 +35,7 @@ const CHAT_SCROLL_DELAY_MS = 120;
 		FormsModule,
 		CdkMenuModule,
 		TranslateDirective,
+		TranslatePipe,
 		DateAsAgoPipe,
 		NewlinesToBrPipe,
 		MarkdownToHtmlDirective,

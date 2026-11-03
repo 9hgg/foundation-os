@@ -1,9 +1,11 @@
-import pytest
 import uuid
 from unittest.mock import MagicMock, patch
-from libs.folders.methods import add_to_folder, remove_from_folder, get_folder_children, share_folder_with
-from libs.folders.models import Folder, FolderToResource
+
+import pytest
+
 from libs.acl.models import Who
+from libs.folders.methods import add_to_folder, get_folder_children, remove_from_folder, share_folder_with
+from libs.folders.models import Folder
 
 
 @pytest.fixture

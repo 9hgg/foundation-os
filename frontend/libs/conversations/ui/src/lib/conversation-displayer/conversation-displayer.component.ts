@@ -6,7 +6,8 @@ import { ConversationsRepository } from '@foundation/conversations/state';
 import { Message } from '@foundation/messages/models';
 import { MessagesRepository } from '@foundation/messages/state';
 import { Filter, PaginatorState } from '@foundation/network/store';
-import { NotificationService } from '@foundation/notification';
+import { ClipboardService, NotificationService } from '@foundation/notification';
+import { RequestService } from '@foundation/network/services';
 import { TranslationService } from '@foundation/translations/services';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { UsersRepository } from '@foundation/users/state';
@@ -41,6 +42,8 @@ interface ProcessedMessage extends Message {
 })
 export class ConversationDisplayerComponent {
 	private _notificationService = inject(NotificationService);
+	private _adminActionsClipboardService = inject(ClipboardService);
+	private _adminActionsRequestService = inject(RequestService);
 	private _conversationsRepository = inject(ConversationsRepository);
 	private _messagesRepository = inject(MessagesRepository);
 	private _articlesRepository = inject(ArticlesRepository);
@@ -78,6 +81,7 @@ export class ConversationDisplayerComponent {
 
 	private _i18n_prefixAdded = this._translationService.prep('Prefix added to article title');
 	private _i18n_prefixAlreadyPresent = this._translationService.prep('This prefix is already present in the article title');
+	private _i18n_prefixFailed = this._translationService.prep('Could not add the prefix');
 
 	replyingToMessage = signal<ProcessedMessage | null>(null);
 	expandedComments = new Selector<Message>((a, b) => a.id === b.id, []);
@@ -96,7 +100,7 @@ export class ConversationDisplayerComponent {
 	public activeReactionPickerMessageId = signal<string | null>(null);
 
 	conversation$$$ = new BehaviorSubjectReplayedProxied<string | null, Conversation | null>((id: string | null) => {
-		return id ? this._conversationsRepository.store.getObjectById$$$(id).$ : of(null);
+		return id ? this._conversationsRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	// Convert the paginator state to a signal for computed dependencies
@@ -431,6 +435,66 @@ export class ConversationDisplayerComponent {
 			this.activeReactionPickerMessageId.set(messageId);
 		}
 	}
+
+	private _i18n_transcriptCopied = this._translationService.prep('Conversation copied to clipboard.');
+	private _i18n_transcriptFailed = this._translationService.prep('Failed to load the conversation transcript.');
+	private _i18n_connectAsCopied = this._translationService.prep('Connect-as link copied to clipboard.');
+	private _i18n_connectAsFailed = this._translationService.prep('Failed to copy the connect-as link.');
+
+	/** Admin: copy the whole conversation as a readable transcript (every message, not just the loaded page). */
+	public copyConversation() {
+		const conversationId = this.conversation$$$.value?.id;
+		if (!conversationId) return;
+		this._adminActionsRequestService
+			.getBasic$<{ messages: { timeCreated: string; authorPseudo: string | null; authorEmail: string | null; content: string | null }[] }>(
+				`/api/conversations/${conversationId}/transcript`
+			)
+			.subscribe((response) => {
+				const messages = response.result?.messages;
+				if (!messages) {
+					this._notificationService.snackError(this._i18n_transcriptFailed());
+					return;
+				}
+				const transcript = messages
+					.map((message) => {
+						const date = new Date(message.timeCreated).toLocaleString();
+						const who = [message.authorPseudo, message.authorEmail].filter(Boolean).join(' ');
+						return `[${date}] ${who || 'unknown'}:\n${message.content ?? ''}`;
+					})
+					.join('\n\n');
+				this._adminActionsClipboardService.copy(transcript, { successMessage: this._i18n_transcriptCopied() }).subscribe();
+			});
+	}
+
+	/** Admin: whether the resource names an author to connect as. A conversation can hold several
+	 *  people, so the one the top menu offers is the author of the resource itself, nobody else. */
+	public readonly canConnectAsAuthor = computed(() => this.isAdmin() && !!this.resourceAuthorId());
+
+	/** Admin: whether one message offers connecting as whoever wrote it -- never as myself. */
+	public readonly canConnectAsMessageAuthor = computed(() => {
+		const isAdmin = this.isAdmin();
+		const currentUserId = this.usersRepository.currentProfile()?.id;
+		return (messageAuthorId: string | null | undefined) => isAdmin && !!messageAuthorId && messageAuthorId !== currentUserId;
+	});
+
+	/** Admin: copy a connect-as link for the author of the resource this conversation is about. */
+	public copyConnectAsLink() {
+		const authorId = this.resourceAuthorId();
+		if (!authorId) return;
+		this.copyConnectAsLinkFor(authorId);
+	}
+
+	/** Admin: copy a connect-as link for one user (same link as the admin user table). */
+	public copyConnectAsLinkFor(userId: string) {
+		this.usersRepository.getConnectAsLink$(userId).subscribe((connectAsLink) => {
+			if (!connectAsLink) {
+				this._notificationService.snackError(this._i18n_connectAsFailed());
+				return;
+			}
+			this._adminActionsClipboardService.copy(connectAsLink, { successMessage: this._i18n_connectAsCopied() }).subscribe();
+		});
+	}
+
 	public editArticle() {
 		// assume resourceKind is article for now or check it
 		if (this.resourceKind() === 'article') {
@@ -457,13 +521,28 @@ export class ConversationDisplayerComponent {
 						return EMPTY;
 					}
 					const newTitle = prefix + ' ' + currentTitle;
-					return this._articlesRepository.store.save({ ...article, title: newTitle, slug: slugify(newTitle) }).pipe(tap(() => this._notificationService.success(this._i18n_prefixAdded())));
+					// Same shape as creation (slugify(title) + '_' + id): two tickets can share a title --
+					// auto-titled ones do, until their first message renames them -- so the slug alone is
+					// not unique and a bare slugify(newTitle) collides with whichever one grabbed it first.
+					const newSlug = slugify(newTitle) + '_' + article.id;
+					return this._articlesRepository.store.save({ ...article, title: newTitle, slug: newSlug }).pipe(
+						tap((response) => {
+							if (response.error) {
+								this._notificationService.snackError(response.error.description || this._i18n_prefixFailed());
+								return;
+							}
+							this._notificationService.success(this._i18n_prefixAdded());
+						})
+					);
 				})
 			)
 			.subscribe();
 	}
 
 	public goToAdminUserPage(userId: string) {
-		this._router.navigate(['/', 'admin', 'users', userId, 'builder']);
+		// New tab: looking someone up is a side trip from the conversation, and navigating away
+		// loses the thread you were reading. Same treatment as editArticle above.
+		const url = this._router.serializeUrl(this._router.createUrlTree(['/', 'admin', 'users', userId, 'builder']));
+		window.open(url, '_blank');
 	}
 }

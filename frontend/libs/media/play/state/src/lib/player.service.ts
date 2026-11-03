@@ -4,7 +4,7 @@ import { BehaviorSubjectReplayed } from '@foundation/utils';
 import { inject, Injectable } from '@angular/core';
 import { finalize, Observable, take, tap } from 'rxjs';
 
-const AUDIO_EVENTS = ['ended', 'error', 'play', 'playing', 'pause', 'timeupdate', 'canplay', 'loadedmetadata', 'loadstart', 'seeked'];
+const AUDIO_EVENTS = ['ended', 'error', 'play', 'playing', 'pause', 'timeupdate', 'canplay', 'loadedmetadata', 'loadstart', 'seeked', 'progress', 'waiting'];
 
 export interface StreamState {
 	playing: boolean;
@@ -25,6 +25,9 @@ export interface PlayerMediaInfo {
 	// fileId: string;
 	audioInfoKey: string;
 }
+
+/** HTMLMediaElement.HAVE_METADATA: it knows its duration and can be seeked. */
+const HAVE_METADATA = 1;
 
 const debug = false;
 
@@ -76,7 +79,7 @@ export class PlayerService {
 		} else if (mediaType === 'video') {
 			media = document.createElement('video');
 			media.setAttribute('playsInline', 'true');
-			media.setAttribute('controls', 'false');
+			media.controls = false;
 		} else {
 			throw new Error(`Unsupported file kind: ${mediaType}`);
 		}
@@ -129,6 +132,14 @@ export class PlayerService {
 
 		media.src = fileUrl;
 
+		// A seek asked for before this existed. Replayed now that there is something to seek, and
+		// after `src` so it is not refused for having nothing loaded.
+		const pendingSeek = this._pendingSeeks.get(audioInfoKey);
+		if (pendingSeek !== undefined) {
+			this._pendingSeeks.delete(audioInfoKey);
+			this.__seek(mediaInfo, pendingSeek);
+		}
+
 		if (destroyer$) {
 			destroyer$
 				.pipe(
@@ -156,7 +167,7 @@ export class PlayerService {
 
 		if (debug) console.log(`%c[PlayerService](deleteMediaInfo)CLEARING AUDIO`, 'color: goldenrod;', 'audioInfo details on ', mediaInfo.audioInfoKey);
 		audioInfo.media.pause();
-		this._removeEvents(audioInfo.media, AUDIO_EVENTS, () => {}, mediaInfo.audioInfoKey);
+		this._removeEvents(audioInfo.media, AUDIO_EVENTS, () => undefined, mediaInfo.audioInfoKey);
 		audioInfo.media.src = '';
 		audioInfo.state$$$.destructor();
 		this._mediasMap.delete(mediaInfo.audioInfoKey);
@@ -178,9 +189,18 @@ export class PlayerService {
 		switch (event.type) {
 			case 'canplay':
 				state.duration = audioInfo.media.duration;
-				// state.buffered = audioInfo.audio.buffered;
+				state.buffered = audioInfo.media.buffered;
 				state.canplay = true;
 				state.unlocked = true;
+				break;
+			case 'progress':
+				state.buffered = audioInfo.media.buffered;
+				break;
+			case 'waiting':
+				state.canplay = false;
+				break;
+			case 'loadedmetadata':
+				state.duration = audioInfo.media.duration;
 				break;
 			case 'play':
 				state.playing = true;
@@ -189,7 +209,7 @@ export class PlayerService {
 				state.playing = true;
 				break;
 			case 'pause':
-				console.log('%cPAUSE', 'color: red;', 'audioInfo details on ', audioInfo.audioInfoKey);
+				if (debug) console.log('%cPAUSE', 'color: red;', 'audioInfo details on ', audioInfo.audioInfoKey);
 				state.playing = false;
 				state.currentTime = audioInfo.media.currentTime;
 				break;
@@ -208,8 +228,6 @@ export class PlayerService {
 				state.currentTime = audioInfo.media.currentTime;
 				break;
 			case 'loadstart':
-				break;
-			case 'loadedmetadata':
 				break;
 			default:
 				console.warn('%cUNKNOWN EVENT', 'color: red;', event.type, event);
@@ -251,7 +269,12 @@ export class PlayerService {
 
 		if (debug) console.log('%c_playMedia', 'color: #00f; font-weight: bold;', mediaInfo, canvas);
 
-		media.play();
+		// Pausing or seeking before play() settles rejects it with AbortError. That is the listener
+		// changing their mind, not a failure, and unhandled it surfaced as a crash.
+		media.play()?.catch((error: DOMException) => {
+			if (error?.name === 'AbortError') return;
+			console.warn('%c_playMedia', 'color: #f00; font-weight: bold;', error);
+		});
 
 		if (canvas) {
 			this.__drawVideo(mediaInfo, canvas);
@@ -298,8 +321,18 @@ export class PlayerService {
 		});
 	}
 
+	/**
+	 * Where a seek should land once it can be honoured, by media key.
+	 *
+	 * Two moments make a seek impossible to carry out on the spot, and both leave a listener at the
+	 * beginning of a file they asked to enter in the middle: the element may not exist yet (it is
+	 * created when the item becomes the current one), and a fresh element does not know its duration
+	 * until it has read the metadata.
+	 */
+	private _pendingSeeks = new Map<string, number>();
+
 	__seek(mediaInfo: PlayerMediaInfo, currentTime: number) {
-		console.log('%c__seek', 'color: #00f; font-weight: bold;', mediaInfo, currentTime);
+		if (debug) console.log('%c__seek', 'color: #00f; font-weight: bold;', mediaInfo, currentTime);
 
 		const media = mediaInfo.media;
 
@@ -315,16 +348,70 @@ export class PlayerService {
 			console.warn('%c_setCurrentTime', 'color: #f00; font-weight: bold;', 'currentTime is not finite');
 			return;
 		}
-		media.currentTime = currentTime;
+
+		// An element that has not read its metadata yet does not know how long it is, and drops an
+		// assignment to currentTime on the floor -- which is why seeking into a file that had never
+		// been played only worked the second time, once loading had caught up. Remember where we were
+		// asked to go and go there as soon as it can.
+		if (media.readyState >= HAVE_METADATA) {
+			media.currentTime = currentTime;
+			return;
+		}
+
+		const alreadyWaiting = this._pendingSeeks.has(mediaInfo.audioInfoKey);
+		this._pendingSeeks.set(mediaInfo.audioInfoKey, currentTime);
+		if (alreadyWaiting) return;
+
+		media.addEventListener(
+			'loadedmetadata',
+			() => {
+				// The latest request wins: clicking three lines while it loads should land on the third.
+				const pending = this._pendingSeeks.get(mediaInfo.audioInfoKey);
+				this._pendingSeeks.delete(mediaInfo.audioInfoKey);
+				if (pending !== undefined) media.currentTime = pending;
+			},
+			{ once: true }
+		);
 	}
 
 	__seekByAudioInfoKey(audioInfoKey: string, currentTime: number) {
 		const mediaInfo = this._mediasMap.get(audioInfoKey);
-		console.log('%c__seekByAudioInfoKey', 'color: #00f; font-weight: bold;', audioInfoKey, currentTime, mediaInfo);
+		if (debug) console.log('%c__seekByAudioInfoKey', 'color: #00f; font-weight: bold;', audioInfoKey, currentTime, mediaInfo);
 
-		if (!mediaInfo) return;
+		if (!mediaInfo) {
+			// Asked to start an episode partway through before anything has been created for it --
+			// which is exactly what starting one from its transcript does. Dropping it here is what
+			// made the first play of a file begin at zero however far in the listener had clicked.
+			this._pendingSeeks.set(audioInfoKey, currentTime);
+			return;
+		}
 
 		this.__seek(mediaInfo, currentTime);
+	}
+
+	__setVolume(mediaInfo: PlayerMediaInfo, volume: number, muted: boolean) {
+		const media = mediaInfo.media;
+		media.volume = Math.min(1, Math.max(0, volume));
+		media.muted = muted;
+	}
+
+	__setVolumeByAudioInfoKey(audioInfoKey: string, volume: number, muted: boolean) {
+		const mediaInfo = this._mediasMap.get(audioInfoKey);
+		if (!mediaInfo) return;
+
+		this.__setVolume(mediaInfo, volume, muted);
+	}
+
+	__setPlaybackRate(mediaInfo: PlayerMediaInfo, playbackRate: number) {
+		if (!Number.isFinite(playbackRate) || playbackRate <= 0) return;
+		mediaInfo.media.playbackRate = playbackRate;
+	}
+
+	__setPlaybackRateByAudioInfoKey(audioInfoKey: string, playbackRate: number) {
+		const mediaInfo = this._mediasMap.get(audioInfoKey);
+		if (!mediaInfo) return;
+
+		this.__setPlaybackRate(mediaInfo, playbackRate);
 	}
 
 	private __drawVideo(mediaInfo: PlayerMediaInfo, canvas: HTMLCanvasElement) {

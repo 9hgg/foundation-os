@@ -11,7 +11,7 @@ from libs.utils.types import EndpointError, EndpointOutput
 from .models import Notification
 
 
-def create_crud_notification_router(prefix: str = "/api/notifications"):
+def create_crud_notification_router(prefix: str = "/api/notifications"):  # noqa: C901
     """
     Create a CRUD router for notifications with custom endpoints.
     """
@@ -53,8 +53,11 @@ def create_crud_notification_router(prefix: str = "/api/notifications"):
                 .filter(Acl.resource_kind == Notification.__kind__)
             )
 
-            query = add_acl_filters(current_user_db, session, query)            # group by resource_id to avoid duplicates
-            query = query.filter(Notification.read.is_(False))
+            query = add_acl_filters(current_user_db, session, query)
+            # Distinct: the join is on the ACL table, so a notification granted through more than one
+            # rule comes back once per rule -- inflating the count and making the "shorter than a
+            # batch means we are done" test fire early.
+            query = query.filter(Notification.read.is_(False)).distinct()
 
             # Process in batches to handle large datasets efficiently
             batch_size = 1000  # Adjust based on your database limits
@@ -79,6 +82,11 @@ def create_crud_notification_router(prefix: str = "/api/notifications"):
                     break
 
             db.commit()
+
+        # Every endpoint answers with an EndpointOutput. Falling off the end here sent `null`, which
+        # the client rejects for carrying neither a result nor an error -- so the caller logged an
+        # error and never ran its refresh, while the write had already happened.
+        return EndpointOutput(result={"updated": updated_count})
 
     @crud_notification_router.post("/{notification_id}/read/toggle", status_code=status.HTTP_200_OK)
     def toggle_notification_read(

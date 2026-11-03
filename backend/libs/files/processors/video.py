@@ -1,30 +1,100 @@
 import math
 import os
-import sys
-import traceback
 from copy import deepcopy
 
 import ffmpeg
 import ffmpegio
+import structlog
 
 from libs.files.config import FILES_SETTINGS
 from libs.files.processors.utils.media import analyze_local_file_with_ffprobe
-from libs.logger import print
-from libs.logger.customLogger import print_color, print_error
 
 from ..models import FileAlternative
 from ..storage import GenericStorage
 from ._generic import GenericProcessor
+from .audiogram import (
+    AUDIOGRAM_ALTERNATIVE,
+    AUDIOGRAM_FILENAME,
+    AUDIOGRAM_MIME,
+    AudiogramExtractionError,
+    write_audiogram,
+)
 from .utils import audio as audio_utils
 
 cwd = os.getcwd()
 
+
+class _NonFatalLogger:
+    """Keep diagnostic failures from changing media-processing behavior."""
+
+    def __init__(self) -> None:
+        self._logger = structlog.get_logger(__name__)
+
+    def __getattr__(self, name: str):
+        method = getattr(self._logger, name)
+
+        def emit(*args, **kwargs):
+            try:
+                return method(*args, **kwargs)
+            except Exception:
+                return None
+
+        return emit
+
+
+logger = _NonFatalLogger()
 
 
 class VideoProcessor(GenericProcessor):
     __kind__ = "video"
 
     # ALTERNATIVES
+
+    def _generate_audiogram(self, *, force: bool = False) -> FileAlternative | None:
+        """The shape of this file's sound, for a player to draw without fetching the file itself.
+
+        A file with no readable audio -- a silent video, a truncated upload -- simply has no
+        audiogram. That is a missing drawing, not a failed processing run, so it is logged and
+        skipped rather than raised.
+        """
+        if self.storage is None or self.storage_folder_path is None:
+            logger.error("audiogram_storage_unavailable")
+            raise PermissionError
+
+        if not force and self.storage.exists_in_storage(
+            storage_folder_path=self.storage_folder_path,
+            alternative=AUDIOGRAM_ALTERNATIVE,
+        ):
+            logger.debug("audiogram_already_exists")
+            return None
+
+        output_path = GenericStorage.get_temporary_local_path(suffix=".bin")
+        try:
+            size = write_audiogram(self.local_path, output_path)
+        except AudiogramExtractionError as error:
+            logger.info("audiogram_skipped", reason=str(error))
+            return None
+        except Exception as error:
+            logger.warning("audiogram_generation_failed", error_type=type(error).__name__)
+            return None
+
+        self.storage.upload(
+            local_path=output_path,
+            storage_folder_path=self.storage_folder_path,
+            alternative=AUDIOGRAM_ALTERNATIVE,
+            force=True,
+        )
+        os.remove(output_path)
+
+        return FileAlternative(
+            alternative_filename=AUDIOGRAM_FILENAME,
+            storage_suffix=AUDIOGRAM_ALTERNATIVE,
+            description="audiogram",
+            size=size,
+            kind="data",
+            mime=AUDIOGRAM_MIME,
+            extension=".bin",
+        )
 
     def generate_alternatives(self, *, force: bool = False) -> list[FileAlternative]:
         """
@@ -37,19 +107,32 @@ class VideoProcessor(GenericProcessor):
         alternative_files = []
 
         # alternative: "thumbnail"
-        print("generate_alternatives: thumbnail")
+        logger.debug("video_alternative_generation_started", alternative="thumbnail")
         thumbnail_file = self.__generate_video_thumbnail(force=force)
         if thumbnail_file is not None:
             alternative_files.append(thumbnail_file)
 
+        # alternative: "squared" -- the same centre-crop an image gets, so a video can stand in as
+        # artwork wherever a square is expected (an episode's cover, Apple's itunes:image).
+        logger.debug("video_alternative_generation_started", alternative="squared")
+        squared_file = self.__generate_square_centered_frame(force=force)
+        if squared_file is not None:
+            alternative_files.append(squared_file)
+
+        # alternative: "audiogram" -- a video has a soundtrack, and the player draws it the same way.
+        logger.debug("video_alternative_generation_started", alternative="audiogram")
+        audiogram_file = self._generate_audiogram(force=force)
+        if audiogram_file is not None:
+            alternative_files.append(audiogram_file)
+
         # alternative: "default" (specific audio and video codecs)
-        print("generate_alternatives: default")
+        logger.debug("video_alternative_generation_started", alternative="default")
         default_file = self.__generate_default_video(force=force)
         if default_file is not None:
             alternative_files.append(default_file)
 
         # alternative: "whisper_transcript"
-        print("generate_alternatives: whisper_transcript")
+        logger.debug("video_alternative_generation_started", alternative="whisper_transcript")
         transcript_files = self.__generate_whisper_transcript(force=force)
         if transcript_files is not None:
             (
@@ -66,14 +149,14 @@ class VideoProcessor(GenericProcessor):
         Generate a thumbnail from the video
         """
 
-        print("generate_thumbnail")
+        logger.debug("video_thumbnail_generation_started")
 
         if self.storage is None:
-            print_error("Storage is not available")
+            logger.error("video_processor_storage_unavailable", missing="storage")
             raise PermissionError
 
         if self.storage_folder_path is None:
-            print_error("Storage is not available")
+            logger.error("video_processor_storage_unavailable", missing="storage_folder_path")
             raise PermissionError
 
         STORAGE_SUFFIX = "thumbnail"
@@ -82,12 +165,7 @@ class VideoProcessor(GenericProcessor):
             storage_folder_path=self.storage_folder_path,
             alternative=STORAGE_SUFFIX,
         ):
-            print_color(
-                "green",
-                "(__generate_video_thumbnail): alternative already exists",
-                self.storage_folder_path,
-                STORAGE_SUFFIX,
-            )
+            logger.debug("video_alternative_already_exists", alternative=STORAGE_SUFFIX)
             return None
 
         output_path = GenericStorage.get_temporary_local_path(suffix=".jpg")
@@ -119,11 +197,84 @@ class VideoProcessor(GenericProcessor):
                 extension=".jpg",
             )
 
-        except Exception as e:
-            sys.stdout.flush()
-            traceback.print_exc()
-            print("Error while generating thumbnail")
-            print(e)
+        except Exception as error:
+            logger.warning("video_thumbnail_generation_failed", error_type=type(error).__name__)
+            return None
+
+    def __generate_square_centered_frame(
+        self,
+        *,
+        force: bool = False,
+        min_size: int = 1400,
+        max_size: int = 3000,
+    ) -> FileAlternative | None:
+        """A centred square crop of the video's first usable frame.
+
+        The same shape, suffix and filename the image processor produces, because the callers do not
+        care which kind of file they were handed -- an episode's artwork is a square, and a video
+        episode should be able to supply its own instead of borrowing the show's.
+
+        The bounds match the image processor's for the same reason: Apple requires an itunes:image
+        between 1400 and 3000 pixels square, so a crop smaller or larger than that is grown or
+        shrunk to land inside it.
+        """
+        logger.debug("video_squared_generation_started")
+
+        if self.storage is None:
+            logger.error("video_processor_storage_unavailable", missing="storage")
+            raise PermissionError
+
+        if self.storage_folder_path is None:
+            logger.error("video_processor_storage_unavailable", missing="storage_folder_path")
+            raise PermissionError
+
+        STORAGE_SUFFIX = "squared"
+
+        if not force and self.storage.exists_in_storage(
+            storage_folder_path=self.storage_folder_path,
+            alternative=STORAGE_SUFFIX,
+        ):
+            logger.debug("video_alternative_already_exists", alternative=STORAGE_SUFFIX)
+            return None
+
+        output_path = GenericStorage.get_temporary_local_path(suffix=".jpg")
+
+        try:
+            # crop=min(iw,ih) square about the centre, then scale into Apple's range. Done by
+            # ffmpeg rather than by decoding the frame ourselves: it already has the frame open.
+            (
+                ffmpeg.input(self.local_path, ss="00:00:01")
+                .output(
+                    output_path,
+                    vframes=1,
+                    vf=(
+                        "crop='min(iw,ih)':'min(iw,ih)',"
+                        f"scale='if(lt(iw,{min_size}),{min_size},if(gt(iw,{max_size}),{max_size},iw))':-1"
+                    ),
+                )
+                .run(overwrite_output=True)
+            )
+            self.storage.upload(
+                local_path=output_path,
+                storage_folder_path=self.storage_folder_path,
+                alternative=STORAGE_SUFFIX,
+                force=True,
+            )
+            file_stats = os.stat(output_path)
+            os.remove(output_path)
+
+            return FileAlternative(
+                alternative_filename="squared.jpg",
+                storage_suffix=STORAGE_SUFFIX,
+                description="squared",
+                size=file_stats.st_size,
+                kind="image",
+                mime="image/jpeg",
+                extension=".jpg",
+            )
+
+        except Exception as error:
+            logger.warning("video_squared_generation_failed", error_type=type(error).__name__)
             return None
 
     def __generate_default_video(self, *, force: bool = False) -> FileAlternative | None:
@@ -131,14 +282,14 @@ class VideoProcessor(GenericProcessor):
         Generate a default video from the original file
         """
 
-        print("generate_default_video")
+        logger.debug("video_default_generation_started")
 
         if self.storage is None:
-            print_error("Storage is not available")
+            logger.error("video_processor_storage_unavailable", missing="storage")
             raise PermissionError
 
         if self.storage_folder_path is None:
-            print_error("Storage is not available")
+            logger.error("video_processor_storage_unavailable", missing="storage_folder_path")
             raise PermissionError
 
         STORAGE_SUFFIX = "default"
@@ -147,12 +298,7 @@ class VideoProcessor(GenericProcessor):
             storage_folder_path=self.storage_folder_path,
             alternative=STORAGE_SUFFIX,
         ):
-            print_color(
-                "green",
-                "(__generate_default_video): alternative already exists",
-                self.storage_folder_path,
-                STORAGE_SUFFIX,
-            )
+            logger.debug("video_alternative_already_exists", alternative=STORAGE_SUFFIX)
             return None
 
         output_path = GenericStorage.get_temporary_local_path(suffix=".mp4")
@@ -190,25 +336,22 @@ class VideoProcessor(GenericProcessor):
                 extension=".mp4",
             )
 
-        except Exception as e:
-            sys.stdout.flush()
-            traceback.print_exc()
-            print("Error while compressing video")
-            print(e)
+        except Exception as error:
+            logger.warning("video_compression_failed", error_type=type(error).__name__)
             return None
 
     def __generate_whisper_transcript(self, *, force: bool = False) -> tuple[FileAlternative, FileAlternative] | None:
         """
         Generate a whisper transcript from the original file
         """
-        print("generate_whisper_transcript")
+        logger.debug("video_transcript_generation_started")
 
         if self.storage is None:
-            print_error("Storage is not available")
+            logger.error("video_processor_storage_unavailable", missing="storage")
             raise PermissionError
 
         if self.storage_folder_path is None:
-            print_error("Storage is not available")
+            logger.error("video_processor_storage_unavailable", missing="storage_folder_path")
             raise PermissionError
 
         STORAGE_SUFFIX_JSON = "whisper_transcript_json"
@@ -225,12 +368,7 @@ class VideoProcessor(GenericProcessor):
                 alternative=STORAGE_SUFFIX_SRT,
             )
         ):
-            print_color(
-                "green",
-                "(__generate_whisper_transcript): alternative already exists",
-                self.storage_folder_path,
-                STORAGE_SUFFIX_JSON,
-            )
+            logger.debug("video_transcript_already_exists")
             return None
 
         output_path_json = GenericStorage.get_temporary_local_path(suffix=".json")
@@ -239,11 +377,27 @@ class VideoProcessor(GenericProcessor):
         model_folder = FILES_SETTINGS.WHISPER_PATH
 
         if not model_folder or not self.local_path:
-            print("Whisper model path or local video file path is not set.")
+            logger.warning(
+                "video_transcript_prerequisite_missing",
+                model_configured=bool(model_folder),
+                local_file_available=bool(self.local_path),
+            )
+            return None
+
+        # No audio stream -> nothing to transcribe. Skip cleanly instead of letting
+        # faster-whisper's audio decoder blow up (IndexError: tuple index out of range).
+        try:
+            media_file_info = analyze_local_file_with_ffprobe(self.local_path)
+        except Exception as error:
+            logger.warning("video_transcript_media_analysis_failed", error_type=type(error).__name__)
+            return None
+        if not media_file_info or not media_file_info.get("has_audio"):
+            logger.debug("video_transcript_audio_stream_missing")
             return None
 
         try:
             from faster_whisper import WhisperModel
+
             model = WhisperModel(model_folder, device="cpu", compute_type="int8", local_files_only=False)
             segments, info = model.transcribe(
                 self.local_path,
@@ -322,11 +476,8 @@ class VideoProcessor(GenericProcessor):
                 ),
             )
 
-        except Exception as e:
-            sys.stdout.flush()
-            traceback.print_exc()
-            print("Error while generating whisper transcript")
-            print(e)
+        except Exception as error:
+            logger.warning("video_transcript_generation_failed", error_type=type(error).__name__)
         return None
 
     # EXTRA
@@ -335,7 +486,7 @@ class VideoProcessor(GenericProcessor):
         file_extra = self.file_db.extra_
 
         media_file_info = analyze_local_file_with_ffprobe(self.local_path)
-        print_color("green", "media_file_info:", media_file_info)
+        logger.debug("video_media_analysis_completed", media_info_available=bool(media_file_info))
         if media_file_info:
             file_extra.duration = media_file_info.get("duration", file_extra.duration)
             file_extra.has_audio = media_file_info.get("has_audio", file_extra.has_audio)
@@ -347,7 +498,7 @@ class VideoProcessor(GenericProcessor):
             file_extra.width = media_file_info.get("width", file_extra.width)
             file_extra.sample_rate = media_file_info.get("sample_rate", file_extra.sample_rate)
         if not file_extra.duration:
-            print("Duration is missing on this file, using temporary flac file")
+            logger.debug("video_duration_fallback_started")
             output_path = GenericStorage.get_temporary_local_path(suffix=".flac")
             try:
                 ffmpegio.transcode(
@@ -358,7 +509,7 @@ class VideoProcessor(GenericProcessor):
                     #     # "b:a": "96k",
                     #     # "ar": "44100",
                     #     "ac": "1",
-                    # },  # type: ignore
+                    # },
                     overwrite=True,
                 )
                 media_file_info_from_flac = analyze_local_file_with_ffprobe(output_path)
@@ -367,10 +518,7 @@ class VideoProcessor(GenericProcessor):
                 # delete the local file
                 os.remove(output_path)
 
-            except Exception as e:
-                sys.stdout.flush()
-                traceback.print_exc()
-                print("Error while getting duration from temporary flac file")
-                print(e)
+            except Exception as error:
+                logger.warning("video_duration_fallback_failed", error_type=type(error).__name__)
                 return None
         return file_extra

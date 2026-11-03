@@ -2,12 +2,15 @@ import os
 import tempfile
 import typing
 
-from libs.logger import print
+import structlog
+
 from libs.utils.types import PYDANTIC_BASE_CONFIG_DICT, BaseModelWithConfig
 
 from ..models import StorageSettings
 
 cwd = os.getcwd()
+logger = structlog.get_logger(__name__)
+
 
 
 class GenericStorage(BaseModelWithConfig):
@@ -87,6 +90,7 @@ class GenericStorage(BaseModelWithConfig):
         storage_folder_path: str,
         alternative: str = "original",
         download: bool = False,
+        filename: str | None = None,
     ) -> tuple[str, float] | None:
         """
         Get the url of a file in the storage
@@ -190,10 +194,10 @@ class GenericStorage(BaseModelWithConfig):
         Clear a local path
         """
         try:
-            print("delete_locally", local_path)
+            logger.debug("local_file_deleting", path=local_path)
             os.remove(local_path)
         except Exception as e:
-            print("delete_locally: error while deleting file", e)
+            logger.warning("local_file_delete_failed", path=local_path, error_type=type(e).__name__)
 
     @staticmethod
     def exists_locally(local_path: str) -> bool:

@@ -1,4 +1,4 @@
-from typing_extensions import Protocol
+from typing import Protocol
 
 from libs.resource import Resource
 
@@ -36,6 +36,7 @@ class TranslateFn(Protocol):
         input_language: str | None = "en",
         rpbt: bool = False,
         translation_context: str | None = None,
+        skip_existing_lookup: bool = False,
     ) -> str: ...
 
 

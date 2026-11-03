@@ -6,10 +6,22 @@ import { AfterViewInit, Component, ElementRef, Inject, inject, Injectable, OnDes
 import { TranslationService } from '@foundation/translations/services';
 import Quill from 'quill';
 
+/** Optional actionable button shown inside a snack, below the message. */
+export interface SnackAction {
+	label: string;
+	callback: () => void;
+}
+
+export type SnackVariant = 'info' | 'success' | 'warning' | 'error';
+
 interface DataType {
 	title?: string;
 	message?: string;
 	dismissButtonText?: string;
+	/** Optional action button (snacks only). */
+	action?: SnackAction;
+	/** Visual variant driving the icon and accent color (snacks only). */
+	variant?: SnackVariant;
 }
 
 interface ConfirmDataType extends DataType {
@@ -64,6 +76,10 @@ interface BaseDialogConfig<T = unknown> {
 type NotificationDialogConfig = BaseDialogConfig<void> & {
 	data?: DataType;
 	dismissButtonText?: string;
+	/** Snacks only: action button shown below the message. */
+	action?: SnackAction;
+	/** Snacks only: visual variant (icon + accent color). */
+	variant?: SnackVariant;
 };
 type PromptDialogConfig = BaseDialogConfig<{ value: string } | null> & {
 	data?: PromptDataType;
@@ -387,13 +403,17 @@ export class NotificationService {
 	}
 
 	snack(message?: string, title?: string, config: NotificationDialogConfig = {}) {
+		// Actionable snacks linger longer so the user has time to click the action.
+		const defaultAutoCloseMs = config.action ? 10000 : 5000;
 		return this._openDialog('notification', {
 			...config,
 			snack: true,
-			autoCloseMs: config.autoCloseMs || 5000, // Auto-close snacks after 5 seconds by default
+			autoCloseMs: config.autoCloseMs ?? defaultAutoCloseMs,
 			data: {
 				message,
 				title,
+				action: config.action,
+				variant: config.variant ?? 'info',
 				...(config.data ?? {}),
 			},
 		});
@@ -401,19 +421,19 @@ export class NotificationService {
 
 	snackSuccess(message: string, title?: string, config: NotificationDialogConfig = {}) {
 		const resolvedTitle = title ?? this._i18n_success();
-		return this.snack(message, resolvedTitle, config);
+		return this.snack(message, resolvedTitle, { variant: 'success', ...config });
 	}
 
 	snackError(message: string, title?: string, config: NotificationDialogConfig = {}) {
 		const resolvedTitle = title ?? this._i18n_error();
 		console.error(resolvedTitle, message);
-		return this.snack(message, resolvedTitle, config);
+		return this.snack(message, resolvedTitle, { variant: 'error', ...config });
 	}
 
 	snackWarning(message: string, title?: string, config: NotificationDialogConfig = {}) {
 		const resolvedTitle = title ?? this._i18n_warning();
 		console.warn(resolvedTitle, message);
-		return this.snack(message, resolvedTitle, config);
+		return this.snack(message, resolvedTitle, { variant: 'warning', ...config });
 	}
 }
 
@@ -525,6 +545,7 @@ export class NotificationDialogComponent {
 				<button
 					type="button"
 					class="btn btn-ghost"
+					data-testid="confirm-cancel"
 					(click)="dialogRef.close(false)"
 				>
 					<span [innerHTML]="cancelButtonText"></span>
@@ -532,6 +553,7 @@ export class NotificationDialogComponent {
 				<button
 					type="button"
 					class="btn btn-primary"
+					data-testid="confirm-accept"
 					(click)="dialogRef.close(true)"
 				>
 					<span [innerHTML]="confirmButtonText"></span>
@@ -606,6 +628,7 @@ export class ConfirmationDialogComponent {
 						id="content-name"
 						name="content-name"
 						type="text"
+						data-testid="prompt-input"
 						class="input input-bordered w-full"
 						[placeholder]="promptModalData.inputPlaceholder ?? 'Enter your input...'"
 						#input
@@ -628,6 +651,7 @@ export class ConfirmationDialogComponent {
 				<button
 					type="button"
 					class="btn btn-primary"
+					data-testid="prompt-confirm"
 					(click)="dialogRef.close({ value: input.value })"
 				>
 					<span [innerHTML]="promptModalData.confirmButtonText || 'Submit'"></span>
@@ -867,6 +891,7 @@ export class PromptQuillTextareaDialogComponent implements AfterViewInit, OnDest
 				</div>
 				<h3
 					class="text-lg font-semibold"
+					data-testid="selection-title"
 					[innerHTML]="selectionModalData.title"
 				></h3>
 			</div>
@@ -886,6 +911,7 @@ export class PromptQuillTextareaDialogComponent implements AfterViewInit, OnDest
 							class="group rounded-xl border-2 transition-all duration-200"
 							[class]="option.disabled ? 'border-base-200 bg-base-200 cursor-not-allowed opacity-60' : option.value === selectedValue ? 'border-secondary bg-secondary/10 cursor-pointer shadow-sm' : 'border-base-200 bg-base-100 hover:border-base-300 hover:bg-base-200 cursor-pointer'"
 							(click)="!option.disabled && selectOption(option.value)"
+							[attr.data-testid]="'selection-option-' + option.value"
 							[attr.role]="option.disabled ? null : 'button'"
 							[attr.tabindex]="option.disabled ? -1 : 0"
 							(keyup.enter)="!option.disabled && selectOption(option.value)"
@@ -951,6 +977,7 @@ export class PromptQuillTextareaDialogComponent implements AfterViewInit, OnDest
 			<!-- Actions -->
 			<div class="border-base-200 flex justify-end gap-2 border-t px-6 py-4">
 				<button
+					data-testid="selection-cancel"
 					type="button"
 					class="btn btn-ghost"
 					(click)="dialogRef.close(null)"
@@ -958,6 +985,7 @@ export class PromptQuillTextareaDialogComponent implements AfterViewInit, OnDest
 					<span [innerHTML]="selectionModalData.cancelButtonText || 'Cancel'"></span>
 				</button>
 				<button
+						data-testid="selection-confirm"
 					type="button"
 					class="btn"
 					[class]="selectedValue && !isSelectedOptionDisabled() ? 'btn-secondary' : 'btn-disabled'"
@@ -997,6 +1025,15 @@ export class SelectionDialogComponent {
 	}
 }
 
+// Per-variant Tailwind/DaisyUI classes for the snack (icon wrapper, progress bar, action button).
+// Listed as literals so Tailwind's content scanner generates them.
+const SNACK_VARIANT_CLASSES: Record<SnackVariant, { iconWrapper: string; progressBar: string; actionButton: string }> = {
+	info: { iconWrapper: 'bg-info/10 text-info', progressBar: 'bg-info', actionButton: 'btn-info' },
+	success: { iconWrapper: 'bg-success/10 text-success', progressBar: 'bg-success', actionButton: 'btn-success' },
+	warning: { iconWrapper: 'bg-warning/10 text-warning', progressBar: 'bg-warning', actionButton: 'btn-warning' },
+	error: { iconWrapper: 'bg-error/10 text-error', progressBar: 'bg-error', actionButton: 'btn-error' },
+};
+
 // Snack notification component (toast-style)
 @Component({
 	selector: 'lib-snack-notification',
@@ -1011,7 +1048,7 @@ export class SelectionDialogComponent {
 			@if (showProgressBar()) {
 				<div class="bg-base-200 absolute top-0 left-0 h-1 w-full">
 					<div
-						class="bg-info h-full transition-all ease-linear"
+						[class]="progressBarClass + ' h-full transition-all ease-linear'"
 						[style.width.%]="progressPercentage()"
 						[style.transition-duration]="isHovered() ? '0ms' : progressTransitionDuration() + 'ms'"
 					></div>
@@ -1024,19 +1061,47 @@ export class SelectionDialogComponent {
 				[class.pt-5]="showProgressBar()"
 			>
 				<div class="shrink-0">
-					<div class="bg-info/10 text-info flex h-8 w-8 items-center justify-center rounded-full">
+					<div [class]="iconWrapperClass + ' flex h-8 w-8 items-center justify-center rounded-full'">
 						<svg
 							class="h-4 w-4"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
+							@switch (variant) {
+								@case ('success') {
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								}
+								@case ('warning') {
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+									/>
+								}
+								@case ('error') {
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								}
+								@default {
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								}
+							}
 						</svg>
 					</div>
 				</div>
@@ -1051,6 +1116,15 @@ export class SelectionDialogComponent {
 						class="text-base-content/80 text-sm"
 						[innerHTML]="message"
 					></p>
+					@if (action) {
+						<button
+							type="button"
+							[class]="actionButtonClass + ' btn btn-xs btn-outline mt-2'"
+							(click)="runAction()"
+						>
+							{{ action.label }}
+						</button>
+					}
 				</div>
 				<button
 					type="button"
@@ -1080,6 +1154,11 @@ export class SnackNotificationComponent {
 
 	title?: string;
 	message?: string;
+	action?: SnackAction;
+	variant: SnackVariant = 'info';
+	iconWrapperClass = SNACK_VARIANT_CLASSES.info.iconWrapper;
+	progressBarClass = SNACK_VARIANT_CLASSES.info.progressBar;
+	actionButtonClass = SNACK_VARIANT_CLASSES.info.actionButton;
 	autoCloseMs?: number;
 	showProgressBar = signal(false);
 	progressPercentage = signal(0); // Start at 0%
@@ -1095,6 +1174,12 @@ export class SnackNotificationComponent {
 
 		this.title = data.title;
 		this.message = data.message;
+		this.action = data.action;
+		this.variant = data.variant ?? 'info';
+		const variantClasses = SNACK_VARIANT_CLASSES[this.variant];
+		this.iconWrapperClass = variantClasses.iconWrapper;
+		this.progressBarClass = variantClasses.progressBar;
+		this.actionButtonClass = variantClasses.actionButton;
 		// Get autoCloseMs from the config
 		this.autoCloseMs = typeof autoCloseCandidate === 'number' ? autoCloseCandidate : undefined;
 
@@ -1129,6 +1214,11 @@ export class SnackNotificationComponent {
 			console.log('Setting progress to 100%');
 			this.progressPercentage.set(100); // Fill to 100%
 		}, 50);
+	}
+
+	runAction() {
+		this.action?.callback();
+		this.dialogRef.close();
 	}
 
 	onHover(hovered: boolean) {

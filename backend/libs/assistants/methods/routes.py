@@ -10,9 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
 
-from libs.logger.customLogger import print_color
+import structlog
+
 from libs.mcp.client_runtime.routes import RouteIndex
 from libs.ml.llm import LLMClient, LLMEmptyResponseError, LLMMessage
+
+logger = structlog.get_logger(__name__)
 
 _ROUTE_CACHE_VERSION = "v4"
 _LLM_ROUTE_CACHE_VERSION = "v1"
@@ -111,11 +114,9 @@ class _RouteConfigParser:
             return parsed if isinstance(parsed, str) else ""
 
         start = self.index
-        while self.index < self.length and (
-            self.source[self.index].isalnum() or self.source[self.index] in {"_", "$"}
-        ):
+        while self.index < self.length and (self.source[self.index].isalnum() or self.source[self.index] in {"_", "$"}):
             self.index += 1
-        return self.source[start:self.index].strip()
+        return self.source[start : self.index].strip()
 
     def _parse_string(self) -> str:
         quote = self.source[self.index]
@@ -173,7 +174,7 @@ class _RouteConfigParser:
 
             self.index += 1
 
-        return self.source[start:self.index].strip()
+        return self.source[start : self.index].strip()
 
     def _skip_ignored(self) -> None:
         while self.index < self.length:
@@ -208,7 +209,11 @@ def extract_frontend_routes(route_config_path_str: str) -> list[str]:
     try:
         source = route_config_path.read_text(encoding="utf-8")
     except OSError as exc:
-        print_color("yellow", f"[assistant] route config unreadable: {exc}")
+        logger.warning(
+            "assistant_route_config_unreadable",
+            route_config_path=path_str,
+            error=str(exc),
+        )
         return []
 
     file_hash = hashlib.sha256(source.encode()).hexdigest()[:16]
@@ -240,7 +245,11 @@ def extract_angular_mcp_route_details(route_config_path_str: str) -> list[Angula
     try:
         source = route_config_path.read_text(encoding="utf-8")
     except OSError as exc:
-        print_color("yellow", f"[assistant] route config unreadable: {exc}")
+        logger.warning(
+            "assistant_route_config_unreadable",
+            route_config_path=path_str,
+            error=str(exc),
+        )
         return []
 
     string_constants = _extract_string_constants(source)
@@ -285,7 +294,11 @@ def extract_frontend_routes_with_llm(
     try:
         source = route_config_path.read_text(encoding="utf-8")
     except OSError as exc:
-        print_color("yellow", f"[assistant] route config unreadable: {exc}")
+        logger.warning(
+            "assistant_route_config_unreadable",
+            route_config_path=path_str,
+            error=str(exc),
+        )
         return []
 
     file_hash = hashlib.sha256(source.encode()).hexdigest()[:16]
@@ -309,7 +322,12 @@ def extract_frontend_routes_with_llm(
             )
             summary = response.text.strip()
         except LLMEmptyResponseError as exc:
-            print_color("yellow", f"[assistant] LLM route summary failed: {exc}")
+            logger.warning(
+                "assistant_route_summary_failed",
+                route_config_path=path_str,
+                model=model,
+                error=str(exc),
+            )
             return []
 
         with suppress(OSError):

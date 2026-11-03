@@ -64,6 +64,12 @@ def test_upload_file_success(client, mock_file_storage, mock_file_cls, mock_user
             mock_file_cls.patch.assert_called()
             mock_remove.assert_called()
 
+            # The client's Content-Type header must be threaded through to
+            # storage.upload — GCPStorage.upload() can't guess it from a temp
+            # path that has no extension (/tmp/{file_id}-{alternative}).
+            upload_call_kwargs = mock_file_storage.return_value.upload.call_args.kwargs
+            assert upload_call_kwargs["content_type"] == "text/plain"
+
 
 def test_upload_file_already_in_storage(
     client, mock_file_storage, mock_file_cls, mock_user, mock_session, mock_translator

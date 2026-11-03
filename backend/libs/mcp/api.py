@@ -1,9 +1,10 @@
 from collections.abc import Callable
 from typing import Any
 
+import structlog
 from mcp.server.fastmcp import FastMCP
 
-from libs.logger.customLogger import print_color
+_logger = structlog.get_logger(__name__)
 
 
 class _LoggedFastMCP(FastMCP):
@@ -16,14 +17,15 @@ class _LoggedFastMCP(FastMCP):
         def _logging_decorator(fn: Callable) -> Callable:
             name = tool_name or getattr(fn, "__name__", "?")
             doc = getattr(fn, "__doc__", "") or ""
-            first_line = next((l.strip() for l in doc.splitlines() if l.strip()), "")
+            first_line = next((line.strip() for line in doc.splitlines() if line.strip()), "")
             try:
                 result = original_decorator(fn)
-                print_color("cyan", f"[MCP] registered {name!r} — {first_line}")
-                return result
-            except Exception as exc:
-                print_color("red", f"[MCP] FAILED to register {name!r}: {exc}")
+            except Exception:
+                _logger.exception("mcp_tool_registration_failed", tool_name=name)
                 return fn
+            else:
+                _logger.info("mcp_tool_registered", tool_name=name, description=first_line)
+                return result
 
         return _logging_decorator
 

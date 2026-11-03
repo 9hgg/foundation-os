@@ -24,10 +24,7 @@ def _normalize_context(value: str | None) -> str:
 
 
 def _compute_hash(source_content: str, translation_context: str | None) -> str:
-    if translation_context:
-        payload = source_content + "{{" + translation_context + "}}"
-    else:
-        payload = source_content
+    payload = source_content + "{{" + translation_context + "}}" if translation_context else source_content
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

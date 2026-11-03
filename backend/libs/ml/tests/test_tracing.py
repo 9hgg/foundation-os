@@ -78,9 +78,8 @@ def test_section_with_subtitle() -> None:
 
 def test_nested_sections_indent() -> None:
     t, buf = _tracer()
-    with t.section("Outer"):
-        with t.section("Inner"):
-            t.line("deep")
+    with t.section("Outer"), t.section("Inner"):
+        t.line("deep")
     assert "deep" in buf.getvalue()
 
 

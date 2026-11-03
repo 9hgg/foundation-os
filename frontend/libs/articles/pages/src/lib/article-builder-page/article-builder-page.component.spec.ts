@@ -16,7 +16,7 @@ describe('article-builder-page.component', () => {
 
 	const buildComponent = (article = buildArticle()) => {
 		const save = vi.fn();
-		const getAclsForObject$ = vi.fn(() => of({ result: [] }));
+		const getAclsForObject$ = vi.fn(() => of({ result: { acls: [] } }));
 		const toggleAnonymousReadForObject$ = vi.fn(() =>
 			of({ result: [{ who: 'anonymous', operation: 'read' }] })
 		);
@@ -138,7 +138,7 @@ describe('article-builder-page.component', () => {
 		it('stores ACLs returned for the current article', () => {
 			const { component, getAclsForObject$ } = buildComponent();
 			getAclsForObject$.mockReturnValue(
-				of({ result: [{ who: 'anonymous', operation: 'read' }] })
+				of({ result: { acls: [{ who: 'anonymous', operation: 'read' }] } })
 			);
 
 			component.updateAcls();

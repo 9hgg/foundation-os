@@ -1,1 +1,1 @@
-export * from './lib/messages-ui/messages-ui.component';
+export * from './lib/message-builder-page/message-builder-page.component';

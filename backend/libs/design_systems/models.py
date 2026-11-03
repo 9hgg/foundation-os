@@ -1,12 +1,10 @@
 import uuid
-from typing import Optional
 
 import sqlmodel
 from pydantic import Field
 from sqlalchemy.dialects.postgresql import JSONB
 
-from libs.mcp.display import ResourceDisplayProfile
-from libs.resource import ResourceWithConfig
+from libs.resource import ResourceDisplayProfile, ResourceWithConfig
 from libs.utils.types import BaseModelWithConfig
 
 
@@ -48,7 +46,7 @@ class DesignSystem(ResourceWithConfig, table=True):
     __title__ = "Design system"
     __description__ = "A design system is a collection of reusable components, fonts, palettes, UI rules, etc."
     __config_type__ = DesignSystemConfig
-    __mcp_display__ = ResourceDisplayProfile(
+    __display_profile__ = ResourceDisplayProfile(
         kind="design_system",
         title_fields=("name", "title", "id"),
         subtitle_fields=("description",),
@@ -58,7 +56,7 @@ class DesignSystem(ResourceWithConfig, table=True):
     name: str
     description: str | None
     # simple thumbnail for the design system
-    thumbnail_id: Optional[uuid.UUID] = sqlmodel.Field(foreign_key="files.id")
+    thumbnail_id: uuid.UUID | None = sqlmodel.Field(foreign_key="files.id")
 
     config: DesignSystemConfig = sqlmodel.Field(
         sa_type=JSONB,
@@ -70,8 +68,8 @@ class DesignSystem(ResourceWithConfig, table=True):
 class ThemeDetails(BaseModelWithConfig):
     default_background_color: str = "#ffffff"
     default_text_color: str = "#000000"
-    dark_background_color: Optional[str] = None
-    dark_text_color: Optional[str] = None
+    dark_background_color: str | None = None
+    dark_text_color: str | None = None
     design_system_ids: list[str] = Field(default_factory=list)
     theme_mode: str = "light"  # 'light' or 'system'
-    extra_properties: Optional[dict] = Field(default_factory=dict)
+    extra_properties: dict | None = Field(default_factory=dict)

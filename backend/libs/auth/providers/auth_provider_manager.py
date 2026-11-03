@@ -1,12 +1,15 @@
 import typing
-from typing import Callable, ClassVar
+from collections.abc import Callable
+from typing import ClassVar
 
-from loguru import logger
+import structlog
 from sqlalchemy.orm import Session
 
 from libs.utils.types import BaseModelWithConfig
 
 from ._generic import TokenProcessingResult
+
+logger = structlog.get_logger(__name__)
 
 
 class AlreadyEnlistedAuthProviderError(Exception):
@@ -43,9 +46,7 @@ class AuthProvidersManager:
     ):
         """Enlist an auth_provider"""
 
-        def decorator(
-            auth_provider: typing.Callable, auth_provider_name=auth_provider_name
-        ):
+        def decorator(auth_provider: typing.Callable, auth_provider_name=auth_provider_name):
             if auth_provider_name is None:
                 auth_provider_name = auth_provider.__name__
             if auth_provider_name in cls.auth_providers:
@@ -54,7 +55,7 @@ class AuthProvidersManager:
                 auth_provider_name=auth_provider_name, auth_provider=auth_provider
             )
             cls.auth_providers[auth_provider_name] = enlisted_auth_provider
-            logger.debug(f"📋 AuthProvider {auth_provider_name} enlisted")
+            logger.debug("auth_provider_enlisted", auth_provider_name=auth_provider_name)
             return auth_provider
 
         return decorator

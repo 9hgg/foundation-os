@@ -53,7 +53,7 @@ class SentenceTransformerVectorizer:
     # Public sklearn-compatible API
     # ------------------------------------------------------------------
 
-    def fit(self, texts, y=None) -> "SentenceTransformerVectorizer":
+    def fit(self, texts, y=None) -> SentenceTransformerVectorizer:
         """No-op for pre-trained models; loads the model into memory."""
         self._load_model()
         return self

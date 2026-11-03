@@ -26,6 +26,18 @@ export const DEFAULT_USER_PROPS: UserProps = {
 
 const DEBUG = false;
 
+interface RuntimeConfigWithSentry {
+	environment?: {
+		sentry?: {
+			domain?: string | null;
+		};
+	};
+}
+
+export function getConfiguredSentryDomain(config: RuntimeConfigWithSentry | null | undefined): string | null {
+	return config?.environment?.sentry?.domain ?? null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class UsersRepository extends GenericRepository<User> {
 	private _authTokensRepository = inject(AuthTokensRepository);
@@ -85,7 +97,7 @@ export class UsersRepository extends GenericRepository<User> {
 		// set user sentry
 		effect(() => {
 			const currentUser = this.currentProfile();
-			const sentryDomain: string | null = this._appConfigService.config$_.environment.sentry.domain;
+			const sentryDomain = getConfiguredSentryDomain(this._appConfigService.config$_);
 			if (sentryDomain && window.origin.includes(sentryDomain)) {
 				if (currentUser) {
 					Sentry.setUser({
@@ -112,9 +124,7 @@ export class UsersRepository extends GenericRepository<User> {
 	}
 
 	public getConnectAsLink$(userId: string) {
-		return this._requestService
-			.getBasic$<{ url: string }>(`/api/users/admin/connect-as-link/${userId}`)
-			.pipe(map((response) => response.result?.url ?? null));
+		return this._requestService.getBasic$<{ url: string }>(`/api/users/admin/connect-as-link/${userId}`).pipe(map((response) => response.result?.url ?? null));
 	}
 
 	public getUserByIdAsAdmin$(userId: string | null): Observable<User | null> {
@@ -147,8 +157,21 @@ export class UsersRepository extends GenericRepository<User> {
 			.subscribe();
 	}
 
-	getUserPublicDetails$(userId: string) {
+	publicDetailsById = new Map<string, { publicName: string | undefined; profilePictureId: string; starredEmail: string | undefined }>();
+
+	getUserPublicDetails$(userId: string): Observable<{
+		publicName?: string;
+		profilePictureId: string;
+		starredEmail?: string;
+	} | null> {
 		if (DEBUG) console.log(`Fetching public details for user ${userId}`);
+
+		const cachedDetails = this.publicDetailsById.get(userId);
+		if (cachedDetails) {
+			if (DEBUG) console.log(`Returning cached public details for user ${userId}:`, cachedDetails);
+			return of(cachedDetails);
+		}
+
 		return this._requestService
 			.getBasic$<{
 				publicName?: string;

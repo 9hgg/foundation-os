@@ -31,8 +31,8 @@ from libs.ml.methods.linguistic_keyword_classifier import (
 from libs.ml.methods.llm import (
     LLMZeroShotJsonClassifier,
     LLMZeroShotJsonMultiLabelClassifier,
-    LLMZeroShotTextMultiLabelClassifier,
     LLMZeroShotTextClassifier,
+    LLMZeroShotTextMultiLabelClassifier,
 )
 from libs.ml.methods.llm_few_shot import (
     LLMFewShotJsonClassifier,
@@ -40,6 +40,7 @@ from libs.ml.methods.llm_few_shot import (
     LLMFewShotTextMultiLabelClassifier,
 )
 from libs.ml.methods.random_classifier import TextRandomClassifier
+from libs.ml.methods.semantic_centroid import SemanticCentroidJsonClassifier
 from libs.ml.methods.sklearn import (
     AdaBoostTextClassifier,
     GradientBoostingFeatureVectorRegressor,
@@ -96,7 +97,6 @@ from libs.ml.methods.sklearn import (
     SVMTextClassifier,
     SVRFeatureVectorRegressor,
 )
-from libs.ml.methods.semantic_centroid import SemanticCentroidJsonClassifier
 from libs.ml.models import Label
 from libs.ml.processing.json import StructuredJsonVectorizer
 from libs.ml.registry import (
@@ -125,6 +125,7 @@ LLM_PROVIDER_PARAM = ParameterSpec(
     label="LLM provider",
     type="string",
     description="Provider used by one-shot LLM methods: openai, ollama, or edf_iag.",
+    possible_values=["openai", "ollama", "edf_iag"],
     default="openai",
 )
 LLM_MODEL_PARAM = ParameterSpec(
@@ -163,6 +164,78 @@ MAX_LABELS_PARAM = ParameterSpec(
     required=False,
     description="Maximum number of labels to predict per sample. Labels with the most keyword matches are kept first.",
 )
+
+# ─── sklearn hyperparameters ──────────────────────────────────────────────────
+C_PARAM = ParameterSpec(
+    name="C",
+    label="Regularization C",
+    type="number",
+    default=1.0,
+    description="Inverse regularization strength. Smaller → stronger regularization.",
+)
+KERNEL_PARAM = ParameterSpec(
+    name="kernel",
+    label="Kernel",
+    type="string",
+    default="rbf",
+    description="SVM kernel: linear, rbf, poly or sigmoid.",
+    possible_values=["linear", "rbf", "poly", "sigmoid"],
+)
+SK_MAX_ITER_PARAM = ParameterSpec(
+    name="max_iter",
+    label="Max iterations",
+    type="number",
+    default=1000,
+    description="Maximum number of optimization iterations.",
+)
+ALPHA_PARAM = ParameterSpec(
+    name="alpha",
+    label="L2 penalty (alpha)",
+    type="number",
+    default=0.0001,
+    description="L2 regularization weight.",
+)
+SGD_LEARNING_RATE_PARAM = ParameterSpec(
+    name="learning_rate",
+    label="Learning rate schedule",
+    type="string",
+    default="optimal",
+    description="SGD schedule: constant, optimal, invscaling or adaptive.",
+    possible_values=["constant", "optimal", "invscaling", "adaptive"],
+)
+GB_LEARNING_RATE_PARAM = ParameterSpec(
+    name="learning_rate",
+    label="Learning rate",
+    type="number",
+    default=0.1,
+    description="Step shrinkage applied to each tree's contribution.",
+)
+N_ESTIMATORS_PARAM = ParameterSpec(
+    name="n_estimators",
+    label="Number of trees / boosting rounds",
+    type="number",
+    default=100,
+    description="More trees = better fit, slower training.",
+)
+MAX_DEPTH_PARAM = ParameterSpec(
+    name="max_depth",
+    label="Max tree depth (empty = no limit)",
+    type="number",
+    required=False,
+    description="Cap the depth of each tree; empty keeps sklearn default.",
+)
+HIDDEN_LAYER_SIZES_PARAM = ParameterSpec(
+    name="hidden_layer_sizes",
+    label="Hidden layer sizes (JSON list)",
+    type="json",
+    default=[100],
+    description='Sizes of hidden layers, e.g. [128, 64] for two hidden layers.',
+)
+
+
+def _sklearn_kwargs(config: dict[str, Any], allowed: tuple[str, ...]) -> dict[str, Any]:
+    """Filter ``config`` to the allowed keys, dropping ``None``/empty values."""
+    return {key: config[key] for key in allowed if key in config and config[key] not in (None, "")}
 
 
 def create_default_ml_registry(
@@ -657,9 +730,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="SVM (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[C_PARAM, KERNEL_PARAM],
             description="Trainable SVM classifier for JSON inputs.",
         ),
-        factory=lambda config: SVMJsonClassifier(feature_extractor=_make_tfidf()),
+        factory=lambda config: SVMJsonClassifier(
+            feature_extractor=_make_tfidf(), **_sklearn_kwargs(config, ("C", "kernel"))
+        ),
     )
     registry.register(
         MethodSpec(
@@ -668,10 +744,11 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Linear SVM (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[C_PARAM, SK_MAX_ITER_PARAM],
             description="Fast linear SVM classifier for sparse JSON/text features.",
         ),
         factory=lambda config: LinearSVMJsonClassifier(
-            feature_extractor=_make_tfidf(), **config
+            feature_extractor=_make_tfidf(), **_sklearn_kwargs(config, ("C", "max_iter"))
         ),
     )
     registry.register(
@@ -681,10 +758,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="SGD Hinge (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[ALPHA_PARAM, SK_MAX_ITER_PARAM, SGD_LEARNING_RATE_PARAM],
             description="Fast SGD hinge-loss classifier for large sparse JSON/text features.",
         ),
         factory=lambda config: SGDJsonClassifier(
-            feature_extractor=_make_tfidf(), **config
+            feature_extractor=_make_tfidf(),
+            **_sklearn_kwargs(config, ("alpha", "max_iter", "learning_rate")),
         ),
     )
     registry.register(
@@ -694,9 +773,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Logistic Regression (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[C_PARAM, SK_MAX_ITER_PARAM],
             description="Trainable logistic regression classifier for JSON inputs.",
         ),
-        factory=lambda config: LogisticRegressionJsonClassifier(feature_extractor=_make_tfidf()),
+        factory=lambda config: LogisticRegressionJsonClassifier(
+            feature_extractor=_make_tfidf(), **_sklearn_kwargs(config, ("C", "max_iter"))
+        ),
     )
     registry.register(
         MethodSpec(
@@ -705,9 +787,13 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Random Forest (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[N_ESTIMATORS_PARAM, MAX_DEPTH_PARAM],
             description="Trainable random forest classifier for JSON inputs.",
         ),
-        factory=lambda config: RandomForestJsonClassifier(feature_extractor=_make_tfidf()),
+        factory=lambda config: RandomForestJsonClassifier(
+            feature_extractor=_make_tfidf(),
+            **_sklearn_kwargs(config, ("n_estimators", "max_depth")),
+        ),
     )
     registry.register(
         MethodSpec(
@@ -716,9 +802,13 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="MLP (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[HIDDEN_LAYER_SIZES_PARAM, ALPHA_PARAM, SK_MAX_ITER_PARAM],
             description="Trainable neural-network classifier for JSON inputs.",
         ),
-        factory=lambda config: MLPJsonClassifier(feature_extractor=_make_tfidf()),
+        factory=lambda config: MLPJsonClassifier(
+            feature_extractor=_make_tfidf(),
+            **_sklearn_kwargs(config, ("hidden_layer_sizes", "alpha", "max_iter")),
+        ),
     )
     registry.register(
         MethodSpec(
@@ -727,9 +817,13 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Gradient Boosting (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[N_ESTIMATORS_PARAM, GB_LEARNING_RATE_PARAM, MAX_DEPTH_PARAM],
             description="Trainable gradient boosting classifier for JSON inputs.",
         ),
-        factory=lambda config: GradientBoostingJsonClassifier(feature_extractor=_make_tfidf()),
+        factory=lambda config: GradientBoostingJsonClassifier(
+            feature_extractor=_make_tfidf(),
+            **_sklearn_kwargs(config, ("n_estimators", "learning_rate", "max_depth")),
+        ),
     )
     registry.register(
         MethodSpec(
@@ -782,10 +876,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Structured Logistic Regression (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[C_PARAM, SK_MAX_ITER_PARAM],
             description="Logistic regression classifier using structured JSON field vectorization.",
         ),
         factory=lambda config: LogisticRegressionJsonClassifier(
-            feature_extractor=_make_structured_json_vectorizer()
+            feature_extractor=_make_structured_json_vectorizer(),
+            **_sklearn_kwargs(config, ("C", "max_iter")),
         ),
     )
     registry.register(
@@ -795,10 +891,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Structured Linear SVM (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[C_PARAM, SK_MAX_ITER_PARAM],
             description="Fast linear SVM classifier using structured JSON field vectorization.",
         ),
         factory=lambda config: LinearSVMJsonClassifier(
-            feature_extractor=_make_structured_json_vectorizer(), **config
+            feature_extractor=_make_structured_json_vectorizer(),
+            **_sklearn_kwargs(config, ("C", "max_iter")),
         ),
     )
     registry.register(
@@ -808,10 +906,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Structured SGD Hinge (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[ALPHA_PARAM, SK_MAX_ITER_PARAM, SGD_LEARNING_RATE_PARAM],
             description="Fast SGD hinge-loss classifier using structured JSON field vectorization.",
         ),
         factory=lambda config: SGDJsonClassifier(
-            feature_extractor=_make_structured_json_vectorizer(), **config
+            feature_extractor=_make_structured_json_vectorizer(),
+            **_sklearn_kwargs(config, ("alpha", "max_iter", "learning_rate")),
         ),
     )
     registry.register(
@@ -821,10 +921,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Structured SVM (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[C_PARAM, KERNEL_PARAM],
             description="SVM classifier using structured JSON field vectorization.",
         ),
         factory=lambda config: SVMJsonClassifier(
-            feature_extractor=_make_structured_json_vectorizer()
+            feature_extractor=_make_structured_json_vectorizer(),
+            **_sklearn_kwargs(config, ("C", "kernel")),
         ),
     )
     registry.register(
@@ -834,10 +936,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Structured Random Forest (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[N_ESTIMATORS_PARAM, MAX_DEPTH_PARAM],
             description="Random forest classifier using structured JSON field vectorization.",
         ),
         factory=lambda config: RandomForestJsonClassifier(
-            feature_extractor=_make_structured_json_vectorizer()
+            feature_extractor=_make_structured_json_vectorizer(),
+            **_sklearn_kwargs(config, ("n_estimators", "max_depth")),
         ),
     )
     registry.register(
@@ -847,10 +951,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Structured MLP (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[HIDDEN_LAYER_SIZES_PARAM, ALPHA_PARAM, SK_MAX_ITER_PARAM],
             description="Neural-network classifier using structured JSON field vectorization.",
         ),
         factory=lambda config: MLPJsonClassifier(
-            feature_extractor=_make_structured_json_vectorizer()
+            feature_extractor=_make_structured_json_vectorizer(),
+            **_sklearn_kwargs(config, ("hidden_layer_sizes", "alpha", "max_iter")),
         ),
     )
     registry.register(
@@ -860,10 +966,12 @@ def _register_json_single_label_methods(registry: MLRegistry) -> None:
             name="Structured Gradient Boosting (JSON)",
             trainable=True,
             zero_shot=False,
+            parameters=[N_ESTIMATORS_PARAM, GB_LEARNING_RATE_PARAM, MAX_DEPTH_PARAM],
             description="Gradient boosting classifier using structured JSON field vectorization.",
         ),
         factory=lambda config: GradientBoostingJsonClassifier(
-            feature_extractor=_make_structured_json_vectorizer()
+            feature_extractor=_make_structured_json_vectorizer(),
+            **_sklearn_kwargs(config, ("n_estimators", "learning_rate", "max_depth")),
         ),
     )
     registry.register(
@@ -1568,12 +1676,14 @@ def _register_llm_methods(registry: MLRegistry) -> None:
                     name="n_samples_per_class",
                     label="Samples per class",
                     type="number",
+                    description="Number of labeled examples sampled per label to build the initial few-shot prompt.",
                     default=3,
                 ),
                 ParameterSpec(
                     name="n_refinement_rounds",
                     label="Refinement rounds",
                     type="number",
+                    description="How many prompt-improvement iterations are run after the first synthesized prompt.",
                     default=2,
                 ),
             ],
@@ -1602,12 +1712,14 @@ def _register_llm_methods(registry: MLRegistry) -> None:
                     name="n_samples_per_class",
                     label="Samples per class",
                     type="number",
+                    description="Number of labeled JSON examples sampled per label to build the initial few-shot prompt.",
                     default=3,
                 ),
                 ParameterSpec(
                     name="n_refinement_rounds",
                     label="Refinement rounds",
                     type="number",
+                    description="How many prompt-improvement iterations are run after the first synthesized prompt.",
                     default=2,
                 ),
             ],
@@ -1636,12 +1748,14 @@ def _register_llm_methods(registry: MLRegistry) -> None:
                     name="n_samples_per_class",
                     label="Samples per class",
                     type="number",
+                    description="Number of labeled examples sampled per label to build the initial multi-label prompt.",
                     default=3,
                 ),
                 ParameterSpec(
                     name="n_refinement_rounds",
                     label="Refinement rounds",
                     type="number",
+                    description="How many prompt-improvement iterations are run after the first synthesized prompt.",
                     default=2,
                 ),
             ],
@@ -1669,60 +1783,78 @@ def _register_llm_methods(registry: MLRegistry) -> None:
                     name="embedding_model",
                     label="Embedding model",
                     type="string",
+                    description="Embedding model used to vectorize samples and centroid descriptions.",
                     default="nomic-embed-text",
                 ),
                 ParameterSpec(
                     name="embedding_base_url",
                     label="Embedding base URL",
                     type="string",
+                    description="Endpoint URL for the embedding provider (Ollama-compatible /api/embed route).",
                     default="http://localhost:11434/api/embed",
                 ),
                 ParameterSpec(
                     name="max_samples_per_label",
                     label="Max samples per label",
                     type="number",
+                    description="Maximum labeled samples retained per label when building centroids.",
                     default=100,
                 ),
                 ParameterSpec(
                     name="max_centroids_per_label",
                     label="Max centroids per label",
                     type="number",
+                    description="Upper bound on centroid descriptions generated for each label.",
                     default=8,
                 ),
                 ParameterSpec(
                     name="refinement_iterations",
                     label="Refinement iterations",
                     type="number",
+                    description="Additional optimization passes applied after the first centroid generation.",
                     default=0,
                 ),
                 ParameterSpec(
                     name="max_refinement_samples_per_label",
                     label="Max refinement samples per label",
                     type="number",
+                    description="Maximum number of extra samples per label used during refinement passes.",
                     default=20,
                 ),
                 ParameterSpec(
                     name="embedding_batch_size",
                     label="Embedding batch size",
                     type="number",
+                    description="How many texts are embedded per batch call to the embedding backend.",
                     default=32,
+                ),
+                ParameterSpec(
+                    name="max_embedding_chars",
+                    label="Max embedding chars",
+                    type="number",
+                    description="Maximum cleaned candidate text length sent to the embedding backend. Set 0 to disable truncation.",
+                    default=2000,
                 ),
                 ParameterSpec(
                     name="label_score_aggregation",
                     label="Label score aggregation",
+                    description="Method for aggregating similarity scores across centroids for each label (e.g. 'max', 'mean').",
                     type="string",
+                    possible_values=["max", "mean"],
                     default="max",
                 ),
                 ParameterSpec(
                     name="contrast_examples_per_other_label",
                     label="Contrast examples per other label",
                     type="number",
+                    description="Number of contrasting examples sampled from each other label when refining centroid prompts.",
                     default=2,
                 ),
                 ParameterSpec(
                     name="cross_label_similarity_threshold",
                     label="Cross-label similarity threshold",
                     type="number",
+                    description="Similarity cutoff above which centroid candidates are considered too close across labels.",
                     default=1.0,
                 ),
             ],
@@ -1738,6 +1870,7 @@ def _register_llm_methods(registry: MLRegistry) -> None:
             refinement_iterations=int(config.get("refinement_iterations", 0)),
             max_refinement_samples_per_label=int(config.get("max_refinement_samples_per_label", 20)),
             embedding_batch_size=int(config.get("embedding_batch_size", 32)),
+            max_embedding_chars=int(config.get("max_embedding_chars", 2000)),
             label_score_aggregation=str(config.get("label_score_aggregation", "max")),
             contrast_examples_per_other_label=int(config.get("contrast_examples_per_other_label", 2)),
             cross_label_similarity_threshold=float(config.get("cross_label_similarity_threshold", 1.0)),

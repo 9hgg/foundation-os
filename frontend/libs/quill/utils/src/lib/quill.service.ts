@@ -200,5 +200,11 @@ export class QuillService {
 
 	clearQuill(quill: Quill) {
 		quill.off('text-change');
+		// When toolbar is configured as an array (no quillId), Quill auto-generates
+		// the toolbar DOM and inserts it as a sibling of the editor container rather
+		// than a child — so it survives the container being destroyed/recreated and
+		// must be removed explicitly, or toggling modes stacks a toolbar per cycle.
+		const toolbar = quill.getModule('toolbar') as { container?: HTMLElement | null } | null;
+		toolbar?.container?.remove();
 	}
 }

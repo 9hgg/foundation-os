@@ -9,7 +9,7 @@
 	(pointerleave)="onPointerUp($event)"
 	(click)="togglePanel()"
 	[style.transform]="'translate(' + position().x + 'px, ' + position().y + 'px)'"
-	class="group fixed z-50 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg transition-shadow duration-200 select-none hover:shadow-2xl hover:shadow-violet-500/40 focus:ring-4 focus:ring-violet-500/30 focus:outline-none"
+	class="group from-primary to-secondary text-primary-content focus:ring-primary/30 fixed z-50 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-gradient-to-r shadow-lg transition-shadow duration-200 select-none hover:shadow-2xl focus:ring-4 focus:outline-none"
 	[attr.aria-label]="'Open support chat' | translate | async"
 >
 	<tw-info-circle class="h-6 w-6 transition-transform duration-200 group-hover:scale-110"></tw-info-circle>
@@ -103,9 +103,11 @@
 						<div class="flex-1 overflow-y-auto">
 							@for (article of supportArticles_; track article?.id) {
 								@if (article) {
-									<div
+									<!-- A button, not a div: this row is an action, and keyboard users need to reach it. -->
+									<button
+										type="button"
 										(click)="selectArticle(article)"
-										class="group border-base-200 hover:bg-base-200/50 active:bg-base-200 flex cursor-pointer items-center border-b p-4 transition-colors duration-150"
+										class="group border-base-200 hover:bg-base-200/50 active:bg-base-200 flex w-full cursor-pointer items-center border-b p-4 text-left transition-colors duration-150"
 									>
 										<div class="relative mr-3 flex-shrink-0">
 											<div class="to-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[var(--secondary-background-color)] text-lg font-semibold shadow-sm">
@@ -133,7 +135,7 @@
 										<div class="ml-2 opacity-0 transition-opacity group-hover:opacity-100">
 											<div class="bg-primary h-2 w-2 rounded-full"></div>
 										</div>
-									</div>
+									</button>
 								}
 							}
 						</div>

@@ -19,3 +19,5 @@ describe('GenericProfilePageComponent — class structure', () => {
                 (instance as unknown as { _requestService: unknown })._requestService = { post$: requestPost };
                 instance.patchCurrentProfile({ firstName: 'Jane' });
                 expect(requestPost).not.toHaveBeenCalled();
+        });
+});

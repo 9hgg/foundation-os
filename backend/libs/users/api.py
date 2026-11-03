@@ -5,6 +5,7 @@ from typing import TypedDict
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
+import structlog
 from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request, status
 from jose import jwt
 from jose.exceptions import JWTError
@@ -21,10 +22,9 @@ from libs.auth.providers.errors import EmailNotFoundError, InvalidLDAPDataError,
 from libs.db import context_db
 from libs.endpoints import create_crud_endpoints
 from libs.i18n.deps import Translator__dep
-from libs.logger import print, print_error
-from libs.mails.methods import add_mail_to_db
+from libs.mails.methods import add_mail_to_db, mail_task_description
 from libs.mails.template_utils import render_transactional_email
-from libs.tasks.methods import launch_tasks_processing
+from libs.tasks.methods import run_task_here
 from libs.tasks.tasks_manager import TasksManager
 from libs.users.config import USER_SETTINGS
 from libs.users.methods import get_current_user_optional
@@ -36,10 +36,12 @@ from libs.users.models import (
     User,
 )
 from libs.utils import tokens
-from libs.utils.origin import get_origin
+from libs.utils.origin import get_origin, get_preferred_origin
 from libs.utils.types import EndpointError, EndpointOutput, serialize, to_snake
 
 from . import models
+
+logger = structlog.get_logger(__name__)
 
 
 class UserAndToken(TypedDict):
@@ -51,7 +53,7 @@ class ListOfUsersAndTokens(TypedDict):
     users: list[UserAndToken]
 
 
-def create_crud_user_router(prefix: str = "/api/users"):
+def create_crud_user_router(prefix: str = "/api/users"):  # noqa: C901  (router factory: one function, many endpoints)
     crud_user_router = create_crud_endpoints(
         models.User,
         prefix=prefix,
@@ -79,12 +81,12 @@ def create_crud_user_router(prefix: str = "/api/users"):
             )
 
         email = email.lower()
-        print("Requesting password reset for email:", email)
+        logger.info("password_reset_requested")
         user_db = models.User.get_first_by(email=email)
 
         # Always show same message for privacy
         if user_db is None:
-            print(f"[request_password_reset] No user found for email: {email}")
+            logger.info("password_reset_user_not_found")
             return EndpointOutput(
                 result={
                     "message": translator.translate(
@@ -99,9 +101,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
         expiry_time = datetime.now() + timedelta(
             minutes=USER_SETTINGS.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES
         )
-        print(
-            f"[request_password_reset] Reset token generated for user {user_db.id}: {reset_token}"
-        )
+        logger.debug("password_reset_token_generated", user_id=str(user_db.id))
         User.patch(
             obj_id=user_db.id,
             update_dict={
@@ -112,10 +112,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
         )
 
         # Build reset URL pointing to frontend
-        frontend_url = USER_SETTINGS.FRONTEND_URL
-        if not frontend_url:
-            # Fallback to request origin if not configured
-            frontend_url = get_origin(request, None)
+        frontend_url = get_preferred_origin(request, USER_SETTINGS.FRONTEND_URL)
 
         if not frontend_url:
             return EndpointOutput(
@@ -165,6 +162,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
             footer_message=translator.translate(
                 "If you did not request this, you can ignore this email."
             ),
+            origin=frontend_url,
         )
 
         mail = add_mail_to_db(
@@ -175,15 +173,15 @@ def create_crud_user_router(prefix: str = "/api/users"):
             html_content=html_content,
             priority=1,
         )
-        TasksManager.create_task(
-            title="send_email",
+        task = TasksManager.create_task(
+            title="Send password reset email",
             custom_id=f"{mail.id}-0",
             method_name="send_email",
-            description="Send email",
+            description=mail_task_description(mail),
             kwargs={"mail_id": mail.id},
         )
-        print("Email sent:", text_content)
-        await launch_tasks_processing()
+        logger.info("password_reset_email_queued", user_id=str(user_db.id))
+        run_task_here(task.id)
         return EndpointOutput(
             result={
                 "message": translator.translate(
@@ -210,9 +208,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
             )
 
         with context_db() as db:
-            print(
-                f"[set_new_password] Attempting to reset password with token: {token}"
-            )
+            logger.debug("password_reset_attempt")
             user_db = User.get_first_by(reset_password_token=token, _db=db)
             if user_db is None:
                 return EndpointOutput(
@@ -351,7 +347,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
             )
 
             auth_token = libs.utils.tokens.create_jwt_token(
-                token_context_key="auth", subject=user_db.id
+                token_context_key="auth", subject=user_db.id  # noqa: S106  (context key name, not a secret)
             )
 
             try:
@@ -360,9 +356,13 @@ def create_crud_user_router(prefix: str = "/api/users"):
                     translator=translator,
                     user_db=user_db,
                 )
-                print(f"[register_user] Verification email queued for {user_db.email}")
+                logger.info("verification_email_queued", user_id=str(user_db.id))
             except Exception as e:
-                print_error(f"[register_user] Failed to queue verification email: {e}")
+                logger.warning(
+                    "verification_email_queue_failed",
+                    user_id=str(user_db.id),
+                    error_type=type(e).__name__,
+                )
 
             return EndpointOutput(
                 result={
@@ -409,7 +409,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
                 error=EndpointError(
                     title=translator.translate(
                         "User with email §email has no password set.",
-                        kv={"user_email": email},
+                        kv={"email": email},
                     ),
                     code="user_has_no_password_set",
                 )
@@ -425,7 +425,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
             )
 
         auth_token = libs.utils.tokens.create_jwt_token(
-            token_context_key="auth",
+            token_context_key="auth",  # noqa: S106  (context key name, not a secret)
             subject=user_db.id,
         )
         return EndpointOutput(result=UserAndToken(user=user_db, authToken=auth_token))
@@ -497,8 +497,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
 
         # User.patch(obj_id=user_db.id, update_dict=new_data)
 
-        print("(update_profile) user_db:", user_db)
-        print("(update_profile) data:", new_data)
+        logger.debug("profile_update_requested", user_id=str(user_db.id))
 
         patch_dict = {}
         # check keys are in EDITABLE_USER_FIELDS
@@ -508,14 +507,14 @@ def create_crud_user_router(prefix: str = "/api/users"):
                 patch_dict[snaked_key] = new_data[key]
             elif snaked_key == "config":
                 # check keys are in EDITABLE_USER_CONFIG_FIELDS
-                for config_key in new_data[key].keys():
+                for config_key in new_data[key]:
                     snaked_config_key = to_snake(config_key)
                     if snaked_config_key in EDITABLE_USER_CONFIG_FIELDS:
                         patch_dict["config"] = {
                             snaked_config_key: new_data[key][config_key]
                         }
                     else:
-                        print_error("Config key is not editable")
+                        logger.warning("profile_config_key_not_editable")
                         return EndpointOutput(
                             error=EndpointError(
                                 title=translator.translate(
@@ -526,7 +525,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
                             )
                         )
             else:
-                print_error("Key is not editable")
+                logger.warning("profile_key_not_editable")
                 return EndpointOutput(
                     error=EndpointError(
                         title=translator.translate(
@@ -593,6 +592,13 @@ def create_crud_user_router(prefix: str = "/api/users"):
                 "reset_password_token": None,
                 "reset_password_token_expires": None,
             },
+            # password_hashed/reset_password_token are exclude=True fields, so
+            # model_dump() drops them in patch(); include= re-adds them to the update.
+            include=[
+                "password_hashed",
+                "reset_password_token",
+                "reset_password_token_expires",
+            ],
         )
 
         return EndpointOutput(
@@ -719,9 +725,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
                 )
             )
 
-        frontend_url = USER_SETTINGS.FRONTEND_URL
-        if not frontend_url:
-            frontend_url = get_origin(request, None)
+        frontend_url = get_preferred_origin(request, USER_SETTINGS.FRONTEND_URL)
 
         if not frontend_url:
             return EndpointOutput(
@@ -735,7 +739,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
             )
 
         auth_token = tokens.create_jwt_token(
-            token_context_key="auth",
+            token_context_key="auth",  # noqa: S106  (context key name, not a secret)
             subject=user_db.id,
             extra_data_to_encode={
                 "connectedFromUserId": str(current_user.id),
@@ -746,7 +750,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
         return EndpointOutput(result={"url": connect_as_url})
 
     @crud_user_router.post("/admin/update")
-    async def admin_update_user(
+    async def admin_update_user(  # noqa: C901
         translator: Translator__dep,
         user_id: str = Body(..., alias="userId", embed=True),
         new_data: dict | None = Body(None, alias="newData", embed=True),
@@ -878,9 +882,8 @@ def create_crud_user_router(prefix: str = "/api/users"):
             )
 
         is_admin_or_self = False
-        if current_user:
-            if current_user.id == user_id or current_user.is_admin():
-                is_admin_or_self = True
+        if current_user and (current_user.id == user_id or current_user.is_admin()):
+            is_admin_or_self = True
 
         public_name = user_db.pseudo
         starred_email = None
@@ -1017,26 +1020,18 @@ def create_crud_user_router(prefix: str = "/api/users"):
             include=["email_verification_token", "email_verification_token_expires"],
         )
 
-        frontend_url = USER_SETTINGS.FRONTEND_URL
-        print("IN USER SETTINGS, FRONTEND_URL", frontend_url)
-        if not frontend_url:
-            # Fallback to request origin if not configured
-            frontend_url = get_origin(request, None)
-            print("IN ORIGIN, FRONTEND_URL", frontend_url)
+        frontend_url = get_preferred_origin(request, USER_SETTINGS.FRONTEND_URL)
 
         if not frontend_url:
             app_root_domain = USER_SETTINGS.APP_ROOT_DOMAIN or "localhost:8000"
             frontend_url = "https://" + app_root_domain
-            print("IN APP ROOT DOMAIN, FRONTEND_URL", frontend_url)
 
         verification_url = (
             f"{frontend_url}/auth/verify-email-claim?token={verification_token}"
         )
 
         # log the link
-        print(
-            f"[send_verification_email] Verification URL for user {user_db.email}: {verification_url}"
-        )
+        logger.debug("verification_url_generated", user_id=str(user_db.id))
 
         # Send verification email
         subject = translator.translate("Verify your email address")
@@ -1064,6 +1059,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
                 "If you did not request this verification, you can safely ignore this email. "
                 "If you have any questions, please contact us at support@spoken.systems."
             ),
+            origin=frontend_url,
         )
 
         text_content = dedent(
@@ -1092,17 +1088,17 @@ def create_crud_user_router(prefix: str = "/api/users"):
             priority=1,  # High priority for verification emails
         )
 
-        TasksManager.create_task(
-            title="send_email",
+        task = TasksManager.create_task(
+            title="Send verification email",
             custom_id=f"{mail.id}-0",
             method_name="send_email",
-            description="Send email",
+            description=mail_task_description(mail),
             kwargs={
                 "mail_id": mail.id,
             },
         )
 
-        await launch_tasks_processing()
+        run_task_here(task.id)
 
         return EndpointOutput(
             result={
@@ -1252,17 +1248,13 @@ def create_crud_user_router(prefix: str = "/api/users"):
             ],
         )
 
-        frontend_url = USER_SETTINGS.FRONTEND_URL
-        if not frontend_url:
-            frontend_url = get_origin(request, None)
+        frontend_url = get_preferred_origin(request, USER_SETTINGS.FRONTEND_URL)
         if not frontend_url:
             app_root_domain = USER_SETTINGS.APP_ROOT_DOMAIN or "localhost:8000"
             frontend_url = "https://" + app_root_domain
 
         confirm_url = f"{frontend_url}/auth/change-email-claim?token={change_token}"
-        print(
-            f"[request_email_change] Confirm URL for user {user_db.email}: {confirm_url}"
-        )
+        logger.debug("email_change_confirmation_url_generated", user_id=str(user_db.id))
 
         subject = translator.translate("Confirm your new email address")
         expiry_hours = USER_SETTINGS.CHANGE_EMAIL_TOKEN_EXPIRY_MINUTES // 60
@@ -1286,6 +1278,7 @@ def create_crud_user_router(prefix: str = "/api/users"):
             footer_message=translator.translate(
                 "If you did not request this change, you can safely ignore this email."
             ),
+            origin=frontend_url,
         )
 
         text_content = dedent(
@@ -1308,14 +1301,14 @@ def create_crud_user_router(prefix: str = "/api/users"):
             html_content=html_content,
             priority=1,
         )
-        TasksManager.create_task(
-            title="send_email",
+        task = TasksManager.create_task(
+            title="Send email-change confirmation",
             custom_id=f"{mail.id}-0",
             method_name="send_email",
-            description="Send email",
+            description=mail_task_description(mail),
             kwargs={"mail_id": mail.id},
         )
-        await launch_tasks_processing()
+        run_task_here(task.id)
 
         return EndpointOutput(
             result={

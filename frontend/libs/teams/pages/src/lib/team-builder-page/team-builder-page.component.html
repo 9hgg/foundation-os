@@ -28,32 +28,35 @@
 		</nav>
 
 		<!-- Main Layout -->
-		<div class="relative m-2 flex h-full min-h-96 flex-1 gap-4 overflow-auto">
+		<div class="relative m-2 flex h-full min-h-96 flex-1 flex-col gap-4 overflow-auto lg:flex-row">
 			<!-- Compact Sidebar -->
-			<aside class="bg-base-100 border-base-200 relative w-64 shrink-0 space-y-3 overflow-auto rounded-xl border p-4 shadow-sm">
-				<!-- Design System Info -->
+			<aside class="bg-base-100 border-base-200 relative w-full shrink-0 space-y-3 overflow-auto rounded-xl border p-4 shadow-sm lg:w-64">
+				<!-- Team info -->
 				<div class="bg-base-200/50 rounded-lg p-3">
 					<label
 						class="text-base-content/60 mb-1 block text-xs font-medium"
+						for="team-name"
 						[translate]
-						>System Name</label
+						>Team name</label
 					>
 					<input
+						id="team-name"
 						type="text"
 						class="input input-bordered input-sm w-full"
 						[value]="team.name"
 						(change)="updateName($any($event.target).value)"
+						data-testid="team-name-input"
 						(keyup)="updateName($any($event.target).value)"
-						placeholder="Design system name..."
+						placeholder="Team name..."
 					/>
 				</div>
 			</aside>
 
 			<!-- Main Content -->
-			<main class="bg-base-100 border-base-200 flex-1 overflow-auto rounded-xl border p-6 shadow-sm">
+			<main class="bg-base-100 border-base-200 @container min-w-0 flex-1 overflow-auto rounded-xl border p-4 shadow-sm md:p-6">
 				<!-- Team Members Section -->
 				<div>
-					<div class="mb-6 flex items-center justify-between">
+					<div class="mb-6 flex flex-wrap items-center justify-between gap-2">
 						<h2
 							class="text-base-content text-lg font-semibold"
 							[translate]
@@ -151,18 +154,18 @@
 									class="text-base-content mb-3 font-medium"
 									[translate]
 								>
-									Add New Member
+									Invite a New Member
 								</h3>
-								<div class="flex gap-3">
+								<div class="flex flex-col gap-3 @lg:flex-row">
 									<input
 										type="email"
-										class="input input-bordered input-sm flex-1"
+										class="input input-bordered input-sm w-full @lg:min-w-0 @lg:flex-1"
 										placeholder="Enter email address..."
 										[value]="newMemberEmail()"
 										(input)="newMemberEmail.set($any($event.target).value)"
 									/>
 									<select
-										class="select select-bordered select-sm"
+										class="select select-bordered select-sm w-full @lg:w-auto"
 										[(ngModel)]="newMemberRole"
 									>
 										@for (role of availableRoles; track role) {
@@ -171,12 +174,72 @@
 									</select>
 									<button
 										type="button"
-										class="btn btn-primary btn-sm"
-										(click)="addMember()"
-										[disabled]="!newMemberEmail().trim()"
+										class="btn btn-primary btn-sm w-full @lg:w-auto"
+										(click)="inviteMember()"
+										[disabled]="!newMemberEmail().trim() || isSendingInvitation()"
 									>
-										<span [translate]>Add Member</span>
+										@if (isSendingInvitation()) {
+											<span class="loading loading-spinner loading-xs"></span>
+										}
+										<span [translate]>Send Invitation</span>
 									</button>
+								</div>
+								<p
+									class="text-base-content/60 mt-2 text-xs"
+									[translate]
+								>
+									They receive a link and join themselves. It works whether or not they already have an account.
+								</p>
+							</div>
+						}
+
+						<!-- Invitations sent, not yet accepted -->
+						@if (pendingInvitations().length > 0) {
+							<div class="mb-6">
+								<h3 class="text-base-content mb-3 font-medium">
+									<span [translate]>Pending invitations</span>
+									<span class="badge badge-ghost badge-sm ml-2">{{ pendingInvitations().length }}</span>
+								</h3>
+								<div class="space-y-2">
+									@for (invitation of pendingInvitations(); track invitation.id) {
+										<div class="bg-base-100 border-base-200 flex flex-col gap-2 rounded-lg border border-dashed p-3 @md:flex-row @md:items-center @md:justify-between">
+											<div class="min-w-0">
+												<p class="text-base-content truncate text-sm font-medium">{{ invitation.email }}</p>
+												<p class="text-base-content/60 text-xs">
+													<span>{{ invitation.role | titlecase }}</span>
+													<span> · </span>
+													@if (invitation.expired) {
+														<span
+															class="text-warning"
+															[translate]
+															>Expired — send it again</span
+														>
+													} @else {
+														<span [translate]>Pending acceptance.</span>
+													}
+												</p>
+											</div>
+											@if (isCurrentUserAdmin()) {
+												<div class="flex shrink-0 gap-2">
+													<button
+														type="button"
+														class="btn btn-ghost btn-xs"
+														(click)="resendInvitation(invitation)"
+														[disabled]="isSendingInvitation()"
+													>
+														<span [translate]>Send again</span>
+													</button>
+													<button
+														type="button"
+														class="btn btn-ghost btn-xs text-error"
+														(click)="revokeInvitation(invitation)"
+													>
+														<span [translate]>Revoke this invitation</span>
+													</button>
+												</div>
+											}
+										</div>
+									}
 								</div>
 							</div>
 						}
@@ -185,15 +248,18 @@
 						@if (teamMembers().length > 0) {
 							<div class="space-y-3">
 								@for (member of teamMembers(); track member.user.id) {
-									<div class="bg-base-100 border-base-200 flex items-center justify-between rounded-lg border p-4">
-										<div class="flex items-center space-x-3">
+									<div class="bg-base-100 border-base-200 flex flex-col gap-3 rounded-lg border p-4 @md:flex-row @md:items-center @md:justify-between">
+										<div class="flex min-w-0 items-center gap-3">
 											<!-- Avatar placeholder -->
 											<!-- Avatar -->
 											@let avatarUrl = member.user.profilePictureId ? convertToUrl(member.user.profilePictureId || '', 'thumbnail') : null;
 											@if (avatarUrl) {
 												<div class="avatar">
 													<div class="w-10 rounded-full">
-														<img [src]="avatarUrl" />
+														<img
+															[src]="avatarUrl"
+															[alt]="member.user.pseudo || member.user.email || 'Member'"
+														/>
 													</div>
 												</div>
 											} @else {
@@ -214,15 +280,15 @@
 													</div>
 												</div>
 											}
-											<div>
-												<h4 class="text-base-content font-medium">
+											<div class="min-w-0">
+												<h4 class="text-base-content truncate font-medium">
 													@if (member.user) {
 														{{ (member.user.firstName || '') + ' ' + (member.user.lastName || '') || member.user.pseudo || 'Unknown User' }}
 													} @else {
 														Unknown User
 													}
 												</h4>
-												<p class="text-base-content/60 text-sm">
+												<p class="text-base-content/60 truncate text-sm">
 													@if (member.user && member.user.email) {
 														{{ member.user.email }}
 													} @else {
@@ -231,11 +297,11 @@
 												</p>
 											</div>
 										</div>
-										<div class="flex items-center space-x-3">
+										<div class="flex flex-wrap items-center gap-2 @md:justify-end">
 											<!-- Role selector (only for admins) -->
 											@if (isCurrentUserAdmin()) {
 												<select
-													class="select select-bordered select-xs"
+													class="select select-bordered select-xs w-auto"
 													[ngModel]="member.role"
 													(ngModelChange)="changeRole(member.user.id, $event)"
 												>
@@ -321,7 +387,7 @@
 									class="text-base-content/60 mt-1 text-sm"
 									[translate]
 								>
-									Get started by adding your first team member.
+									Get started by inviting your first team member.
 								</p>
 							</div>
 						}

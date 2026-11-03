@@ -1,6 +1,6 @@
 import { GenericRepository } from '@foundation/table/state';
 import { RequestResponse } from '@foundation/network/services';
-import { Team } from '@foundation/teams/models';
+import { ClaimedInvitation, Team, TeamInvitation } from '@foundation/teams/models';
 import { Injectable, inject } from '@angular/core';
 import { Observable, of, switchMap, tap } from 'rxjs';
 
@@ -90,21 +90,32 @@ export class TeamsRepository extends GenericRepository<Team> {
 		return this._requestService.getBasic$(`/api/teams/${teamId}/change_role/${userId}/${newRole}`);
 	}
 
-	public addUserToTeamByEmail$(
+	/**
+	 * Sends an invitation rather than adding anyone: joining a team is the invited person's to
+	 * accept, whether or not they already have an account.
+	 */
+	public inviteUserToTeamByEmail$(teamId: string, userEmail: string, role: string = 'member'): Observable<RequestResponse<TeamInvitation>> {
+		return this._requestService.post$(`/api/teams/${teamId}/invitations`, {
+			email: userEmail,
+			role: role,
+		});
+	}
+
+	public revokeTeamInvitation$(
 		teamId: string,
-		userEmail: string,
-		role: string = 'member'
+		invitationId: string
 	): Observable<
 		RequestResponse<{
 			team_id: string;
-			user_id: string;
-			role: string;
+			invitation_id: string;
 		}>
 	> {
-		return this._requestService.post$(`/api/teams/${teamId}/add_by_email`, {
-			user_email: userEmail,
-			role: role,
-		});
+		return this._requestService.post$(`/api/teams/${teamId}/invitations/${invitationId}/revoke`, {});
+	}
+
+	/** Spends an invitation link. The role granted is whatever the invitation says now. */
+	public claimTeamInvitation$(token: string): Observable<RequestResponse<ClaimedInvitation>> {
+		return this._requestService.post$('/api/teams/invitations/claim', { token }, { silentError: true });
 	}
 
 	public createNewTeam$() {

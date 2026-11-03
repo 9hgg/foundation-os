@@ -21,14 +21,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+from pydantic import BaseModel
 from rich import box
 from rich.console import Console
 from rich.table import Table
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_selection import chi2
 from sklearn.metrics import classification_report, confusion_matrix
-
-from pydantic import BaseModel
 
 from libs.ml.llm.client import LLMClient, LLMMessage
 from libs.ml.llm.structured import StructuredCompletionError, structured_completion
@@ -61,7 +60,7 @@ def build_stem_word_map(texts: list[str], language: str = LANGUAGE) -> dict[str,
         if len(orig) != len(stems):
             msg = f"Token/stem length mismatch for text: {text[:60]!r}"
             raise ValueError(msg)
-        for o, s in zip(orig, stems):
+        for o, s in zip(orig, stems, strict=False):
             stem_to_words[s][o] += 1
         for i in range(len(stems) - 1):
             stem_to_words[f"{stems[i]} {stems[i + 1]}"][f"{orig[i]} {orig[i + 1]}"] += 1
@@ -167,7 +166,7 @@ def _build_snippet_index(
     analyzer: Any,
 ) -> dict[str, list[tuple[str, str]]]:
     index: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for text, label in zip(texts, labels):
+    for text, label in zip(texts, labels, strict=False):
         seen: set[str] = set()
         for stem in analyzer(text):
             if stem not in seen:
@@ -353,7 +352,7 @@ def evaluate(
     # Keyword hit distribution per class
     console.print("[bold cyan]── Keyword hit distribution per class[/bold cyan]")
     hit_counts: dict[str, Counter] = defaultdict(Counter)
-    for true, pred_obj in zip(true_labels, predictions):
+    for true, pred_obj in zip(true_labels, predictions, strict=False):
         n_hits = len((pred_obj.metadata or {}).get("matched_keywords", []))
         hit_counts[true][n_hits] += 1
 
@@ -391,7 +390,7 @@ def _collect_mistakes(
     inputs = [TextInput(text_value=t) for t in texts]
     predictions = classifier.classify(inputs)
     mistakes: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for text, true, pred in zip(texts, labels, predictions):
+    for text, true, pred in zip(texts, labels, predictions, strict=False):
         if pred.label_id != true:
             mistakes[true].append((text, pred.label_id or "?"))
     return dict(mistakes)
@@ -637,6 +636,7 @@ def _print_dataset_summary(texts: list[str], labels: list[str]) -> None:
 
 def _build_llm_client() -> LLMClient:
     import os
+
     from libs.ml.llm import OpenAILLMClient
     return OpenAILLMClient(
         model=os.getenv("OPENAI_MODEL", "gpt-5.4-nano").strip(),

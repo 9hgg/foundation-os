@@ -1,7 +1,9 @@
 import libs.utils.crypto
 from libs.acl.methods import Who, create_default_acls
 from libs.db import context_db
-from libs.logger import print_color
+import structlog
+
+logger = structlog.get_logger(__name__)
 from libs.utils.id import deterministic_uuid
 
 from .models import User
@@ -17,7 +19,7 @@ def seed_user_by_name(user: dict):
     # get the default app and create it if it doesn't exist
     user_id = deterministic_uuid(user["first_name"] + "_user")
     if not User.in_db(obj_id=user_id):
-        print_color("cyan", "[users.seed] creating user", user_id)
+        logger.info("user_seed_creating", user_id=user_id)
         user_db = User(
             id=user_id,
             first_name=user["first_name"],
@@ -40,7 +42,7 @@ def seed_user_by_name(user: dict):
 
 
 def seed():
-    print_color("cyan", "[users.seed] seeding users")
+    logger.info("users_seed_started")
     for user in USERS:
         seed_user_by_name(user)
-    print_color("cyan", "[users.seed] done seeding users")
+    logger.info("users_seed_completed")

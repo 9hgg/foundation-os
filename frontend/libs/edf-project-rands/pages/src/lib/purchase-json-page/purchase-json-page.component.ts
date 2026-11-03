@@ -18,7 +18,7 @@ export class PurchaseJsonPageComponent {
 	public purchaseId = model<string | null>(null);
 
 	purchase$$$ = new BehaviorSubjectReplayedProxied<string | null, Purchase | null>((id: string | null) => {
-		return id ? this._purchasesRepository.store.getObjectById$$$(id).$ : of(null);
+		return id ? this._purchasesRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	constructor() {

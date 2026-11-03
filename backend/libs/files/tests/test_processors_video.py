@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from libs.files.models import ExtraDetailsFile, File, FileAlternative
+from libs.files.models import ExtraDetailsFile, File
 from libs.files.processors._generic import NoStorageAvailableError
 from libs.files.processors.video import VideoProcessor
 from libs.files.storage import GenericStorage
@@ -40,12 +40,14 @@ def _tmp_file_factory(tmp_path, suffix, content=b"data"):
 
 
 def test_generate_alternatives_collects_all_outputs(mock_storage, mock_file, sample_video_path, tmp_path):
+    real_import = __import__
     with (
         patch.object(VideoProcessor, "get_storage_details", return_value=(mock_storage, sample_video_path, "videos/1")),
         patch("libs.files.processors.video.GenericStorage.get_temporary_local_path", side_effect=lambda suffix: _tmp_file_factory(tmp_path, suffix)),
         patch("libs.files.processors.video.ffmpeg.input") as mock_input,
         patch("libs.files.processors.video.ffmpegio.transcode"),
         patch("libs.files.processors.video.FILES_SETTINGS", new=SimpleNamespace(WHISPER_PATH="/models")),
+        patch("libs.files.processors.video.analyze_local_file_with_ffprobe", return_value={"has_audio": True, "duration": 1.0}),
         patch("builtins.__import__") as mock_import,
     ):
         mock_input.return_value.output.return_value.run.return_value = None
@@ -62,8 +64,6 @@ def test_generate_alternatives_collects_all_outputs(mock_storage, mock_file, sam
         fake_model = MagicMock()
         fake_model.transcribe.return_value = (fake_segments, MagicMock())
 
-        real_import = __import__
-
         def import_side_effect(name, *args, **kwargs):
             if name == "faster_whisper":
                 return SimpleNamespace(WhisperModel=MagicMock(return_value=fake_model))
@@ -74,13 +74,16 @@ def test_generate_alternatives_collects_all_outputs(mock_storage, mock_file, sam
         processor = VideoProcessor(file_db=mock_file)
         alternatives = processor.generate_alternatives(force=True)
 
+    # No "audiogram": the fixture has no audio track, so the sound measurement finds nothing and
+    # skips itself rather than failing the run -- the same path a silent video takes in production.
     assert [alt.storage_suffix for alt in alternatives] == [
         "thumbnail",
+        "squared",
         "default",
         "whisper_transcript_json",
         "whisper_transcript_srt",
     ]
-    assert mock_storage.upload.call_count == 4
+    assert mock_storage.upload.call_count == 5
 
 
 def test_generate_alternatives_skips_existing_files_when_not_forced(mock_storage, mock_file, sample_video_path):
@@ -121,8 +124,8 @@ def test_generate_alternatives_skips_whisper_when_model_path_missing(mock_storag
         processor = VideoProcessor(file_db=mock_file)
         alternatives = processor.generate_alternatives(force=True)
 
-    assert [alt.storage_suffix for alt in alternatives] == ["thumbnail", "default"]
-    assert mock_storage.upload.call_count == 2
+    assert [alt.storage_suffix for alt in alternatives] == ["thumbnail", "squared", "default"]
+    assert mock_storage.upload.call_count == 3
 
 
 def test_generate_extra_data_uses_ffprobe_values(mock_storage, mock_file, sample_video_path):
@@ -194,6 +197,8 @@ def test_generate_extra_data_returns_none_when_fallback_transcode_fails(mock_sto
 
 
 def test_missing_storage_raises_error(mock_file):
-    with patch.object(VideoProcessor, "get_storage_details", side_effect=NoStorageAvailableError()):
-        with pytest.raises(NoStorageAvailableError):
-            VideoProcessor(file_db=mock_file)
+    with (
+        patch.object(VideoProcessor, "get_storage_details", side_effect=NoStorageAvailableError()),
+        pytest.raises(NoStorageAvailableError),
+    ):
+        VideoProcessor(file_db=mock_file)

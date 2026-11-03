@@ -12,10 +12,12 @@ describe('TeamBuilderPageComponent', () => {
 	const teamsRepositoryMock = {
 		store: {
 			getObjectById$$$: vi.fn(),
+			pullObject$: vi.fn(),
 			save: vi.fn(),
 		},
 		getTeamWithMembersAndRoles$: vi.fn(),
-		addUserToTeamByEmail$: vi.fn(),
+		inviteUserToTeamByEmail$: vi.fn(),
+		revokeTeamInvitation$: vi.fn(),
 		changeUserRole$: vi.fn(),
 		removeUserFromTeam$: vi.fn(),
 		addUserToTeam$: vi.fn(),
@@ -34,8 +36,10 @@ describe('TeamBuilderPageComponent', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		teamsRepositoryMock.store.getObjectById$$$.mockReturnValue({ $: of(team) });
+		teamsRepositoryMock.store.pullObject$.mockReturnValue(of({ result: { data: team } }));
 		teamsRepositoryMock.getTeamWithMembersAndRoles$.mockReturnValue(of({ result: { members: [] } }));
-		teamsRepositoryMock.addUserToTeamByEmail$.mockReturnValue(of({ result: {} }));
+		teamsRepositoryMock.inviteUserToTeamByEmail$.mockReturnValue(of({ result: {} }));
+		teamsRepositoryMock.revokeTeamInvitation$.mockReturnValue(of({ result: {} }));
 		teamsRepositoryMock.changeUserRole$.mockReturnValue(of({ result: {} }));
 		teamsRepositoryMock.removeUserFromTeam$.mockReturnValue(of({ result: {} }));
 		teamsRepositoryMock.addUserToTeam$.mockReturnValue(of({ result: {} }));
@@ -105,44 +109,99 @@ describe('TeamBuilderPageComponent', () => {
 		expect(component.isLoadingMembers()).toBe(false);
 	});
 
-	it('adds a member by email and resets the form', () => {
+	it('invites a member by email and resets the form', () => {
 		component.newMemberEmail.set(' new@example.com ');
 		component.newMemberRole.set('admin');
-		const loadSpy = vi.spyOn(component, 'loadTeamMembers').mockImplementation(() => undefined);
+		const reloadSpy = vi.spyOn(component, 'reloadTeam').mockImplementation(() => undefined);
 
-		component.addMember();
+		component.inviteMember();
 
-		expect(teamsRepositoryMock.addUserToTeamByEmail$).toHaveBeenCalledWith('team-1', 'new@example.com', 'admin');
-		expect(notificationMock.snackSuccess).toHaveBeenCalledWith('Successfully added new@example.com to the team');
-		expect(loadSpy).toHaveBeenCalledWith('team-1');
+		expect(teamsRepositoryMock.inviteUserToTeamByEmail$).toHaveBeenCalledWith('team-1', 'new@example.com', 'admin');
+		expect(notificationMock.snackSuccess).toHaveBeenCalledWith('Invitation sent to new@example.com');
+		expect(reloadSpy).toHaveBeenCalledWith('team-1');
 		expect(component.newMemberEmail()).toBe('');
 		expect(component.newMemberRole()).toBe('member');
 	});
 
-	it('shows an error when adding a member fails', () => {
+	it('does not claim anyone joined -- the invitation is only sent', () => {
+		const loadMembersSpy = vi.spyOn(component, 'loadTeamMembers').mockImplementation(() => undefined);
 		component.newMemberEmail.set('new@example.com');
-		teamsRepositoryMock.addUserToTeamByEmail$.mockReturnValue(of({ error: { title: 'Already exists' } }));
 
-		component.addMember();
+		component.inviteMember();
 
-		expect(notificationMock.snackError).toHaveBeenCalledWith('Failed to add member: Already exists');
+		expect(loadMembersSpy).not.toHaveBeenCalled();
 	});
 
-	it('shows a network error when adding a member throws', () => {
+	it('shows an error when inviting a member fails', () => {
 		component.newMemberEmail.set('new@example.com');
-		teamsRepositoryMock.addUserToTeamByEmail$.mockReturnValue(throwError(() => new Error('offline')));
+		teamsRepositoryMock.inviteUserToTeamByEmail$.mockReturnValue(of({ error: { title: 'Already exists' } }));
 
-		component.addMember();
+		component.inviteMember();
 
-		expect(notificationMock.snackError).toHaveBeenCalledWith('Failed to add member: Network error');
+		expect(notificationMock.snackError).toHaveBeenCalledWith('Failed to invite member: Already exists');
+		expect(component.isSendingInvitation()).toBe(false);
 	});
 
-	it('does not add a member without an email', () => {
+	it('shows a network error when inviting a member throws', () => {
+		component.newMemberEmail.set('new@example.com');
+		teamsRepositoryMock.inviteUserToTeamByEmail$.mockReturnValue(throwError(() => new Error('offline')));
+
+		component.inviteMember();
+
+		expect(notificationMock.snackError).toHaveBeenCalledWith('Failed to invite member: Network error');
+		expect(component.isSendingInvitation()).toBe(false);
+	});
+
+	it('does not invite without an email', () => {
 		component.newMemberEmail.set('   ');
 
-		component.addMember();
+		component.inviteMember();
 
-		expect(teamsRepositoryMock.addUserToTeamByEmail$).not.toHaveBeenCalled();
+		expect(teamsRepositoryMock.inviteUserToTeamByEmail$).not.toHaveBeenCalled();
+	});
+
+	it('reads the invitations off the team rather than asking for them again', () => {
+		const inAWeek = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+		const lastWeek = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+		component.team.set({
+			...team,
+			config: {
+				invitations: {
+					'invitation-2': { id: 'invitation-2', email: 'zoe@example.com', role: 'member', createdAt: '', expiresAt: lastWeek },
+					'invitation-1': { id: 'invitation-1', email: 'alex@example.com', role: 'admin', createdAt: '', expiresAt: inAWeek },
+				},
+			},
+		});
+
+		expect(component.pendingInvitations().map((invitation) => invitation.email)).toEqual(['alex@example.com', 'zoe@example.com']);
+		expect(component.pendingInvitations().map((invitation) => invitation.expired)).toEqual([false, true]);
+	});
+
+	it('sends a lapsed invitation again with the role it already carried', () => {
+		const invitation = { id: 'invitation-1', email: 'new@example.com', role: 'admin', createdAt: '', expiresAt: '' };
+
+		component.resendInvitation(invitation);
+
+		expect(teamsRepositoryMock.inviteUserToTeamByEmail$).toHaveBeenCalledWith('team-1', 'new@example.com', 'admin');
+	});
+
+	it('revokes an invitation once confirmed, and pulls the team again', () => {
+		const invitation = { id: 'invitation-1', email: 'new@example.com', role: 'member', createdAt: '', expiresAt: '' };
+		const reloadSpy = vi.spyOn(component, 'reloadTeam').mockImplementation(() => undefined);
+
+		component.revokeInvitation(invitation);
+
+		expect(teamsRepositoryMock.revokeTeamInvitation$).toHaveBeenCalledWith('team-1', 'invitation-1');
+		expect(reloadSpy).toHaveBeenCalledWith('team-1');
+	});
+
+	it('leaves an invitation alone when the confirmation is dismissed', () => {
+		notificationMock.confirm.mockReturnValue({ closed: of(false) });
+		const invitation = { id: 'invitation-1', email: 'new@example.com', role: 'member', createdAt: '', expiresAt: '' };
+
+		component.revokeInvitation(invitation);
+
+		expect(teamsRepositoryMock.revokeTeamInvitation$).not.toHaveBeenCalled();
 	});
 
 	it('changes a member role and reloads members', () => {

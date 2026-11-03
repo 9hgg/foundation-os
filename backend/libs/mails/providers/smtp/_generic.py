@@ -2,11 +2,11 @@ import smtplib
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formatdate, make_msgid
 
+import structlog
 from cryptography.fernet import Fernet
 from pydantic import BaseModel, TypeAdapter
-
-from libs.logger import print
 
 from ...models import Mail, MailSettings
 from .._generic import COMMASPACE, GenericMailProvider
@@ -17,6 +17,8 @@ from .errors import (
     SMTPHTMLContentMissingTagError,
     SMTPTextContainsHTMLTagError,
 )
+
+logger = structlog.get_logger(__name__)
 
 
 class SMTPConfig(BaseModel):
@@ -73,9 +75,7 @@ class GenericSMTPProvider(GenericMailProvider):
             if not cipher:
                 raise MissingSMTPCipherKeyError()
 
-            password = cipher.decrypt(
-                self.config.crypted_password.encode("utf-8")
-            ).decode()
+            password = cipher.decrypt(self.config.crypted_password.encode("utf-8")).decode()
             self.smtp_connexion.login(self.config.username, password)
 
     def _disconnect(self):
@@ -94,6 +94,7 @@ class GenericSMTPProvider(GenericMailProvider):
         subject: str,
         text_content: str,
         html_content: str | None = None,
+        cc_emails: list[str] | None = None,
         attachments: list[str] | None = None,
         headers: list[list[str]] | None = None,
         dry_run: bool = False,
@@ -124,6 +125,7 @@ class GenericSMTPProvider(GenericMailProvider):
             subject=subject,
             text_content=text_content,
             html_content=html_content,
+            cc_emails=cc_emails,
             attachments=attachments,
             headers=headers,
         )
@@ -141,6 +143,7 @@ class GenericSMTPProvider(GenericMailProvider):
         subject: str,
         text_content: str,
         html_content: str | None = None,
+        cc_emails: list[str] | None = None,
         attachments: list[str] | None = None,
         # headers is a list of lists (header_name, header_value)
         headers: list[list[str]] | None = None,
@@ -156,7 +159,14 @@ class GenericSMTPProvider(GenericMailProvider):
         msg = MIMEMultipart("alternative")
         msg["From"] = sender_email
         msg["To"] = COMMASPACE.join(recipient_emails)
+        if cc_emails:
+            msg["Cc"] = COMMASPACE.join(cc_emails)
         msg["Subject"] = subject
+        # Gmail (and most receiving servers) treat mail missing these as a strong
+        # spam/reject signal — real mail clients always set them, raw email.mime
+        # does not unless we do it ourselves.
+        msg["Date"] = formatdate(localtime=True)
+        msg["Message-ID"] = make_msgid(domain=sender_email.split("@")[-1])
 
         # Add extra headers
         for header in self.config.extra_headers:
@@ -179,19 +189,19 @@ class GenericSMTPProvider(GenericMailProvider):
             html_part = MIMEText(html_content, "html", "utf-8")
             msg.attach(html_part)
 
-        # Attach file attachments
+        self._attach_files(msg, attachments)
+
+        # The envelope carries the Cc addresses too: the header alone says who was copied, it does
+        # not deliver to them.
+        envelope = [*recipient_emails, *(cc_emails or [])]
+        return self.smtp_connexion.sendmail(sender_email, envelope, msg.as_string())
+
+    def _attach_files(self, msg: MIMEMultipart, attachments: list[str]) -> None:
         for attachment in attachments:
             with open(attachment, "rb") as file:
                 attachment_part = MIMEApplication(file.read())
-                attachment_part.add_header(
-                    "Content-Disposition", f'attachment; filename="{attachment}"'
-                )
+                attachment_part.add_header("Content-Disposition", f'attachment; filename="{attachment}"')
                 msg.attach(attachment_part)
-
-        # Send the email
-        return self.smtp_connexion.sendmail(
-            sender_email, recipient_emails, msg.as_string()
-        )
 
     def process_mails(self, mails: list[Mail]):
         """Should send the mail using the provider"""
@@ -201,9 +211,6 @@ class GenericSMTPProvider(GenericMailProvider):
 
         # send the mails
         for mail in mails:
-            sendmail_response = None
-            status = "unknown"
-
             try:
                 sendmail_response = self._send_email_with_attachments(
                     sender_email=mail.sender,
@@ -211,18 +218,28 @@ class GenericSMTPProvider(GenericMailProvider):
                     subject=mail.subject,
                     text_content=mail.body,
                     html_content=None,
+                    cc_emails=mail.config.cc,
                     attachments=[],
                 )
-                # Check the delivery status for each recipient
-                for recipient, (status, error) in sendmail_response.items():
-                    if status == 250:
-                        print(f"Email to {recipient} was delivered successfully.")
-                    else:
-                        print(f"Email to {recipient} failed with error: {error}")
-            except Exception as e:
-                sendmail_response = e
-
-            print("sendmail_response", sendmail_response)
+                refused_count = len(sendmail_response)
+                logger.info(
+                    "mail_send_completed",
+                    provider=type(self).__name__,
+                    status="success" if refused_count == 0 else "partial_failure",
+                    recipient_count=len(mail.recipients),
+                    accepted_count=max(0, len(mail.recipients) - refused_count),
+                    refused_count=refused_count,
+                )
+            except Exception as error:
+                # Do not attach the SMTP exception: its message may contain
+                # recipient addresses or server-provided sensitive details.
+                logger.error(  # noqa: TRY400
+                    "mail_send_failed",
+                    provider=type(self).__name__,
+                    status="failure",
+                    recipient_count=len(mail.recipients),
+                    error_type=type(error).__name__,
+                )
 
         # close the SMTP connection
         self._disconnect()

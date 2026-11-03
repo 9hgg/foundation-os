@@ -30,11 +30,15 @@ export interface EntityFile extends Resource {
 	mimeClient?: string;
 	/** to use as default until size is available */
 	sizeClient?: string;
+	/** SHA-256 hex digest computed by the client before upload -- available immediately, before the server-side hash is computed. */
+	hashClient?: string | null;
 
 	/** undefined until we have a way to check if a file is unprocessable */
 	unprocessable?: boolean;
 	mime?: string;
 	size?: number;
+	/** SHA-256 hex digest of the file content, computed server-side. Absent for files not hashed yet -- fall back to hashClient. */
+	hash?: string | null;
 
 	storageType?: string;
 	storageId?: string;

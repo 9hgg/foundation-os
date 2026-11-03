@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { NotificationService } from '@foundation/notification';
 import { TranslationService } from '@foundation/translations/services';
 import { UsersRepository } from '@foundation/users/state';
@@ -10,7 +11,10 @@ const mockNotificationService = {
 };
 
 const mockUsersRepository = {
-        store: { getObjects$: vi.fn() },
+        store: {
+                getObjects$: vi.fn(() => of({ data: [], totalCount: 0, page: 1, hasNext: false, hasPrev: false })),
+                getObjectById$$$: vi.fn(() => ({ $: of(null) })),
+        },
 };
 
 const mockTranslationService = {

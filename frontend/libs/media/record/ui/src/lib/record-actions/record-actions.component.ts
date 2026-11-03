@@ -3,7 +3,7 @@ import { DEFAULT_RECORDING_PROPS, MediaModeOptions, RecorderService, RecordingPr
 import { Checkable, DurationPipe } from '@foundation/utils';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, effect, ElementRef, EventEmitter, HostListener, input, Input, Output, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, ElementRef, EventEmitter, HostListener, input, Input, OnDestroy, Output, ViewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { mean } from 'lodash-es';
 import { tap } from 'rxjs/operators';
@@ -37,7 +37,7 @@ import { tap } from 'rxjs/operators';
 	],
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class RecordActionsComponent extends Checkable {
+export class RecordActionsComponent extends Checkable implements OnDestroy {
 	MediaModeOptions = MediaModeOptions;
 
 	aspectRatioOptions = Object.entries(VideoAspectRatio).map(([key, value]) => ({
@@ -50,6 +50,8 @@ export class RecordActionsComponent extends Checkable {
 	@Input() displayAudioBtn = true;
 	@Input() displayUploadBtn = true;
 	@Input() displayScreenCaptureWithVideoBtn = true;
+	/** Screen capture without the webcam (screen + mic). Off by default. */
+	@Input() displayScreenCaptureBtn = false;
 	@Input() maxDuration = 0;
 
 	/** Current state of the recording repository */
@@ -284,6 +286,13 @@ export class RecordActionsComponent extends Checkable {
 		this.mediaMode = null;
 	}
 
+	ngOnDestroy(): void {
+		// Release the mic/camera (and any pending countdown) when the recorder leaves the DOM,
+		// e.g. the guest navigates away from the step or cancels — otherwise the device stays live.
+		this._cancelRecordCounter();
+		this._recorderService.cancelRecording();
+	}
+
 	/**
 	 * called by the record button
 	 * @returns
@@ -361,15 +370,14 @@ export class RecordActionsComponent extends Checkable {
 
 	accept = input<string>('audio/*, video/*');
 
-	@HostListener('change', ['$event.target.files'])
-	handleFileInputEvent(fileList: FileList) {
-		const files = Array.from(fileList);
-
-		if (files.length === 0) {
+	@HostListener('change', ['$event'])
+	handleFileInputEvent(event: Event) {
+		const fileList = (event.target as HTMLInputElement | null)?.files;
+		if (!fileList || fileList.length === 0) {
 			console.log('No files selected');
 			return;
 		}
 
-		this.fileAvailableEvent.emit(files[0]);
+		this.fileAvailableEvent.emit(Array.from(fileList)[0]);
 	}
 }

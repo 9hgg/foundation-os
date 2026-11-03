@@ -39,7 +39,7 @@ export class ArticlePillComponent implements OnDestroy {
 			if (!articleId_) return;
 
 			this._articlesRepository.store
-				.getObjectById$$$(articleId_, true)
+				.getObjectByIdPullOnce$$$(articleId_)
 				.pipe(
 					filter((a) => !!a),
 					take(1),

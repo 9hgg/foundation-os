@@ -1,28 +1,25 @@
 import hashlib
 import inspect
 
+import structlog
+
 from libs.i18n.translators._generic import Translator, dummy_translator
-from libs.logger import print_error, print_warning
+
+logger = structlog.get_logger(__name__)
 
 try:
     import argostranslate.package as argos_package
     import argostranslate.translate as argos_translate
-except Exception:
-    print_warning(
-        "Failed to import Argos Translate. "
-        "Install optional i18n dependencies to enable automatic translation."
-    )
+except Exception as error:
+    logger.warning("argos_import_failed", error_type=type(error).__name__)
     argos_package = None
     argos_translate = None
 
 
-def get_argos_translator():
+def get_argos_translator():  # noqa: C901
 
     if argos_package is None or argos_translate is None:
-        print_warning(
-            "Argos translator is not available. "
-            "Install optional i18n dependencies to enable automatic translation."
-        )
+        logger.warning("argos_translator_unavailable")
         return dummy_translator
 
     _available_packages_cache: list | None = None
@@ -63,8 +60,11 @@ def get_argos_translator():
                 argos_package.update_package_index()
                 _available_packages_cache = argos_package.get_available_packages()
             except Exception as exc:
-                print_warning(
-                    f"(_ensure_argos_language_translator) Argos package index update failed for {input_language}->{target_language}: {exc}. "
+                logger.warning(
+                    "argos_package_index_update_failed",
+                    source_language=input_language,
+                    target_language=target_language,
+                    error_type=type(exc).__name__,
                 )
                 return False
 
@@ -77,16 +77,21 @@ def get_argos_translator():
             None,
         )
         if package_to_install is None:
-            print_warning(
-                f"(_ensure_argos_language_translator) Argos package {input_language} -> {target_language} not available in argos index."
+            logger.warning(
+                "argos_package_unavailable",
+                source_language=input_language,
+                target_language=target_language,
             )
             return False
 
         try:
             argos_package.install_from_path(package_to_install.download())
         except Exception as exc:
-            print_warning(
-                f"(_ensure_argos_language_translator) Argos package install failed for {input_language}->{target_language}: {exc}. "
+            logger.warning(
+                "argos_package_install_failed",
+                source_language=input_language,
+                target_language=target_language,
+                error_type=type(exc).__name__,
             )
             return False
         return _can_translate_now(input_language, target_language)
@@ -103,7 +108,7 @@ def get_argos_translator():
         def _translate_or_none(source: str, target: str, content: str) -> str | None:
             try:
                 translated: str = argos_translate.translate(content, source, target)
-                return translated
+                return translated  # noqa: TRY300
             except Exception:
                 return None
 
@@ -126,8 +131,10 @@ def get_argos_translator():
                     if final_text:
                         return final_text
 
-        print_warning(
-            f"(argos_translate_text) Argos translator not available for {source_language} -> {target_language} (direct or relay via en)."
+        logger.warning(
+            "argos_translation_unavailable",
+            source_language=source_language,
+            target_language=target_language,
         )
         return None
 
@@ -140,7 +147,7 @@ def get_argos_translator():
         argos_translator = Translator(
             "argos", "v2-" + version_hash, argos_translate_text
         )
-    except Exception as e:
-        print_error(f"(argos_translate_text) Failed to initialize Argos translator: {e}")
+    except Exception as error:
+        logger.exception("argos_translator_initialization_failed", error_type=type(error).__name__)
         return dummy_translator
     return argos_translator

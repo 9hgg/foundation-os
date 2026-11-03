@@ -1,21 +1,28 @@
 /* eslint-disable @angular-eslint/prefer-inject */ import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
-import { Attribute, ChangeDetectionStrategy, Component, contentChild, inject } from '@angular/core';
+import { Attribute, ChangeDetectionStrategy, Component, contentChild, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Article } from '@foundation/articles/models';
 import { ArticlesRepository } from '@foundation/articles/state';
+import { RequestService } from '@foundation/network/services';
+import { Filter } from '@foundation/network/store';
 import { FoldersModals } from '@foundation/folders/modals';
 import { AccessService } from '@foundation/shared/access';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { DateAsAgoPipe } from '@foundation/utils';
 import { switchMap } from 'rxjs';
 import { ArticleTableExpandedDirective } from './article-table-expanded.directive';
 
+/** Live articles carry no state at all, so "not archived" is simply "state is null". */
+const HIDE_ARCHIVED_FILTER: Filter = { fieldName: 'state', value: '~null', matchType: 'exact' };
+
 @Component({
 	selector: 'lib-article-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		//
 		CommonModule,
 		ReactiveFormsModule,
@@ -34,6 +41,11 @@ import { ArticleTableExpandedDirective } from './article-table-expanded.directiv
 export class ArticleTableComponent extends RepositoryTableComponent<Article, ArticlesRepository> {
 	private _foldersModal = inject(FoldersModals);
 	private _accessService = inject(AccessService);
+	private _requestServiceForState = inject(RequestService);
+
+	/** An archived article is filed away, not deleted: everyone can ask to see them again. */
+	readonly isDisplayingArchived = signal(false);
+	readonly isAdmin = toSignal(this._accessService.checkAdmin$(), { initialValue: false });
 
 	articleKind: Article['kind'] | null;
 	adminMode = false;
@@ -60,8 +72,9 @@ export class ArticleTableComponent extends RepositoryTableComponent<Article, Art
 								value: effectiveArticleKind,
 								matchType: 'exact',
 							},
+							HIDE_ARCHIVED_FILTER,
 						]
-					: [],
+					: [HIDE_ARCHIVED_FILTER],
 				requestFn: (page, pageSize, filters, orderingBy, forceRequest) => {
 					return _repository.store.getObjects$(page, pageSize, filters, orderingBy, forceRequest, includeAnonymous ? false : undefined, isAdminMode);
 				},
@@ -131,6 +144,24 @@ export class ArticleTableComponent extends RepositoryTableComponent<Article, Art
 			.applyPatch(article.id, { kind })
 			.pipe(switchMap(() => this.paginator.refresh()))
 			.subscribe();
+	}
+
+	/** Admin: file an article away, or bring it back. Archiving also suspends its conversations,
+	 *  so what was said stays readable and nothing new is accepted. */
+	public toggleArchived(article: Article): void {
+		const state = article.state === 'archived' ? null : 'archived';
+		this._requestServiceForState
+			.post$<Article>(`/api/articles/admin/${article.id}/state`, { state })
+			.pipe(switchMap(() => this.paginator.refresh()))
+			.subscribe();
+	}
+
+	/** Show the archived ones alongside the live ones, or hide them again. */
+	public toggleDisplayArchived(): void {
+		const isDisplayingArchived = !this.isDisplayingArchived();
+		this.isDisplayingArchived.set(isDisplayingArchived);
+		const kindFilters = this.articleKind ? [{ fieldName: 'kind', value: this.articleKind, matchType: 'exact' as const }] : [];
+		this.paginator.setAlwaysOnFilters(isDisplayingArchived ? kindFilters : [...kindFilters, HIDE_ARCHIVED_FILTER]);
 	}
 
 	public toggleDraft(article: Article): void {

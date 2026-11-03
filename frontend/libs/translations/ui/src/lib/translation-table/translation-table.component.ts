@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { Translation } from '@foundation/translations/models';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { TranslationsRepository } from '@foundation/translations/state';
@@ -13,7 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 @Component({
 	selector: 'lib-translation-table',
 	standalone: true,
-	imports: [CommonModule, ReactiveFormsModule, FormsModule, CdkMenuModule, TranslateDirective, TranslatePipe],
+	imports: [TablePaginatorComponent, CommonModule, ReactiveFormsModule, FormsModule, CdkMenuModule, TranslateDirective, TranslatePipe],
 	templateUrl: './translation-table.component.html',
 	styleUrl: './translation-table.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,

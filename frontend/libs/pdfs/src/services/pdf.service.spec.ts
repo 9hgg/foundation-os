@@ -16,6 +16,12 @@ function makeOkBlobResponse(blob: Blob, contentType: string) {
   });
 }
 
+// jsdom's Blob does not implement text(), which the service's error path relies on to read
+// the body back out; stand in with a Blob-shaped object that does.
+function makeTextBlob(text: string): Blob {
+  return { text: () => Promise.resolve(text) } as unknown as Blob;
+}
+
 describe('PdfService', () => {
   let service: PdfService;
   let requestMock: ReturnType<typeof makeRequestMock>;
@@ -38,7 +44,7 @@ describe('PdfService', () => {
     });
 
     it('calls URL.revokeObjectURL for valid url', () => {
-      const spy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+      const spy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
       service.revokeObjectUrl('blob:http://localhost/123');
       expect(spy).toHaveBeenCalledWith('blob:http://localhost/123');
       spy.mockRestore();
@@ -164,6 +170,141 @@ describe('PdfService', () => {
       const { firstValueFrom } = await import('rxjs');
       const result = await firstValueFrom(service.renderPdfBlob$({ documentType: 'test', payload: { uid: 'b2' } }));
       expect(result).toBeInstanceOf(Blob);
+    });
+
+    it('sends the documentType, payload, options and template as the request body', () => {
+      const blob = new Blob(['%PDF'], { type: 'application/pdf' });
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(blob, 'application/pdf')));
+
+      service.renderPdfBlob$({ documentType: 'invoice', payload: { id: 1 }, options: { pageSize: 'A4' }, template: 'custom' }).subscribe();
+
+      expect(requestMock.postBlob$).toHaveBeenCalledWith(
+        '/api/pdfs/render',
+        { documentType: 'invoice', payload: { id: 1 }, options: { pageSize: 'A4' }, template: 'custom' },
+        { silentError: true }
+      );
+    });
+
+    it('rejects with "Empty response" when the server returns no body', async () => {
+      requestMock.postBlob$.mockReturnValue(
+        of(new HttpResponse<Blob>({ body: null, headers: new HttpHeaders({ 'content-type': 'application/pdf' }), status: 200 }))
+      );
+
+      await expect(new Promise((_resolve, reject) => service.renderPdfBlob$({ documentType: 'report', payload: {} }).subscribe({ error: reject }))).rejects.toMatchObject({
+        title: 'Empty response',
+        code: 'empty_response',
+      });
+    });
+
+    it('reports the server-provided error when the content-type is not a pdf', async () => {
+      const errorBody = makeTextBlob(JSON.stringify({ error: { title: 'Rendering failed', description: 'template not found' } }));
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(errorBody, 'application/json')));
+
+      await expect(new Promise((_resolve, reject) => service.renderPdfBlob$({ documentType: 'report', payload: {} }).subscribe({ error: reject }))).rejects.toEqual({
+        title: 'Rendering failed',
+        description: 'template not found',
+      });
+    });
+
+    it('falls back to "Invalid response" when the error payload is not valid JSON', async () => {
+      const errorBody = makeTextBlob('not json');
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(errorBody, 'text/plain')));
+
+      await expect(new Promise((_resolve, reject) => service.renderPdfBlob$({ documentType: 'report', payload: {} }).subscribe({ error: reject }))).rejects.toMatchObject({
+        title: 'Invalid response',
+        code: 'invalid_response',
+      });
+    });
+
+    it('falls back to "Invalid response" when the JSON payload has no error key', async () => {
+      const errorBody = makeTextBlob(JSON.stringify({ message: 'nope' }));
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(errorBody, 'application/json')));
+
+      await expect(new Promise((_resolve, reject) => service.renderPdfBlob$({ documentType: 'report', payload: {} }).subscribe({ error: reject }))).rejects.toMatchObject({
+        title: 'Invalid response',
+      });
+    });
+
+    it('drops the in-flight cache entry once the request completes, so a later call re-requests', async () => {
+      const blob = new Blob(['%PDF'], { type: 'application/pdf' });
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(blob, 'application/pdf')));
+
+      const req = { documentType: 'report', payload: { id: 'refetch' } };
+      const { firstValueFrom } = await import('rxjs');
+      await firstValueFrom(service.renderPdfBlob$(req));
+      expect(requestMock.postBlob$).toHaveBeenCalledTimes(1);
+
+      await firstValueFrom(service.renderPdfBlob$(req));
+      expect(requestMock.postBlob$).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('renderPdfUrl$', () => {
+    it('turns the rendered blob into an object url', async () => {
+      const blob = new Blob(['%PDF'], { type: 'application/pdf' });
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(blob, 'application/pdf')));
+      const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://localhost/abc');
+
+      const { firstValueFrom } = await import('rxjs');
+      const url = await firstValueFrom(service.renderPdfUrl$({ documentType: 'report', payload: {} }));
+
+      expect(createObjectURL).toHaveBeenCalledWith(blob);
+      expect(url).toBe('blob:http://localhost/abc');
+      createObjectURL.mockRestore();
+    });
+  });
+
+  describe('renderSimpleReportUrl$', () => {
+    it('renders as a "report" document with the given payload, options and template', () => {
+      const blob = new Blob(['%PDF'], { type: 'application/pdf' });
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(blob, 'application/pdf')));
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://localhost/report');
+
+      service.renderSimpleReportUrl$({ title: 'Q1' }, { pageSize: 'A4' }, 'custom-template').subscribe();
+
+      expect(requestMock.postBlob$).toHaveBeenCalledWith(
+        '/api/pdfs/render',
+        { documentType: 'report', payload: { title: 'Q1' }, options: { pageSize: 'A4' }, template: 'custom-template' },
+        { silentError: true }
+      );
+    });
+  });
+
+  describe('renderHtmlBlob$', () => {
+    it('emits the html Blob on success', async () => {
+      const blob = new Blob(['<html></html>'], { type: 'text/html' });
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(blob, 'text/html; charset=utf-8')));
+
+      const { firstValueFrom } = await import('rxjs');
+      const result = await firstValueFrom(service.renderHtmlBlob$({ documentType: 'report', payload: {} }));
+      expect(result).toBe(blob);
+    });
+
+    it('sends the same request body shape as the pdf endpoint, against render-html', () => {
+      const blob = new Blob(['<html></html>'], { type: 'text/html' });
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(blob, 'text/html')));
+
+      service.renderHtmlBlob$({ documentType: 'invoice', payload: { id: 1 } }).subscribe();
+
+      expect(requestMock.postBlob$).toHaveBeenCalledWith('/api/pdfs/render-html', { documentType: 'invoice', payload: { id: 1 }, options: undefined, template: undefined }, { silentError: true });
+    });
+
+    it('rejects with "Empty response" when the server returns no body', async () => {
+      requestMock.postBlob$.mockReturnValue(
+        of(new HttpResponse<Blob>({ body: null, headers: new HttpHeaders({ 'content-type': 'text/html' }), status: 200 }))
+      );
+
+      await expect(new Promise((_resolve, reject) => service.renderHtmlBlob$({ documentType: 'report', payload: {} }).subscribe({ error: reject }))).rejects.toMatchObject({
+        title: 'Empty response',
+        code: 'empty_response',
+      });
+    });
+
+    it('reports the server-provided error when the content-type is not html', async () => {
+      const errorBody = makeTextBlob(JSON.stringify({ error: { title: 'Rendering failed' } }));
+      requestMock.postBlob$.mockReturnValue(of(makeOkBlobResponse(errorBody, 'application/json')));
+
+      await expect(new Promise((_resolve, reject) => service.renderHtmlBlob$({ documentType: 'report', payload: {} }).subscribe({ error: reject }))).rejects.toEqual({ title: 'Rendering failed' });
     });
   });
 });

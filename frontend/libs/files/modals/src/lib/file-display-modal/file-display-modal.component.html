@@ -1,17 +1,66 @@
 <div class="bg-base-100 flex h-full w-full flex-col p-0">
-	<div class="border-base-200 flex items-center justify-between border-b px-6 py-4">
-		<h3 class="text-lg font-bold">{{ data.entityFile.publicFilename || data.entityFile.originalFilename || data.entityFile.id }}</h3>
+	<div class="border-base-200 flex items-center justify-between gap-3 border-b px-6 py-4">
+		<h3 class="truncate text-lg font-bold">{{ currentTitle() }}</h3>
 		<button
-			class="btn btn-sm btn-circle btn-ghost"
+			class="btn btn-sm btn-circle btn-ghost shrink-0"
 			(click)="close()"
 		>
 			✕
 		</button>
 	</div>
 
-	<div class="flex-1 overflow-auto p-6">
+	<div class="relative flex-1 overflow-auto p-6">
 		<div class="bg-base-100 border-base-200 flex w-full flex-col items-center gap-4 rounded-lg border p-6 shadow-inner">
-			<lib-file-display [entityFile]="data.entityFile"></lib-file-display>
+			@if (showHighlight()) {
+				<div class="relative w-fit max-w-full overflow-hidden rounded">
+					<img [src]="highlightImageUrl()" (load)="onHighlightImageLoad($event)" alt="" class="block max-h-[70vh] max-w-full" />
+					@if (highlightStyle(); as style) {
+						<div
+							class="border-primary pointer-events-none absolute rounded-sm border-2 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
+							[style.left]="style.left"
+							[style.top]="style.top"
+							[style.width]="style.width"
+							[style.height]="style.height"
+						></div>
+					}
+				</div>
+			} @else {
+				<lib-file-display [entityFile]="currentFile()"></lib-file-display>
+			}
 		</div>
+
+		@if (isSlideshow()) {
+			<button
+				type="button"
+				class="btn btn-circle btn-ghost bg-base-100/80 absolute top-1/2 left-8 -translate-y-1/2 shadow"
+				(click)="previous()"
+			>
+				&lt;
+			</button>
+			<button
+				type="button"
+				class="btn btn-circle btn-ghost bg-base-100/80 absolute top-1/2 right-8 -translate-y-1/2 shadow"
+				(click)="next()"
+			>
+				&gt;
+			</button>
+		}
 	</div>
+
+	@if (data.actions?.length) {
+		<div class="border-base-200 flex items-center justify-end gap-2 border-t px-6 py-4">
+			@for (action of data.actions; track action.label) {
+				<button
+					type="button"
+					class="btn btn-sm"
+					[class.btn-primary]="(action.variant ?? 'primary') === 'primary'"
+					[class.btn-ghost]="action.variant === 'ghost' || action.variant === 'error'"
+					[class.text-error]="action.variant === 'error'"
+					(click)="runAction(action)"
+				>
+					{{ action.label }}
+				</button>
+			}
+		</div>
+	}
 </div>

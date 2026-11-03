@@ -3,6 +3,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
+
 from libs.utils.crypto import hash_secret, verify_secret
 from libs.utils.id import deterministic_uuid
 from libs.utils.tokens import create_jwt_token
@@ -72,7 +73,7 @@ def test_create_jwt_token(mock_settings):
 @patch("libs.utils.files.os.makedirs")
 @patch("libs.utils.files.FILES_UTILS_SETTINGS")
 def test_files_utils(mock_settings, mock_makedirs, mock_isdir):
-    from libs.utils.files import mkdir_p, get_or_create_temp_folder, add_subfolder
+    from libs.utils.files import add_subfolder, get_or_create_temp_folder, mkdir_p
 
     mock_settings.STORAGE_FOLDER = "/tmp/storage"
 
@@ -105,8 +106,9 @@ def test_files_utils(mock_settings, mock_makedirs, mock_isdir):
 
 # Tests for origin.py
 def test_get_origin():
-    from libs.utils.origin import get_origin
     from unittest.mock import MagicMock
+
+    from libs.utils.origin import get_origin
 
     # Test with no request
     assert get_origin(None, "default") == "default"
@@ -120,13 +122,44 @@ def test_get_origin():
     req.headers = {"ba-origin": "https://ba.example.com"}
     assert get_origin(req) == "https://ba.example.com"
 
-    # Test with host header
+    # Test with host header (scheme comes from the request URL)
     req.headers = {"host": "host.example.com"}
-    assert get_origin(req) == "host.example.com"
+    req.url.scheme = "https"
+    assert get_origin(req) == "https://host.example.com"
 
     # Test with no headers but default
     req.headers = {}
     assert get_origin(req, "default") == "default"
+
+
+def test_get_preferred_origin_preserves_same_site_subdomain():
+    from unittest.mock import MagicMock
+
+    from libs.utils.origin import get_preferred_origin
+
+    req = MagicMock()
+    req.headers = {"host": "an211.gadz.app"}
+    req.url.scheme = "https"
+
+    assert (
+        get_preferred_origin(req, "https://gadz.app")
+        == "https://an211.gadz.app"
+    )
+
+
+def test_get_preferred_origin_rejects_unrelated_origin():
+    from unittest.mock import MagicMock
+
+    from libs.utils.origin import get_preferred_origin
+
+    req = MagicMock()
+    req.headers = {"host": "attacker.example"}
+    req.url.scheme = "https"
+
+    assert (
+        get_preferred_origin(req, "https://gadz.app")
+        == "https://gadz.app"
+    )
 
 
 # Tests for emails.py

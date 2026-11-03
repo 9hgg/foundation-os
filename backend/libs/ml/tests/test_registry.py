@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from libs.ml.registry import MLRegistry, MethodSpec, ParameterSpec, TaskFormalism
+from libs.ml.registry import MethodSpec, MLRegistry, ParameterSpec, TaskFormalism
 
 
 def _make_spec(key: str, formalism: TaskFormalism, trainable: bool = False) -> MethodSpec:
@@ -111,6 +111,13 @@ def test_method_spec_rule_based_default_false() -> None:
 
 
 def test_parameter_spec_fields() -> None:
-    p = ParameterSpec(name="threshold", label="Threshold", type="number", default=0.5)
+    p = ParameterSpec(
+        name="threshold",
+        label="Threshold",
+        type="number",
+        default=0.5,
+        possible_values=[0.1, 0.5, 0.9],
+    )
     assert p.name == "threshold"
     assert p.default == 0.5
+    assert p.possible_values == [0.1, 0.5, 0.9]

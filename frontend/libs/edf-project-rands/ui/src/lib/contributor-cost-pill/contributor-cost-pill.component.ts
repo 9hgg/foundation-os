@@ -110,7 +110,7 @@ export class ContributorCostPillComponent implements OnDestroy {
 			}
 
 			this._contributorsRepository.store
-				.getObjectById$$$(contributorId_, true)
+				.getObjectByIdPullOnce$$$(contributorId_)
 				.$.pipe(
 					filter((a) => !!a),
 					take(1),

@@ -1,25 +1,24 @@
-from typing import Optional
 
 from pydantic import BaseModel
 
 
 class Candidate(BaseModel):
     excel_name: str
-    first: Optional[str] = None
-    last: Optional[str] = None
-    nni: Optional[str] = None
-    inferred_category: Optional[str] = None
-    inferred_group: Optional[str] = None
-    inferred_department: Optional[str] = None
-    source: Optional[str] = None
+    first: str | None = None
+    last: str | None = None
+    nni: str | None = None
+    inferred_category: str | None = None
+    inferred_group: str | None = None
+    inferred_department: str | None = None
+    source: str | None = None
 
 
 class Match(BaseModel):
     excel_name: str
     candidate: Candidate
-    matched_contributor_id: Optional[str] = None
+    matched_contributor_id: str | None = None
     # how the match was found: 'full' for NNI+category+group, 'nni' for unique NNI match, None when unmatched
-    matched_by: Optional[str] = None
+    matched_by: str | None = None
 
 
 class ImportSummary(BaseModel):

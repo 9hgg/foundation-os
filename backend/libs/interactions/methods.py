@@ -1,13 +1,12 @@
 import sqlalchemy as sa
+import structlog
 from jose import jwt
 from jose.exceptions import JWTError
 from pydantic import ValidationError
-from rich import print
 
 from libs.acl.models import Acl, Operation
 from libs.db import context_db
 from libs.endpoints.endpoints import add_acl_filters
-from libs.logger import print_error
 from libs.resource.resource import Resource
 from libs.sessions.models import AppSession
 from libs.users.models import User
@@ -15,6 +14,8 @@ from libs.utils import tokens
 
 from .config import INTERACTIONS_SETTINGS
 from .models import Interaction
+
+logger = structlog.get_logger(__name__)
 
 
 def _get_interactions_for(
@@ -66,7 +67,7 @@ def _get_interactions_for(
 
 def get_interaction_by_token(interactionToken: str | None) -> Interaction | None:
     if not interactionToken:
-        print("[interactions.methods.py](get_interaction_by_token) no interactionToken")
+        logger.warning("interaction_token_missing")
         return None
     try:
         payload = jwt.decode(
@@ -76,14 +77,10 @@ def get_interaction_by_token(interactionToken: str | None) -> Interaction | None
             options={"verify_exp": False},  # TODO set to True later
         )
     except (JWTError, ValidationError) as e:
-        print_error(
-            "[interactions.methods.py](get_interaction_by_token) JWTError",
-            interactionToken,
-            e,
-        )
+        logger.warning("interaction_token_invalid", error_type=type(e).__name__)
         return None
     sub = payload.get("sub", None)
-    print("[interactions.methods.py](get_interaction_by_token) sub:", sub)
+    logger.debug("interaction_subscription_resolved", has_subscription=sub is not None)
     if sub is None:
         return None
     interaction_db: Interaction | None = Interaction.by_id(sub)

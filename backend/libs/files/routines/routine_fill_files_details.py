@@ -1,11 +1,10 @@
 import signal
-import typing
 import uuid
+from builtins import print
 
 from libs.db import context_db
 from libs.files.models import File
 from libs.files.tasks import fill_file_details
-from libs.logger import print
 
 shutdown = False
 
@@ -20,7 +19,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 with context_db() as db:
-    file_id_tuples: list[typing.Tuple[uuid.UUID]] = (
+    file_id_tuples: list[tuple[uuid.UUID]] = (
         db.query(File.id).where(File.mime == None).all()  # noqa: E711
     )
 

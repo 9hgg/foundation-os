@@ -50,6 +50,15 @@ export class PlotComponent implements OnDestroy {
 	/** Height of the chart container. Defaults to '384px' (h-96). */
 	height = input<string>('384px');
 
+	/** Show a legend listing the series (line charts). Overlay bounds (min/max) are excluded. */
+	showLegend = input<boolean>(false);
+
+	/** Stack line/area series -- for additive quantities whose sum is the meaningful envelope. */
+	stacked = input<boolean>(false);
+
+	/** Step rendering: values hold until the next point instead of ramping towards it. */
+	step = input<boolean>(false);
+
 	/** Currently active chart type (internal state, user-switchable via buttons). */
 	activeChartType = signal<PlotChartType>('line');
 
@@ -106,6 +115,7 @@ export class PlotComponent implements OnDestroy {
 			this.yAxisName();
 			this.xAxisScale();
 			this.activeChartType();
+			this.showLegend();
 			untracked(() => this._updateChart());
 		});
 	}
@@ -158,6 +168,9 @@ export class PlotComponent implements OnDestroy {
 			periods: this.periods(),
 			i18nDownload: this._i18n_download(),
 			i18nNoData: this._i18n_noData(),
+			showLegend: this.showLegend(),
+			stacked: this.stacked(),
+			step: this.step(),
 		});
 
 		this._chartInstance?.setOption(option, true);

@@ -108,9 +108,12 @@ describe('TranslateDirective', () => {
 		);
 	});
 
-	it('should update element innerHTML with translated text', () => {
+	it('should update element innerHTML with translated text', async () => {
 		const fixture = TestBed.createComponent(TestHostComponent);
 		fixture.detectChanges();
+		// The DOM write is deferred to a microtask (see translation.pipe.ts) to
+		// avoid re-entrant change detection when translate$() emits synchronously.
+		await Promise.resolve();
 		const spanEl = fixture.nativeElement.querySelector('span');
 		expect(spanEl.innerHTML).toBe('Bonjour le monde');
 	});

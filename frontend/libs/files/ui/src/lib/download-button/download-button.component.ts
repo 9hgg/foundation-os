@@ -26,6 +26,10 @@ export class DownloadButtonComponent {
 	// Input signal for the entity file ID
 	entityFileId = input.required<string>();
 
+	/** What the file should be called once saved. A form answer knows the question it answers,
+	 * which sorts a folder of downloads far better than the recorder's timestamp. */
+	downloadName = input<string | null>(null);
+
 	// Signal to store the loaded entity file
 	entityFile = signal<EntityFile | null>(null);
 
@@ -41,7 +45,7 @@ export class DownloadButtonComponent {
 			label: 'Original',
 			extension: entityFile.extension || entityFile.extensionClient || 'unknown',
 			size: entityFile.size,
-			url: convertToUrl(entityFile, 'original', true),
+			url: convertToUrl(entityFile, 'original', true, this.downloadName() ?? undefined),
 		});
 
 		// Add alternative formats
@@ -51,7 +55,7 @@ export class DownloadButtonComponent {
 					label: alt.description || alt.extension.toUpperCase(),
 					extension: alt.extension,
 					size: alt.size,
-					url: convertToUrl(entityFile, alt.storageSuffix, true),
+					url: convertToUrl(entityFile, alt.storageSuffix, true, this.downloadName() ?? undefined),
 				});
 			});
 		}
@@ -68,7 +72,7 @@ export class DownloadButtonComponent {
 					if (!entityFileId) return NEVER;
 
 					if (entityFileId.length !== 36) {
-						console.warn('Invalid entityFileId length:', entityFileId);
+						console.warn('Not a file id, skipping download details:', entityFileId);
 						return NEVER; // Handle invalid ID length
 					}
 

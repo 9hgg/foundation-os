@@ -50,6 +50,13 @@ export function uuidToBase64(uuid: string): string {
 	return byteArrayToBase64(byteArray).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
+/** DD/MM/YYYY HH:MM UTC, explicit and locale-independent -- for anything (an auto-generated
+ *  ticket title, say) two people might read at the same moment from different timezones. */
+export function formatUtcTimestamp(date: Date = new Date()): string {
+	const pad = (n: number) => n.toString().padStart(2, '0');
+	return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`;
+}
+
 export function slugify(string: string) {
 	const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìıİłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;';
 	const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------';

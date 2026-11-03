@@ -1,4 +1,5 @@
 import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
+import { TablePaginatorComponent } from '../table-paginator/table-paginator.component';
 import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component, effect, ElementRef, EventEmitter, Inject, inject, input, model, Output, signal, viewChildren } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -17,6 +18,7 @@ export type BehaviorType = 'select' | 'expand' | 'emit' | 'toggle' | 'none' | 'c
 	selector: 'lib-generic-item-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		//
 		CommonModule,
 		TranslateDirective,
@@ -90,6 +92,9 @@ export class GenericItemTableComponent<Item extends { id: string }> {
 	requestFn: RequestFn<Item>;
 
 	constructor(
+		// Five subclasses pass these through `super(...)`, so moving to inject() is a refactor of
+		// all of them rather than a local change.
+		// eslint-disable-next-line @angular-eslint/prefer-inject
 		@Inject(PAGINATOR_OPTIONS) protected paginatorOptions?: Partial<PaginatorStateOptions<Item>>,
 		@Attribute('click-behavior') clickBehavior: 'select' | 'expand' | 'emit' | 'toggle' | 'none' | 'customFn' | null = null,
 		@Attribute('item-kind') itemKind?: string
@@ -160,16 +165,17 @@ export class GenericItemTableComponent<Item extends { id: string }> {
 							matchType: typeof normalizedValue === 'boolean' || typeof normalizedValue === 'number' ? 'exact' : 'partial',
 						};
 					});
-				console.log('Applying new filters to paginator', newFilters);
 				this.paginator.setFilters(newFilters);
 
 				const filtersAsString: string[] = newFilters.map((filter) => convertFilterToQueryString(filter));
 
 				const queryForSearchPatternInUrl = this.queryForSearchPatternInUrl();
-				if (queryForSearchPatternInUrl)
-					// encode for uri and put it in the URL
+				const searchPattern = filtersAsString.join('$');
+				// An empty search writes nothing: the navigation would otherwise land on a URL built
+				// before its siblings' own query params (the page's active tab) and drop them.
+				if (queryForSearchPatternInUrl && (searchPattern || this._route.snapshot.queryParams[queryForSearchPatternInUrl]))
 					this._router.navigate([], {
-						queryParams: { [queryForSearchPatternInUrl]: filtersAsString.join('$') },
+						queryParams: { [queryForSearchPatternInUrl]: searchPattern || null },
 						queryParamsHandling: 'merge',
 						preserveFragment: true,
 					});
@@ -287,7 +293,9 @@ export class GenericItemTableComponent<Item extends { id: string }> {
 			};
 
 			const dragMoveHandler = (event: TouchEvent | DragEvent) => {
-				if (event instanceof TouchEvent) {
+				// Desktop Safari defines no TouchEvent at all, so `event instanceof TouchEvent`
+				// threw on every drag and the mouse branch below was never reached.
+				if ('touches' in event) {
 					this._onRowDragTouchMove(event);
 				} else {
 					// Handle drag move for mouse events

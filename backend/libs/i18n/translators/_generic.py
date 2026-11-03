@@ -1,20 +1,15 @@
 import hashlib
 import html
-import sys
-import traceback
 import typing
 
+import structlog
 from sqlalchemy import and_
 
 from libs.db import context_db
-from libs.logger import print_error, print_warning
 
 from ..models import Translation
 
-# # remove print
-# def print(*args, **kwargs):
-
-#     return None
+_logger = structlog.get_logger(__name__)
 
 
 class Translator:
@@ -31,7 +26,11 @@ class Translator:
         self.string_hasher = string_hasher
         self.translate_content = translate_content
 
-        print(f"[Translator] {self.name} {self.version} initialized.")
+        _logger.debug(
+            "translator_initialized",
+            translator=self.name,
+            version=self.version,
+        )
 
     def _get_existing_translation(
         #
@@ -39,9 +38,8 @@ class Translator:
         hash_string: str,
         language_target: str,
     ) -> str | None:
-
         with context_db() as db:
-            existing_translation_db: typing.Optional[Translation] = (
+            existing_translation_db: Translation | None = (
                 Translation.query(db)
                 .filter(
                     # filter based on hash
@@ -54,10 +52,7 @@ class Translator:
                 )
                 .first()
             )
-        if (
-            existing_translation_db is not None
-            and existing_translation_db.translated_content is not None
-        ):
+        if existing_translation_db is not None and existing_translation_db.translated_content is not None:
             return existing_translation_db.translated_content
         else:
             return None
@@ -92,7 +87,7 @@ class Translator:
             translator=self.name,
             version=self.version,
         )
-        return Translation.create(obj=new_translation_db)  # type: ignore
+        return Translation.create(obj=new_translation_db)  # type: ignore[arg-type]
 
     def get_translation(
         self,
@@ -100,9 +95,21 @@ class Translator:
         language_target: str,
         translation_context: str | None = None,
         input_language: str | None = "en",
+        *,
+        skip_existing_lookup: bool = False,
     ) -> str:
         if isinstance(source_content, bytes):
             source_content = source_content.decode("utf-8")
+
+        # Nothing to translate when the target language matches the source
+        # language. Besides being wasteful, providers such as GCP reject a
+        # request whose source and target languages are equal (400
+        # "Target language can't be equal to source language."). Compare on the
+        # base language so region variants (e.g. "en-US") are handled too.
+        source_language = (input_language or "en").split("-")[0].lower()
+        target_language = (language_target or "").split("-")[0].lower()
+        if not target_language or source_language == target_language:
+            return source_content
 
         hash_payload = source_content
         if translation_context is not None:
@@ -112,29 +119,22 @@ class Translator:
         hash_string = self._compute_hash(hash_payload)
 
         # check if the translation already exists
-        existing_translation = self._get_existing_translation(
-            hash_string, language_target
-        )
+        existing_translation = None
+        if not skip_existing_lookup:
+            existing_translation = self._get_existing_translation(hash_string, language_target)
         if existing_translation is not None:
             return existing_translation
 
         # translate the content
         try:
-            translated_content: str | None = self.translate_content(
-                source_content, language_target, input_language
-            )
+            translated_content: str | None = self.translate_content(source_content, language_target, input_language)
         except Exception:
-            # stack
-            traceback.print_exc(file=sys.stdout)
-
-            print_error(
-                "Translation failed",
-                payload={
-                    "source_content": source_content,
-                    "language_target": language_target,
-                    "translator": self.name,
-                    "version": self.version,
-                },
+            _logger.exception(
+                "translation_failed",
+                source_content=source_content,
+                language_target=language_target,
+                translator=self.name,
+                version=self.version,
             )
             return source_content
         if translated_content is None:
@@ -164,15 +164,13 @@ class Translator:
 
             return translated_content
         else:
-            print_warning(
-                "Translation failed with empty result",
-                payload={
-                    "source_content": source_content,
-                    "language_target": language_target,
-                    "translator": self.name,
-                    "version": self.version,
-                    "translation_context": translation_context,
-                },
+            _logger.warning(
+                "translation_returned_empty_result",
+                source_content=source_content,
+                language_target=language_target,
+                translator=self.name,
+                version=self.version,
+                translation_context=translation_context,
             )
             return source_content
 

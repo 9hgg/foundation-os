@@ -1,159 +1,241 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-// ---------------------------------------------------------------------------
-// Stub heavy deps before importing the blot
-// ---------------------------------------------------------------------------
-vi.mock('@foundation/quill/blots', () => ({
-	IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY: 'openImageBlotContextMenu',
-}));
-
-vi.mock('quill/formats/link', () => ({
-	sanitize: (url: string, protocols: string[]) => {
-		try {
-			const { protocol } = new URL(url);
-			return protocols.some((p) => protocol === p + ':');
-		} catch {
-			return false;
-		}
-	},
-}));
-
-vi.mock('parchment', () => {
-	class EmbedBlotMock {
-		domNode: HTMLElement;
-		constructor() {
-			this.domNode = document.createElement('span');
-		}
-		static create(_value: any) {
-			return document.createElement('span');
-		}
-		static formats(_node: HTMLElement) {
-			return {};
-		}
-		format(_name: string, _value: any) {}
-	}
-	return { EmbedBlot: EmbedBlotMock };
-});
-
+import { IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY } from './image-menu/image-menu.service';
 import { ImageBlot } from './image.blot';
 
-// ---------------------------------------------------------------------------
-// Helper: build a container <span> that mimics what ImageBlot.create produces
-// ---------------------------------------------------------------------------
-function makeImageContainer(alt: string, src: string, width = '300px', height = '200px'): HTMLElement {
-	const container = document.createElement('span');
-	const img = document.createElement('img');
-	img.setAttribute('alt', alt);
-	img.setAttribute('src', src);
-	img.style.width = width;
-	img.style.height = height;
-	container.appendChild(img);
-	return container;
-}
+type ContextMenuOpener = (event: MouseEvent, data: unknown, callback: (value: unknown) => void) => void;
 
-// ---------------------------------------------------------------------------
-describe('ImageBlot.sanitize', () => {
-	it('allows http URLs', () => {
-		expect(ImageBlot.sanitize('http://example.com/img.png')).toBe('http://example.com/img.png');
+describe('ImageBlot', () => {
+	const nodeOf = (value: unknown) => ImageBlot.create(value as never) as HTMLElement;
+	const imageIn = (node: HTMLElement) => node.querySelector('img')!;
+
+	afterEach(() => {
+		delete (window as unknown as Record<string, unknown>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY];
+		vi.restoreAllMocks();
 	});
 
-	it('allows https URLs', () => {
-		expect(ImageBlot.sanitize('https://example.com/img.png')).toBe('https://example.com/img.png');
+	describe('creating one', () => {
+		it('wraps the image in a non-editable inline container the handle can sit in', () => {
+			const node = nodeOf({ alt: 'a picture', url: 'https://example.test/pic.png' });
+
+			expect(node.style.display).toBe('inline-block');
+			expect(node.style.position).toBe('relative');
+			expect(node.getAttribute('contentEditable')).toBe('false');
+		});
+
+		it('renders the image with its address and its alt text', () => {
+			const node = nodeOf({ alt: 'a picture', url: 'https://example.test/pic.png' });
+
+			expect(imageIn(node).getAttribute('src')).toBe('https://example.test/pic.png');
+			expect(imageIn(node).getAttribute('alt')).toBe('a picture');
+			expect(imageIn(node).style.objectFit).toBe('cover');
+		});
+
+		it('sizes it as asked, and 200 square when not', () => {
+			expect(imageIn(nodeOf({ alt: '', url: 'https://example.test/pic.png', width: '80px', height: '40px' })).style.width).toBe('80px');
+			expect(imageIn(nodeOf({ alt: '', url: 'https://example.test/pic.png' })).style.width).toBe('200px');
+			expect(imageIn(nodeOf({ alt: '', url: 'https://example.test/pic.png' })).style.height).toBe('200px');
+		});
+
+		it('takes a bare url as the whole value', () => {
+			const node = nodeOf('https://example.test/pic.png');
+
+			expect(imageIn(node).getAttribute('src')).toBe('https://example.test/pic.png');
+			expect(imageIn(node).getAttribute('alt')).toBe('');
+		});
+
+		it('falls back to a placeholder for a value it cannot read', () => {
+			vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+			expect(imageIn(nodeOf(null)).getAttribute('src')).toContain('image-placeholder');
+			expect(imageIn(nodeOf(42)).getAttribute('src')).toContain('image-placeholder');
+		});
+
+		it('refuses a url whose scheme is not one images come over', () => {
+			expect(imageIn(nodeOf({ alt: '', url: 'javascript:alert(1)' })).getAttribute('src')).toBe('//:0');
+		});
+
+		it('allows http, https and inline data images', () => {
+			expect(ImageBlot.sanitize('http://example.test/pic.png')).toBe('http://example.test/pic.png');
+			expect(ImageBlot.sanitize('https://example.test/pic.png')).toBe('https://example.test/pic.png');
+			expect(ImageBlot.sanitize('data:image/png;base64,AAA')).toBe('data:image/png;base64,AAA');
+		});
+
+		it('gives it a resize handle in the corner', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+			const handle = node.querySelector<HTMLElement>('.resize-handle');
+
+			expect(handle).not.toBeNull();
+			expect(handle?.style.cursor).toBe('nwse-resize');
+		});
 	});
 
-	it('allows data URLs', () => {
-		expect(ImageBlot.sanitize('data:image/png;base64,abc')).toBe('data:image/png;base64,abc');
+	describe('dragging the handle', () => {
+		const dragBy = (node: HTMLElement, deltaX: number, deltaY: number) => {
+			const handle = node.querySelector<HTMLElement>('.resize-handle')!;
+			handle.dispatchEvent(new MouseEvent('mousedown', { clientX: 0, clientY: 0, bubbles: true }));
+			document.dispatchEvent(new MouseEvent('mousemove', { clientX: deltaX, clientY: deltaY }));
+			document.dispatchEvent(new MouseEvent('mouseup'));
+		};
+
+		// offsetWidth is 0 in jsdom, so the sizes below start from zero rather than from 200.
+		it('resizes the image as the pointer moves, snapped to ten pixels', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+
+			dragBy(node, 137, 96);
+
+			expect(imageIn(node).style.width).toBe('130px');
+			expect(imageIn(node).style.height).toBe('90px');
+		});
+
+		it('never shrinks below fifty pixels', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+
+			dragBy(node, -500, -500);
+
+			expect(imageIn(node).style.width).toBe('50px');
+			expect(imageIn(node).style.height).toBe('50px');
+		});
+
+		it('stops following the pointer once the button is released', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+			dragBy(node, 100, 100);
+
+			document.dispatchEvent(new MouseEvent('mousemove', { clientX: 400, clientY: 400 }));
+
+			expect(imageIn(node).style.width).toBe('100px');
+		});
+
+		it('double-clicking puts it back to 200 square', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+			dragBy(node, 500, 500);
+
+			node.dispatchEvent(new MouseEvent('dblclick'));
+
+			expect(imageIn(node).style.width).toBe('200px');
+			expect(imageIn(node).style.height).toBe('200px');
+		});
 	});
 
-	it('rejects javascript: URLs', () => {
-		expect(ImageBlot.sanitize('javascript:alert(1)')).toBe('//:0');
+	describe('right-clicking one', () => {
+		const rightClick = (node: HTMLElement) => node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+		it('opens the app menu, telling it what the image is', () => {
+			const open = vi.fn();
+			(window as unknown as Record<string, ContextMenuOpener>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY] = open;
+			const node = nodeOf({ alt: 'a picture', url: 'https://example.test/pic.png', customData: { id: 'file-1' } });
+
+			rightClick(node);
+
+			expect(open).toHaveBeenCalledWith(expect.any(MouseEvent), { alt: 'a picture', url: 'https://example.test/pic.png', customData: { id: 'file-1' } }, expect.any(Function));
+		});
+
+		it('swaps the image for the one the menu picked', () => {
+			let callback: ((value: unknown) => void) | undefined;
+			(window as unknown as Record<string, ContextMenuOpener>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY] = (_event, _data, given) => (callback = given);
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+			rightClick(node);
+
+			callback?.({ action: 'edit', newUrl: 'https://example.test/other.png' });
+
+			expect(imageIn(node).getAttribute('src')).toBe('https://example.test/other.png');
+		});
+
+		it('takes the image out of the document when the menu says delete', () => {
+			let callback: ((value: unknown) => void) | undefined;
+			(window as unknown as Record<string, ContextMenuOpener>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY] = (_event, _data, given) => (callback = given);
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+			document.body.appendChild(node);
+			rightClick(node);
+
+			callback?.({ action: 'delete' });
+
+			expect(node.parentNode).toBeNull();
+		});
+
+		it('leaves the image alone for an edit that names no replacement, or an action it does not know', () => {
+			let callback: ((value: unknown) => void) | undefined;
+			(window as unknown as Record<string, ContextMenuOpener>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY] = (_event, _data, given) => (callback = given);
+			vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+			rightClick(node);
+
+			callback?.({ action: 'edit' });
+			callback?.({ action: 'fly-away' });
+
+			expect(imageIn(node).getAttribute('src')).toBe('https://example.test/pic.png');
+		});
+
+		it('says so rather than throwing when the app menu is not wired up', () => {
+			const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+
+			rightClick(node);
+
+			expect(consoleError).toHaveBeenCalledWith('Angular context menu function not available for image blot.');
+		});
 	});
 
-	it('rejects ftp: URLs', () => {
-		expect(ImageBlot.sanitize('ftp://example.com/file')).toBe('//:0');
-	});
-});
+	describe('reading one back', () => {
+		it('reports the attributes the image carries, and only those', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+			imageIn(node).setAttribute('alt', 'a picture');
+			imageIn(node).setAttribute('width', '120');
 
-describe('ImageBlot.formats', () => {
-	it('returns an empty object when there is no <img> child', () => {
-		const node = document.createElement('span');
-		expect(ImageBlot.formats(node)).toEqual({});
-	});
+			expect(ImageBlot.formats(node)).toEqual({ alt: 'a picture', width: '120' });
+		});
 
-	it('returns alt and src attributes present on the <img>', () => {
-		const container = makeImageContainer('My image', 'https://example.com/img.png');
-		const formats = ImageBlot.formats(container);
-		expect(formats['alt']).toBe('My image');
-	});
+		it('reports nothing for a container with no image in it', () => {
+			expect(ImageBlot.formats(document.createElement('span'))).toEqual({});
+			expect(ImageBlot.value(document.createElement('span'))).toEqual({});
+		});
 
-	it('does not include attributes that are absent from the <img>', () => {
-		const container = makeImageContainer('', 'https://example.com/img.png');
-		// width/height are set via style, not attribute — should be absent from formats
-		const formats = ImageBlot.formats(container);
-		expect(Object.keys(formats)).not.toContain('width');
-		expect(Object.keys(formats)).not.toContain('height');
-	});
+		it('reads the value back as the address, alt text and size', () => {
+			const node = nodeOf({ alt: 'a picture', url: 'https://example.test/pic.png', width: '80px', height: '40px' });
 
-	it('includes width attribute when explicitly set as an HTML attribute', () => {
-		const container = makeImageContainer('', 'https://example.com/img.png');
-		const img = container.querySelector('img')!;
-		img.setAttribute('width', '400');
-		const formats = ImageBlot.formats(container);
-		expect(formats['width']).toBe('400');
-	});
-});
+			expect(ImageBlot.value(node)).toEqual({
+				alt: 'a picture',
+				url: 'https://example.test/pic.png',
+				width: '80px',
+				height: '40px',
+				customData: undefined,
+			});
+		});
 
-describe('ImageBlot.value', () => {
-	it('returns an empty object when there is no <img> child', () => {
-		const node = document.createElement('span');
-		expect(ImageBlot.value(node)).toEqual({});
+		it('reads back whatever the app stashed on it', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+			node.dataset['customData'] = JSON.stringify({ id: 'file-1' });
+
+			expect(ImageBlot.value(node)).toMatchObject({ customData: { id: 'file-1' } });
+		});
 	});
 
-	it('reads alt and src from the <img> element', () => {
-		const container = makeImageContainer('Alt text', 'https://example.com/img.png');
-		const result = ImageBlot.value(container) as any;
-		expect(result.alt).toBe('Alt text');
-		expect(result.url).toBe('https://example.com/img.png');
-	});
+	describe('formatting one', () => {
+		const blotOf = (node: HTMLElement) => {
+			const blot = Object.create(ImageBlot.prototype) as ImageBlot & { domNode: HTMLElement };
+			blot.domNode = node;
+			return blot;
+		};
 
-	it('reads width from inline style when no width attribute is set', () => {
-		const container = makeImageContainer('', 'https://example.com/img.png', '350px', '250px');
-		const result = ImageBlot.value(container) as any;
-		expect(result.width).toBe('350px');
-		expect(result.height).toBe('250px');
-	});
+		it('writes an image attribute onto the image itself', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
 
-	it('prefers the width attribute over the inline style', () => {
-		const container = makeImageContainer('', 'https://example.com/img.png', '350px', '250px');
-		const img = container.querySelector('img')!;
-		img.setAttribute('width', '500');
-		const result = ImageBlot.value(container) as any;
-		expect(result.width).toBe('500');
-	});
+			blotOf(node).format('width', '120');
 
-	it('returns undefined customData when data-custom-data is absent', () => {
-		const container = makeImageContainer('', 'https://example.com/img.png');
-		const result = ImageBlot.value(container) as any;
-		expect(result.customData).toBeUndefined();
-	});
-});
+			expect(imageIn(node).getAttribute('width')).toBe('120');
+		});
 
-describe('ImageBlot instance format()', () => {
-	it('sets an attribute on the inner <img> for known attributes', () => {
-		const blot = new ImageBlot() as any;
-		const container = makeImageContainer('', 'https://example.com/img.png');
-		blot.domNode = container;
-		blot.format('alt', 'new alt');
-		const img = container.querySelector('img')!;
-		expect(img.getAttribute('alt')).toBe('new alt');
-	});
+		it('clears an image attribute when given nothing', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+			imageIn(node).setAttribute('width', '120');
 
-	it('removes the attribute when value is falsy', () => {
-		const blot = new ImageBlot() as any;
-		const container = makeImageContainer('old-alt', 'https://example.com/img.png');
-		blot.domNode = container;
-		blot.format('alt', '');
-		const img = container.querySelector('img')!;
-		expect(img.hasAttribute('alt')).toBe(false);
+			blotOf(node).format('width', null);
+
+			expect(imageIn(node).hasAttribute('width')).toBe(false);
+		});
+
+		it('leaves an attribute it does not own to the base blot', () => {
+			const node = nodeOf({ alt: '', url: 'https://example.test/pic.png' });
+
+			expect(() => blotOf(node).format('bold', true)).toThrow();
+		});
 	});
 });

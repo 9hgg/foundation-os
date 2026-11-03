@@ -2,31 +2,36 @@ import datetime
 import os
 import time
 import uuid
+from email.utils import format_datetime
 
 import fastapi
+import structlog
 from fastapi import (
     BackgroundTasks,
     Body,
-    Depends,
     HTTPException,
     Path,
     Query,
     Request,
     status,
 )
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 
-from libs.acl.methods import create_default_acls
+from libs.acl.methods import Operation, cannot, create_default_acls
 from libs.acl.models import Who
-from libs.cache import Cacher, get_cacher
 from libs.db import context_db
 from libs.endpoints import create_crud_endpoints
 from libs.endpoints.types import SimpleResponse
-from libs.files.models import FileAlternative
 from libs.files.processors.magic_bytes.types import infer_type_from_extension
+from libs.files.storage.methods import (
+    describe_alternative,
+    get_and_cache_presigned_url,
+    get_onetime_presigned_url,
+    named_with_extension,
+    sanitized_download_name,
+)
 from libs.folders.methods import add_to_folder
 from libs.folders.models import Folder
-from libs.logger.customLogger import print, print_color, print_warning
 from libs.tasks.methods import sync_launch_tasks_processing
 from libs.tasks.tasks_manager import TasksManager
 from libs.users.deps import CurrentUser__dep
@@ -39,6 +44,8 @@ from .methods.deps import CurrentStorage__dep
 from .models import File
 from .storage import LocalStorage, get_file_storage
 
+logger = structlog.get_logger(__name__)
+
 # CACHE_REFRESH_THRESHOLD_SECONDS = (
 #     60  # Refresh URL if it will expire in less than 1 minute
 # )
@@ -50,7 +57,7 @@ from .storage import LocalStorage, get_file_storage
 # )
 
 
-def create_crud_file_router(prefix: str = "/api/files"):
+def create_crud_file_router(prefix: str = "/api/files"):  # noqa: C901
     crud_file_router = create_crud_endpoints(
         File,
         prefix=prefix,
@@ -66,7 +73,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
         response_model=EndpointOutput[SimpleResponse[File]],
         response_model_by_alias=True,
     )
-    async def get_upload_details(
+    async def get_upload_details(  # noqa: C901
         request: Request,
         classic_deps: ClassicDeps__dep,
         current_storage_: CurrentStorage__dep,
@@ -75,8 +82,10 @@ def create_crud_file_router(prefix: str = "/api/files"):
         file_name: str = Body(..., alias="fileName"),
         content_type: str | None = Body(None, alias="contentType"),
         file_size: int | None = Body(None, alias="fileSize"),
+        hash_client: str | None = Body(None, alias="hashClient"),
         alternative: str = Body("original", alias="alternative"),
         file_id: uuid.UUID | None = Body(None, alias="fileId"),
+        folder_id: uuid.UUID | None = Body(None, alias="folderId"),
         folder_path: str | None = Body(None, alias="folderPath"),
         folder_for_id: uuid.UUID | None = Body(None, alias="folderForId"),
         folder_for_kind: str | None = Body(None, alias="folderForKind"),
@@ -86,24 +95,49 @@ def create_crud_file_router(prefix: str = "/api/files"):
         storage_to_use = current_storage_
 
         # origin is used for presigned resumable PUT url
-        origin = get_origin(
-            request=request, default_origin=request.headers.get("origin")
-        )
+        origin = get_origin(request=request, default_origin=request.headers.get("origin"))
 
         # folder management
         parent_id = None
-        if folder_path is None:
-            print("No folder path")
+        if folder_id is not None:
+            # A caller that already holds the target folder addresses it directly: `folder_path`
+            # walks a tree anchored on `folder_for_id`/`folder_for_kind` and creates what is
+            # missing, which cannot reach a folder that is not anchored on such a resource.
+            logger.debug("file_upload_folder_id_received", folder_id=folder_id)
+            folder_db = Folder.by_id(folder_id)
+            if folder_db is None:
+                return EndpointOutput(
+                    error=EndpointError(
+                        title=translator.translate("Folder not found"),
+                        description=translator.translate("The folder you are trying to upload into does not exist"),
+                        code="folder_not_found",
+                    )
+                )
+            if cannot(
+                who_id=current_user_db.id if current_user_db else None,
+                resource_type=Folder,
+                resource_id=folder_id,
+                what=Operation.WRITE,
+                who=Who.user,
+            ):
+                return EndpointOutput(
+                    error=EndpointError(
+                        title=translator.translate("Access denied"),
+                        description=translator.translate("You cannot write over this folder"),
+                        code="access_denied",
+                    )
+                )
+            parent_id = folder_db.id
+        elif folder_path is None:
+            logger.debug("file_upload_folder_path_missing")
         else:
-            print("folder_path for the new file", folder_path)
+            logger.debug("file_upload_folder_path_received", folder_path=folder_path)
             # should start with /, contains no / at the end
             if not folder_path.startswith("/"):
                 return EndpointOutput(
                     error=EndpointError(
                         title=translator.translate("Invalid folder path"),
-                        description=translator.translate(
-                            "The folder path should start with /"
-                        ),
+                        description=translator.translate("The folder path should start with /"),
                         code="invalid_folder_path",
                     )
                 )
@@ -111,9 +145,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 return EndpointOutput(
                     error=EndpointError(
                         title=translator.translate("Invalid folder path"),
-                        description=translator.translate(
-                            "The folder path should not end with /"
-                        ),
+                        description=translator.translate("The folder path should not end with /"),
                         code="invalid_folder_path",
                     )
                 )
@@ -121,9 +153,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 return EndpointOutput(
                     error=EndpointError(
                         title=translator.translate("Invalid folder path"),
-                        description=translator.translate(
-                            "The folder path should not be /"
-                        ),
+                        description=translator.translate("The folder path should not be /"),
                         code="invalid_folder_path",
                     )
                 )
@@ -132,9 +162,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 return EndpointOutput(
                     error=EndpointError(
                         title=translator.translate("Invalid folder path"),
-                        description=translator.translate(
-                            "The folder path should not contain //"
-                        ),
+                        description=translator.translate("The folder path should not contain //"),
                         code="invalid_folder_path",
                     )
                 )
@@ -143,7 +171,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
 
             folder_names = folder_path.split("/")[1:]
 
-            print("folder_names", folder_names)
+            logger.debug("file_upload_folder_names_resolved", folder_names=folder_names)
 
             # root folder:
             folder_db = Folder.get_first_by(
@@ -152,7 +180,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
             )
 
             if folder_db is None:
-                print("root folder not found -> create it")
+                logger.debug("file_upload_root_folder_creating", folder_name=folder_names[0])
                 folder_db = Folder.create(
                     obj_dict={
                         "for_id": folder_for_id,
@@ -161,25 +189,21 @@ def create_crud_file_router(prefix: str = "/api/files"):
                         # "parent_id": parent_id,
                     }
                 )
-                print("root folder already created", folder_db)
+                logger.info("file_upload_root_folder_created", folder_id=folder_db.id)
             else:
-                print("root folder already created", folder_db)
+                logger.debug("file_upload_root_folder_found", folder_id=folder_db.id)
             parent_id = folder_db.id
 
             # check if sub folder exists -> create it if not
 
             for folder_level, folder_name in enumerate(folder_names[1:]):
-                print(
-                    "\t" + str(folder_level) + " - Parent id for next loop:", parent_id
-                )
+                logger.debug("file_upload_folder_level_resolving", folder_level=folder_level, parent_id=parent_id)
 
                 if len(folder_name) == 0:
                     return EndpointOutput(
                         error=EndpointError(
                             title=translator.translate("Invalid folder path"),
-                            description=translator.translate(
-                                "The folder path should not contain empty folder names"
-                            ),
+                            description=translator.translate("The folder path should not contain empty folder names"),
                             code="invalid_folder_path",
                         )
                     )
@@ -188,21 +212,18 @@ def create_crud_file_router(prefix: str = "/api/files"):
                     parent_id=parent_id,
                     name=folder_name,
                 )
-                print(
-                    "subfolder n" + str(folder_level) + " with name",
-                    folder_name,
-                )
+                logger.debug("file_upload_subfolder_resolving", folder_level=folder_level, folder_name=folder_name)
                 if folder_db is None:
-                    print("subfolder not found -> create it")
+                    logger.debug("file_upload_subfolder_creating", folder_level=folder_level, folder_name=folder_name)
                     folder_db = Folder.create(
                         obj_dict={
                             "name": folder_name,
                             "parent_id": parent_id,
                         }
                     )
-                    print("subfolder created", folder_db)
+                    logger.info("file_upload_subfolder_created", folder_id=folder_db.id, folder_level=folder_level)
                 else:
-                    print("subfolder found", folder_db)
+                    logger.debug("file_upload_subfolder_found", folder_id=folder_db.id, folder_level=folder_level)
                 parent_id = folder_db.id
 
         # now we have the parent_id of the last folder, hence the target folder
@@ -213,8 +234,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                     error=EndpointError(
                         title=translator.translate("Not allowed"),
                         description=translator.translate(
-                            "You can't set a file id to upload "
-                            + "another alternative than the original"
+                            "You can't set a file id to upload " + "another alternative than the original"
                         ),
                     )
                 )
@@ -224,9 +244,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 return EndpointOutput(
                     error=EndpointError(
                         title=translator.translate("File not found"),
-                        description=translator.translate(
-                            "The file you are trying to upload does not exist"
-                        ),
+                        description=translator.translate("The file you are trying to upload does not exist"),
                         code="file_not_found",
                     )
                 )
@@ -234,9 +252,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 return EndpointOutput(
                     error=EndpointError(
                         title=translator.translate("Original file already in storage"),
-                        description=translator.translate(
-                            "The file you are trying to upload is already in storage"
-                        ),
+                        description=translator.translate("The file you are trying to upload is already in storage"),
                     )
                 )
 
@@ -283,6 +299,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 extension_client=extension_client,
                 mime_client=content_type,
                 size_client=file_size,
+                hash_client=hash_client,
                 # unprocessable=False,
                 # mime="",
                 # size=0,
@@ -291,11 +308,11 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 in_storage=False,
                 upload_url=upload_url,
             )
-            print("Creating File for uploading")
+            logger.debug("file_upload_record_creating", file_id=file_id)
             with context_db() as db:
                 db.expire_on_commit = False
                 file_db = File.create(obj=file, _db=db)
-                print("File created for uploading")
+                logger.info("file_upload_record_created", file_id=file_db.id)
 
                 # add acl if user is logged in
                 if current_user_db is not None:
@@ -315,7 +332,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
 
         # add file to folder
         if parent_id:
-            print("Adding file to this folder:", parent_id)
+            logger.debug("file_upload_adding_to_folder", file_id=file_db.id, folder_id=parent_id)
             add_to_folder(folder_id=parent_id, resource=file_db)
 
         return EndpointOutput(result=SimpleResponse(data=file_db))
@@ -341,11 +358,11 @@ def create_crud_file_router(prefix: str = "/api/files"):
             storage_folder_path=storage_folder_path,
             in_storage=False,
         )
-        print("Creating Empty File:", file)
+        logger.debug("empty_file_record_creating", file_id=file_id)
         with context_db() as db:
             db.expire_on_commit = False
             file_db = File.create(obj=file, _db=db)
-            print("File created for uploading")
+            logger.info("empty_file_record_created", file_id=file_db.id)
 
             # add acl if user is logged in
             if current_user_db is not None:
@@ -407,51 +424,50 @@ def create_crud_file_router(prefix: str = "/api/files"):
             return EndpointOutput(
                 error=EndpointError(
                     title="File has no storage folder",
-                    description=(
-                        "The file you are trying to access has no storage folder"
-                    ),
+                    description=("The file you are trying to access has no storage folder"),
                     code="file_not_found",
                 )
             )
         alternative_chunked = f"chunk-{start_bytes}-{end_bytes}"
-        storage_folder_path_chunked = (
-            file_db.storage_folder_path + "/" + (alternative or "original") + "_chunked"
-        )
+        storage_folder_path_chunked = file_db.storage_folder_path + "/" + (alternative or "original") + "_chunked"
 
         origin = request.headers.get("origin")
-        print("Using this origin:", origin)
+        logger.debug("chunk_upload_origin_received", origin=origin)
         try:
             host = request.client.host
-            print("With this host:", host)
 
             request_origin = request.url.__str__() if request else None
-            print("Request origin:", request_origin)
-            from_header_origin = (
-                request.headers.get("ba-origin", None) if request else None
-            )
-            print("From header origin:", from_header_origin)
+            from_header_origin = request.headers.get("ba-origin", None) if request else None
             from_header_host = request.headers.get("host", None) if request else None
-            print("From header host:", from_header_host)
-            from_forward_origin = (
-                request.headers.get("forward-origin", None) if request else None
+            from_forward_origin = request.headers.get("forward-origin", None) if request else None
+            logger.debug(
+                "chunk_upload_request_origins_resolved",
+                client_host=host,
+                request_origin=request_origin,
+                ba_origin=from_header_origin,
+                header_host=from_header_host,
+                forward_origin=from_forward_origin,
             )
-            print("From header forward-origin:", from_forward_origin)
             if from_forward_origin:
                 # format https://somedomain.tld/some/url
                 # extract https://somedomain.tld
                 origin = "/".join(from_forward_origin.split("/")[:3])
-                print("Using forward-origin as origin:", origin)
+                logger.debug("chunk_upload_forward_origin_selected", origin=origin)
 
             # origin = from_header_origin if from_header_origin else request_origin
-        except Exception as e:
-            print("Error occurred while extracting headers:", e)
+        except Exception as exc:
+            logger.warning(
+                "chunk_upload_header_extraction_failed",
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
 
         upload_url_chunk = storage_to_use.get_upload_url(
             storage_folder_path=storage_folder_path_chunked,
             alternative=alternative_chunked,
             origin=origin,
         )
-        print("Chunk upload URL:", upload_url_chunk)
+        logger.debug("chunk_upload_url_created", file_id=file_id, url_created=bool(upload_url_chunk))
         return EndpointOutput(result={"uploadUrl": upload_url_chunk})
 
     @crud_file_router.get(
@@ -484,12 +500,8 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 )
             )
         storage_to_use = get_file_storage(file_db.storage_id)
-        storage_folder_path_chunked = (
-            file_db.storage_folder_path + "/" + (alternative or "original") + "_chunked"
-        )
-        chunks = storage_to_use.get_files_in_folder(
-            storage_folder_path=storage_folder_path_chunked
-        )
+        storage_folder_path_chunked = file_db.storage_folder_path + "/" + (alternative or "original") + "_chunked"
+        chunks = storage_to_use.get_files_in_folder(storage_folder_path=storage_folder_path_chunked)
 
         if len(chunks) == 0:
             return EndpointOutput(
@@ -500,7 +512,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 )
             )
 
-        print("Chunks found:", chunks)
+        logger.info("file_recovery_chunks_found", file_id=file_id, chunk_count=len(chunks))
         # chunks are like : [
         #     "chunk-2621440-2883583",
         #     "chunk-1310720-1572863",
@@ -517,7 +529,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
         # ]
         # TODO launch a background task to recover the file from chunks
 
-        print("Launching tasks to merge chunks... FORCE?", force)
+        logger.info("file_recovery_merge_task_launching", file_id=file_id, force=force)
         # create the merge_chunks task
         task_db = TasksManager.create_task(
             title="Merge chunks",
@@ -543,7 +555,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
         duration: float | None = Body(None),
         force: bool | None = Body(None),
     ):
-        print("DETAILS RECEIVED:", duration)
+        logger.debug("update_after_upload_details_received", file_id=file_id, duration=duration, force=force)
         tic = time.time()
         file_db: File | None = File.by_id(file_id)
         if file_db is None:
@@ -565,7 +577,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
 
         # check that the file is in the storage
 
-        print_color("yellow", "You want to update this file:", file_db.id)
+        logger.debug("update_after_upload_checking_storage", file_id=file_db.id)
 
         storage = get_file_storage(file_db.storage_id)
 
@@ -574,18 +586,14 @@ def create_crud_file_router(prefix: str = "/api/files"):
         size = None
         if file_db.storage_folder_path is not None:
             # original or original-stream or None
-            in_storage_alternative = storage.get_original_alternative(
-                storage_folder_path=file_db.storage_folder_path
-            )
+            in_storage_alternative = storage.get_original_alternative(storage_folder_path=file_db.storage_folder_path)
             in_storage = in_storage_alternative is not None
             if not in_storage:
-                print_color("red", "File not found in storage")
+                logger.warning("update_after_upload_file_not_in_storage", file_id=file_db.id)
                 return EndpointOutput(
                     error=EndpointError(
                         title="File not found in storage",
-                        description=(
-                            "The file you are trying to update is not in storage"
-                        ),
+                        description=("The file you are trying to update is not in storage"),
                         code="file_not_found_in_storage",
                     )
                 )
@@ -593,9 +601,9 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 storage_folder_path=file_db.storage_folder_path,
                 alternative=in_storage_alternative,
             )
-            print_color("blue", "File found in storage:", file_db.id, "size:", size)
+            logger.debug("update_after_upload_file_found_in_storage", file_id=file_db.id, size=size)
         else:
-            print_color("red", "File not found in storage")
+            logger.warning("update_after_upload_file_not_in_storage", file_id=file_db.id)
             return EndpointOutput(
                 error=EndpointError(
                     title="File not found in storage",
@@ -604,13 +612,11 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 )
             )
         tac = time.time()
-        print("Time to check if file is in storage:", tac - tic)
+        logger.debug("update_after_upload_storage_check_duration", duration_seconds=tac - tic)
 
         file_type_from_extension = "unknown"
         if file_db.extension_client:
-            file_type_from_extension = infer_type_from_extension(
-                file_db.extension_client.replace(".", "")
-            )
+            file_type_from_extension = infer_type_from_extension(file_db.extension_client.replace(".", ""))
 
         # update the file
         file_db_updated: File = File.patch(
@@ -623,40 +629,22 @@ def create_crud_file_router(prefix: str = "/api/files"):
             },
         )
 
-        # print("File updated:", file_db_updated)
-
-        print("Launching tasks to fill file details... FORCE?", force)
+        logger.info("update_after_upload_launching_fill_details_task", file_id=file_id, force=force)
         # create the fill_details task
         fill_file_details_task = TasksManager.create_task(
             title="Fill details",
             method_name="fill_file_details",
             description="Fill file details for "
-            + (
-                file_db_updated.original_filename
-                if file_db_updated.original_filename
-                else file_db_updated.id.hex[:8]
-            ),
+            + (file_db_updated.original_filename if file_db_updated.original_filename else file_db_updated.id.hex[:8]),
             args=[file_id],
             kwargs={
                 "force": force,
             },
         )
 
-        # launch tasks in background without awaiting
-        print("Adding task to background tasks (fire and forget)")
-
-        # launch tasks in background without blocking the response
-        print("Adding task to background tasks")
-
-        # Use the synchronous version to avoid async issues in background tasks
         background_tasks.add_task(sync_launch_tasks_processing)
-        print("Background task added")
 
-        print("Returning updated file details")
-
-        return EndpointOutput(
-            result={"file": file_db_updated, "taskId": fill_file_details_task.id}
-        )
+        return EndpointOutput(result={"file": file_db_updated, "taskId": fill_file_details_task.id})
 
     @crud_file_router.put("/storage/upload/{file_id}/{path:path}")
     async def upload_file(
@@ -686,9 +674,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
             return EndpointOutput(
                 error=EndpointError(
                     title="File has no storage",
-                    description=(
-                        "The file you are trying to update has no storage method"
-                    ),
+                    description=("The file you are trying to update has no storage method"),
                     code="file_has_no_storage",
                 )
             )
@@ -697,10 +683,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
             return EndpointOutput(
                 error=EndpointError(
                     title="File has no storage folder",
-                    description=(
-                        "The storage folder path of the"
-                        + "file you are trying to update is empty."
-                    ),
+                    description=("The storage folder path of the" + "file you are trying to update is empty."),
                     code="file_has_no_storage_folder_path",
                 )
             )
@@ -709,9 +692,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
             return EndpointOutput(
                 error=EndpointError(
                     title="File already in storage",
-                    description=(
-                        "The file you are trying to update is already in storage"
-                    ),
+                    description=("The file you are trying to update is already in storage"),
                     code="file_already_in_storage",
                     details={
                         "file_id": file_id,
@@ -721,25 +702,23 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 )
             )
 
-        print(
-            "Uploading file",
-            {
-                "id": file_id,
-                "alternative": alternative,
-                "extra_folder_path": extra_folder_path,
-            },
+        logger.debug(
+            "storage_upload_file_started",
+            file_id=file_id,
+            alternative=alternative,
+            extra_folder_path=extra_folder_path,
         )
 
         # read content-range header: if present it means we are uploading a piece of a file
         content_range = request.headers.get("Content-Range")
         if content_range:
-            print("Content-Range header found:", content_range)
+            logger.debug("storage_upload_file_content_range", content_range=content_range)
 
         content_type = request.headers.get("Content-Type")
         if content_type and file_db.mime_client is None:
             # Set the file's MIME type based on the Content-Type header
             file_db.mime_client = content_type
-            print_color("yellow", f"Content-Type header found and set: {content_type}")
+            logger.debug("storage_upload_file_content_type_set", content_type=content_type)
 
         # check that the file is not already in the storage
         storage = get_file_storage(file_db.storage_id)
@@ -753,9 +732,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
             return EndpointOutput(
                 error=EndpointError(
                     title="File already in storage",
-                    description=(
-                        "The file you are trying to upload is already in storage"
-                    ),
+                    description=("The file you are trying to upload is already in storage"),
                     code="file_already_in_storage",
                     details={
                         "file_id": file_id,
@@ -768,7 +745,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
         # save the file.file in a tmp file,
         # then upload it to the storage,
         # then delete the tmp file
-        tmp_path = f"/tmp/{file_id}-{alternative}"
+        tmp_path = f"/tmp/{file_id}-{alternative}"  # noqa: S108
 
         # Read the raw file data from the request body
         with open(tmp_path, "wb") as buffer:
@@ -778,13 +755,14 @@ def create_crud_file_router(prefix: str = "/api/files"):
             local_path=tmp_path,
             storage_folder_path=file_db.storage_folder_path + extra_folder_path,
             alternative=alternative,
+            content_type=content_type or file_db.mime_client,
             content_range=content_range,
         )
         if uploaded and alternative == "original":
             file_db = File.patch(obj_id=file_id, update_dict={"in_storage": True})
         os.remove(tmp_path)
 
-        print("Uploaded", uploaded)
+        logger.debug("storage_upload_file_done", file_id=file_id, uploaded=uploaded)
 
         return EndpointOutput(
             result={
@@ -792,166 +770,6 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 "alternative": alternative,
             }
         )
-
-    def get_presigned_url(
-        file_id: str,
-        alternative_suffix: str = "original",
-        download: bool = False,
-    ) -> tuple[str, float] | None:
-        # Retrieve the file using the existing pattern
-        file_db = File.by_id(file_id)
-        if file_db is None:
-            return None
-
-        if file_db.storage_id is None or not file_db.storage_folder_path:
-            return None
-
-        # Fetch the storage instance using the existing pattern
-        storage_db = get_file_storage(file_db.storage_id)
-
-        print("STORAGE", storage_db.storage_type, "for file", file_id)
-
-        extra = file_db.extra_
-        # Find the alternative format in `extra.alternative_formats`
-        alternative_format = next(
-            (
-                alt
-                for alt in extra.alternative_formats
-                if alt.storage_suffix == alternative_suffix
-            ),
-            None,
-        )
-
-        # If the alternative format is not found, check if it exists in storage
-        if not alternative_format:
-            print_color(
-                "red",
-                f"Alternative format {alternative_suffix.upper()} not found in database",
-            )
-            if not storage_db.exists_in_storage(
-                storage_folder_path=file_db.storage_folder_path,
-                alternative=alternative_suffix,
-            ):
-                print_color(
-                    "red",
-                    f"Alternative format {alternative_suffix.upper()} not found in storage",
-                )
-                return None
-            else:
-                print_color(
-                    "green",
-                    f"Alternative format {alternative_suffix.upper()} found in storage",
-                )
-                #
-
-            # Alternative exists in storage but not in the database, create it
-            download_url_details = storage_db.get_download_url(
-                file_id=file_id,
-                storage_folder_path=file_db.storage_folder_path,
-                alternative=alternative_suffix,
-                download=download,
-            )
-            if download_url_details is None:
-                return None
-            new_presigned_url, expiration_seconds = download_url_details
-            new_expiration = (
-                datetime.datetime.now()
-                + datetime.timedelta(seconds=expiration_seconds - 60)
-            ).timestamp()
-
-            # Create a new alternative format and add it to the database
-            alternative_format = FileAlternative(
-                storage_suffix=alternative_suffix,
-                presigned_url=new_presigned_url,
-                presigned_url_expiration=new_expiration,
-                mime=file_db.mime or "application/octet-stream",
-                kind=file_db.kind or "unknown",
-                extension=file_db.extension or "",
-                size=file_db.size if alternative_suffix == "original" else None,
-            )
-            extra.alternative_formats.append(alternative_format)
-            file_db.patch(obj_id=file_db.id, update_dict={"extra": extra.model_dump()})
-            print_color("magenta", "New alternative format created", alternative_suffix)
-
-            print_color(
-                "magenta", f"Updating presigned URL for {alternative_suffix} [new]"
-            )
-            return new_presigned_url, new_expiration
-
-        print_color(
-            "green",
-            f"Alternative format {alternative_suffix.upper()} found in database",
-        )
-
-        # if "download" is true we create and redirect to a new presigned url
-        if download:
-            print_color(
-                "green",
-                f"Download is set to true, creating a new presigned URL for {alternative_suffix}",
-            )
-            # Generate a new presigned URL for the existing alternative
-            download_url_details = storage_db.get_download_url(
-                file_id=file_id,
-                storage_folder_path=file_db.storage_folder_path,
-                alternative=alternative_suffix,
-                download=download,
-            )
-            if download_url_details is None:
-                print_color("red", "no Download URL generated.")
-                return None
-            new_presigned_url, new_expiration = download_url_details
-            return new_presigned_url, new_expiration
-
-        # if not downloading: the presigned url is to be cached (hence, it can be reloaded)
-        # Check if a presigned URL exists and if it is still valid
-        now = datetime.datetime.now().timestamp()
-        if (
-            alternative_format.presigned_url
-            and alternative_format.presigned_url_expiration
-            and "download=true" not in alternative_format.presigned_url
-        ):
-            print_color("green", "Presigned URL found in database", alternative_suffix)
-            if alternative_format.presigned_url_expiration > now + 60:
-                # it expires at least in 1 minute
-                print_color(
-                    "green", "Presigned URL is still valid (>1mn)", alternative_suffix
-                )
-                # URL is still valid, redirect to it
-                return (
-                    alternative_format.presigned_url,
-                    alternative_format.presigned_url_expiration,
-                )
-            else:
-                print_color("red", "Presigned URL is expired", alternative_suffix)
-        else:
-            print("Presigned URL is missing", alternative_suffix)
-
-        # Generate a new presigned URL for the existing alternative
-        download_url_details = storage_db.get_download_url(
-            file_id=file_id,
-            storage_folder_path=file_db.storage_folder_path,
-            alternative=alternative_suffix,
-            download=download,
-        )
-
-        if download_url_details is None:
-            print("Download URL not found: we can't generate the presigned URL")
-            return None
-
-        new_presigned_url, expiration_seconds = download_url_details
-
-        new_expiration = (
-            datetime.datetime.now()
-            + datetime.timedelta(seconds=expiration_seconds - 60)
-        ).timestamp()
-
-        # Update the existing alternative with the new presigned URL and expiration
-        print("Updating presigned URL for", alternative_suffix, "[existed]")
-        alternative_format.presigned_url = new_presigned_url
-        alternative_format.presigned_url_expiration = new_expiration
-        file_db.patch(obj_id=file_db.id, update_dict={"extra": extra.model_dump()})
-
-        return new_presigned_url, new_expiration
 
     @crud_file_router.head("/storage/read/{file_id}/details")
     @crud_file_router.get("/storage/read/{file_id}/details")
@@ -975,77 +793,132 @@ def create_crud_file_router(prefix: str = "/api/files"):
         # return the file details
         return EndpointOutput(result={"file": file_db})
 
+    @crud_file_router.head("/storage/read/{file_id}/public-metadata")
+    @crud_file_router.get("/storage/read/{file_id}/public-metadata")
+    async def storage_read_file_public_metadata_by_id(
+        file_id: str,
+    ):
+        """
+        Public, non-ACL-filtered file metadata — same access model as the
+        streaming endpoint (`/storage/read/{file_id}/{alternative_suffix}`).
+
+        Returns only non-sensitive, file-derived fields (kind, extension, size,
+        duration, width, height, extra) — never filenames or description — so
+        editors can size/lay out media referenced from guest-submitted form
+        responses, where the viewer holds ACLs on the form but not on the
+        underlying files.
+
+        Declared before the `{alternative_suffix}` streaming route so it is not
+        matched as an alternative.
+        """
+
+        file_db = File.by_id(file_id)
+        if file_db is None:
+            return EndpointOutput(
+                error=EndpointError(
+                    title="File not found",
+                    description="The file you are requesting does not exist",
+                    code="file_not_found",
+                )
+            )
+
+        extra = file_db.extra_
+        return EndpointOutput(
+            result={
+                "metadata": {
+                    "kind": file_db.kind,
+                    "extension": file_db.extension,
+                    "size": file_db.size,
+                    "duration": extra.duration,
+                    "width": extra.width,
+                    "height": extra.height,
+                    "extra": extra,
+                }
+            }
+        )
+
+    # The {filename} variant serves the exact same content: the trailing
+    # segment is cosmetic, giving the URL a real extension so podcast apps and
+    # validators can infer the media type from the path (feeds generate it
+    # from the alternative's registered filename/extension).
+    @crud_file_router.head("/storage/read/{file_id}/{alternative_suffix}/{filename}")
+    @crud_file_router.get("/storage/read/{file_id}/{alternative_suffix}/{filename}")
     @crud_file_router.head("/storage/read/{file_id}/{alternative_suffix}")
     @crud_file_router.get("/storage/read/{file_id}/{alternative_suffix}")
     async def storage_read_file_id_alternative(
+        request: Request,
         background_tasks: BackgroundTasks,
         file_id: str,
         alternative_suffix: str = "original",
-        cacher: Cacher = Depends(get_cacher),
+        filename: str | None = None,
         download: bool = Query(False),
     ):
-        print_color(
-            "cyan", "READ FILE:", file_id, alternative_suffix, "download:", download
+        if request.method == "HEAD":
+            # Answered directly from our own metadata rather than redirecting to storage
+            file_db = File.by_id(file_id)
+            alternative_format = (
+                next(
+                    (alt for alt in file_db.extra_.alternative_formats if alt.storage_suffix == alternative_suffix),
+                    None,
+                )
+                if file_db is not None
+                else None
+            )
+            if alternative_format is not None and alternative_format.size is not None:
+                mime, _extension = describe_alternative(file_db, alternative_suffix, alternative_format)
+                headers = {
+                    "Content-Length": str(int(alternative_format.size)),
+                    "Content-Type": mime,
+                    "Accept-Ranges": "bytes",
+                }
+                last_modified = file_db.time_updated
+                if isinstance(last_modified, datetime.datetime):
+                    if last_modified.tzinfo is None:
+                        last_modified = last_modified.replace(tzinfo=datetime.UTC)
+                    headers["Last-Modified"] = format_datetime(last_modified.astimezone(datetime.UTC), usegmt=True)
+                return Response(status_code=200, headers=headers)
+
+        logger.debug(
+            "storage_read_file_id_alternative",
+            file_id=file_id,
+            alternative_suffix=alternative_suffix,
+            download=download,
         )
 
-        cache_key = f"presignedurl-{file_id}-{alternative_suffix}-{download}"
-        presigned_url_details = await cacher.get(cache_key)
+        requested_filename = sanitized_download_name(filename) if filename else None
 
-        if presigned_url_details is None:
-            # not in cache => fetch it
-            print_color(
-                "red", "Presigned URL not found in server cache: ", alternative_suffix
+        if download or requested_filename:
+            presigned_url_details = get_onetime_presigned_url(
+                file_id, alternative_suffix, download=download, filename=requested_filename
             )
-            presigned_url_details = get_presigned_url(
-                file_id, alternative_suffix, download
-            )
-            if presigned_url_details:
-                # cache it
-                presigned_url, expiration = presigned_url_details
-                print_color("blue", "Caching presigned URL", alternative_suffix)
-                await cacher.set(
-                    cache_key,
-                    presigned_url_details,
-                    ttl=int(expiration - datetime.datetime.now().timestamp()),
-                )
         else:
-            time_left = await cacher.time_to_live(cache_key)
-            print_color(
-                "green",
-                "Presigned URL found in server cache (",
-                time_left,
-                "s left): ",
-                alternative_suffix,
-            )
+            presigned_url_details = get_and_cache_presigned_url(file_id, alternative_suffix)
 
         if presigned_url_details is None:
-            print_color(
-                "red",
-                "Presigned URL not found in server cache nor in storage: ",
-                file_id,
+            logger.warning(
+                "storage_read_presigned_url_not_found", file_id=file_id, alternative_suffix=alternative_suffix
             )
 
             if alternative_suffix == "default":
-                print_color("blue", "DEFAULT not available=>redirect to ORIGINAL")
+                logger.debug("storage_read_default_unavailable_redirect_original", file_id=file_id)
 
                 # let's redirect to the original file
-                return RedirectResponse(
-                    f"/api/files/storage/read/{file_id}/original?download={download}"
-                )
+                return RedirectResponse(f"/api/files/storage/read/{file_id}/original?download={download}")
             elif alternative_suffix == "original":
-                print_color(
-                    "blue", "ORIGINAL not available=>redirect to original-stream"
-                )
-                return RedirectResponse(
-                    f"/api/files/storage/read/{file_id}/original-stream?download={download}"
-                )
+                logger.debug("storage_read_original_unavailable_redirect_stream", file_id=file_id)
+                return RedirectResponse(f"/api/files/storage/read/{file_id}/original-stream?download={download}")
 
-            print_color(
-                "red",
-                "we can't generate the presigned URL so let's return an error",
+            if alternative_suffix != "original-stream":
+                logger.debug(
+                    "storage_read_alternative_unavailable_redirect_default",
+                    file_id=file_id,
+                    alternative_suffix=alternative_suffix,
+                )
+                return RedirectResponse(f"/api/files/storage/read/{file_id}/default?download={download}")
+
+            logger.warning(
+                "storage_read_presigned_url_generation_failed", file_id=file_id, alternative_suffix=alternative_suffix
             )
-
-            # still not found => return error
             return EndpointOutput(
                 error=EndpointError(
                     title="Download URL not found",
@@ -1057,20 +930,21 @@ def create_crud_file_router(prefix: str = "/api/files"):
         # return the presigned URL
         presigned_url, expiration = presigned_url_details
 
-        print("Redirecting to", presigned_url[:20] if presigned_url else "N/A")
+        logger.debug("storage_read_redirecting", presigned_url_prefix=presigned_url[:20] if presigned_url else None)
         return RedirectResponse(
             presigned_url,
-            headers={
-                "Cache-Control": f"max-age={expiration - datetime.datetime.now().timestamp()}"
-            },
+            headers={"Cache-Control": f"max-age={expiration - datetime.datetime.now().timestamp()}"},
         )
 
+    @crud_file_router.head("/storage/read-from-local/{file_id}/{alternative_suffix}/{filename}")
+    @crud_file_router.get("/storage/read-from-local/{file_id}/{alternative_suffix}/{filename}")
     @crud_file_router.head("/storage/read-from-local/{file_id}/{alternative_suffix}")
     @crud_file_router.get("/storage/read-from-local/{file_id}/{alternative_suffix}")
     async def read_from_local(
         file_id: str,
         alternative_suffix: str = "original",
         download: bool = Query(False),
+        filename: str | None = None,
     ):
         file_db = File.by_id(file_id)
         if file_db is None:
@@ -1090,7 +964,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 )
             )
 
-        storage: LocalStorage = get_file_storage(file_db.storage_id)  # type: ignore
+        storage: LocalStorage = get_file_storage(file_db.storage_id)  # type: ignore[assignment]
 
         if storage.storage_type != "local":
             return EndpointOutput(
@@ -1118,28 +992,20 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 )
             )
 
-        storage_path = os.path.join(
-            storage_folder, file_db.storage_folder_path, alternative_suffix
-        )
+        storage_path = os.path.join(storage_folder, file_db.storage_folder_path, alternative_suffix)
 
         # Find the alternative format in `extra.alternative_formats`
         alternative_format = next(
-            (
-                alt
-                for alt in file_db.extra_.alternative_formats
-                if alt.storage_suffix == alternative_suffix
-            ),
+            (alt for alt in file_db.extra_.alternative_formats if alt.storage_suffix == alternative_suffix),
             None,
         )
 
-        if alternative_format is not None:
-            mime = alternative_format.mime
-            extension = alternative_format.extension
-        else:
-            mime = file_db.mime or file_db.mime_client or "application/octet-stream"
-            extension = file_db.extension or file_db.extension_client or ""
+        mime, extension = describe_alternative(file_db, alternative_suffix, alternative_format)
 
-        file_name = file_db.public_filename or file_db.id.hex[:8]
+        # A caller that knows what the file *is* (a form step knows its question) can name the
+        # download; the stored name is a recorder-generated timestamp. Slugified below, so an
+        # arbitrary query string can't inject into the Content-Disposition header.
+        file_name = filename or file_db.public_filename or file_db.id.hex[:8]
 
         # remove the extension from the file name if it ends with it, to avoid double extensions like "file.jpg.jpg"
         if file_db.extension_client and file_name.endswith(file_db.extension_client):
@@ -1150,9 +1016,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
         # slugify the file name to avoid header errors
         file_name = slugify(file_name)
 
-        if extension and not file_name.endswith(extension):
-            file_name += "." + extension
-        file_name = file_name.replace("..", ".")
+        file_name = named_with_extension(file_name, extension)
 
         headers = {
             "Cache-Control": "max-age=" + str(3600 * 24),
@@ -1185,9 +1049,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 )
             )
 
-        if not current_user_db.email or (
-            current_user_db.email and "joris" not in current_user_db.email
-        ):
+        if not current_user_db.email or (current_user_db.email and "joris" not in current_user_db.email):
             return EndpointOutput(
                 error=EndpointError(
                     title="Not allowed",
@@ -1206,23 +1068,19 @@ def create_crud_file_router(prefix: str = "/api/files"):
                 .all()
             )
 
-        print("Files to update:", len(files_db))
+        logger.info("bulk_update_files_to_update", count=len(files_db))
 
         files_processed = 0
 
         for file_db in files_db:
-            print_warning("You want to update this file:", file_db.id)
+            logger.info("bulk_update_processing_file", file_id=file_db.id)
 
             storage = get_file_storage(file_db.storage_id)
 
             # this is not about the entityFile but the physically stored file
-            original_alternative = storage.get_original_alternative(
-                storage_folder_path=file_db.storage_folder_path
-            )
+            original_alternative = storage.get_original_alternative(storage_folder_path=file_db.storage_folder_path)
             if original_alternative is None:
-                print_warning(
-                    "No original file to process (original | original-stream)"
-                )
+                logger.warning("bulk_update_no_original_alternative", file_id=file_db.id)
                 File.patch(
                     obj_id=file_db.id,
                     update_dict={"unprocessable": True},
@@ -1235,9 +1093,7 @@ def create_crud_file_router(prefix: str = "/api/files"):
             )
 
             # update the file
-            file_db_updated = File.patch(
-                obj_id=file_db.id, update_dict={"size": size, "in_storage": True}
-            )
+            file_db_updated = File.patch(obj_id=file_db.id, update_dict={"size": size, "in_storage": True})
 
             # create the fill_details task
             TasksManager.create_task(

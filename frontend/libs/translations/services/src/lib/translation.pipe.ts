@@ -13,11 +13,11 @@ const DEBUG = false;
 export class TranslatePipe implements PipeTransform {
 	_translationService = inject(TranslationService);
 
-	transform(inputSentence: string, kv?: { [key: string]: any }, rpbt: boolean = false, translationContext?: string) {
+	transform(inputSentence: string, kv?: { [key: string]: any }, rpbt: boolean = false, translationContext?: string, inputLanguage: string = 'en') {
 		// return of(inputSentence);
 		return this._translationService.translate$({
 			inputSentence,
-			inputLanguage: 'en',
+			inputLanguage,
 			kv,
 			rpbt,
 			translationContext,
@@ -66,8 +66,18 @@ export class TranslateDirective implements OnInit {
 					if (!translation) return;
 					const element = this._elementRef?.nativeElement;
 					if (!element) return;
-					element.innerHTML = translation;
-					this._cdr.detectChanges();
+					// translate$() can emit synchronously (cached translation -> of(...)).
+					// Calling detectChanges() from within that synchronous emission, while
+					// Angular may still be in the middle of instantiating/rendering the
+					// current view, makes this directive re-enter change detection —
+					// which can construct further [translate] directives that do the same,
+					// recursing until the stack overflows on pages with many of them (e.g.
+					// per-row translated badges/buttons in a table). Deferring the DOM
+					// write + detectChanges to a microtask breaks that synchronous chain.
+					queueMicrotask(() => {
+						element.innerHTML = translation;
+						this._cdr.detectChanges();
+					});
 				}),
 				finalize(() => {
 					this.translation$$$.destructor();

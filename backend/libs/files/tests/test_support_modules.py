@@ -17,7 +17,7 @@ from libs.files.storage.methods import CACHED_STORAGE, get_file_storage, get_sto
 
 
 def test_constants_expose_local_storage_defaults():
-    assert constants.LOCAL_STORAGE_SETTINGS_ID == uuid.UUID("fe180252-e274-0be4-ebdf-54c5c5726245")
+    assert uuid.UUID("fe180252-e274-0be4-ebdf-54c5c5726245") == constants.LOCAL_STORAGE_SETTINGS_ID
     assert constants.LOCAL_STORAGE_SETTINGS.kind == "local"
     assert constants.LOCAL_STORAGE_CONFIG.path.endswith("/storage")
     assert constants.LOCAL_STORAGE_SETTINGS.config["path"] == constants.LOCAL_STORAGE_CONFIG.path

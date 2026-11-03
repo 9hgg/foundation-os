@@ -1,10 +1,10 @@
+import structlog
 from fastapi import BackgroundTasks
 from fastapi.responses import HTMLResponse
 
 from libs.db.methods import context_db
 from libs.endpoints import create_crud_endpoints
 from libs.i18n.deps import Translator__dep
-from libs.logger.customLogger import print_color, print_warning
 from libs.users.deps import CurrentUser__dep
 from libs.utils.types import EndpointError, EndpointOutput
 
@@ -13,11 +13,11 @@ from .models import Task, TaskSlot
 from .runtime_state import is_task_effectively_running, is_task_stale
 from .tasks_manager import TasksManager
 
+logger = structlog.get_logger(__name__)
 
-def create_crud_task_router(prefix: str = "/api/tasks"):
-    crud_task_router = create_crud_endpoints(
-        Task, prefix=prefix, tags=["tasks"], include_bypass=True
-    )
+
+def create_crud_task_router(prefix: str = "/api/tasks"):  # noqa: C901
+    crud_task_router = create_crud_endpoints(Task, prefix=prefix, tags=["tasks"], include_bypass=True)
 
     @crud_task_router.get("/enlisted-methods")
     async def list_enlisted_task_methods(
@@ -46,20 +46,21 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
                 )
             )
 
-        return EndpointOutput(
-            result={"methodNames": sorted(TasksManager.tasks_methods.keys())}
-        )
+        return EndpointOutput(result={"methodNames": sorted(TasksManager.tasks_methods.keys())})
+
+    # create_crud_endpoints() already registered a single-segment GET "/{resource_id}"
+    # route above, which — since Starlette matches routes in registration order —
+    # would otherwise swallow GET "/enlisted-methods" (treating "enlisted-methods" as
+    # a resource id and failing with "Invalid resource ID"). Move it to the front so
+    # it's matched first.
+    crud_task_router.routes.insert(0, crud_task_router.routes.pop())
 
     @crud_task_router.get("/processing/{taskId}/progress")
     async def get_task_progress(taskId: str):
         task_db = Task.by_id(obj_id=taskId)
         # print_color("blue", f"Get task progress for {taskId}", task_db)
         if not task_db:
-            return EndpointOutput(
-                error=EndpointError(
-                    title="Not found", description=f"Task {taskId} not found"
-                )
-            )
+            return EndpointOutput(error=EndpointError(title="Not found", description=f"Task {taskId} not found"))
 
         # Extract progress and status fields using property access
         result = {
@@ -83,16 +84,28 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
         ):
             result["artifactTaskId"] = artifacts["return_value"]["task_id"]
 
-        print_color("purple", result)
+        logger.info("task_progress_fetched", task_id=taskId, result=result)
 
         return EndpointOutput(result=result)
 
-    @crud_task_router.get("/processing/launch-from-server")
+    # POST, and admin-only. As an unauthenticated GET this put the whole queue on the server on
+    # demand, and a crawler prefetching links was enough to fire it.
+    @crud_task_router.post("/processing/launch-from-server")
     async def launch_tasks_processing_from_server(
         #
         background_tasks: BackgroundTasks,
+        current_user_db: CurrentUser__dep,
         translator: Translator__dep,
     ):
+        if not current_user_db or not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Unauthorized"),
+                    description=translator.translate("You must be logged in as a verified admin to launch task processing."),
+                    code="Unauthorized",
+                )
+            )
+
         background_tasks.add_task(process_tasks)
         return EndpointOutput(message=translator.translate("Tasks processing launched"))
 
@@ -127,13 +140,13 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
                 .all()
             )
 
-        print("Tasks:", len(tasks_db))
+        logger.info("task_cleanup_candidates_found", count=len(tasks_db))
 
         tasks_stopped = 0
 
         with context_db() as db:
             for task_db in tasks_db:
-                print_warning("You want to update this task:", task_db.id)
+                logger.info("task_cleanup_deleting", task_id=task_db.id)
 
                 Task.query(db).filter(Task.id == task_db.id).delete()
                 db.commit()
@@ -142,12 +155,24 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
 
         return EndpointOutput(result={"stoppedTasks": tasks_stopped})
 
-    @crud_task_router.get("/processing/retry-failed")
-    async def retry_failed_tasks_(translator: Translator__dep):
+    # POST, and admin-only. This recreates *every* task that has ever failed -- as an
+    # unauthenticated GET, one request from a passing scanner re-queued a year of them.
+    @crud_task_router.post("/processing/retry-failed")
+    async def retry_failed_tasks_(
+        current_user_db: CurrentUser__dep,
+        translator: Translator__dep,
+    ):
+        if not current_user_db or not current_user_db.is_admin():
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Unauthorized"),
+                    description=translator.translate("You must be logged in as a verified admin to retry failed tasks."),
+                    code="Unauthorized",
+                )
+            )
+
         await retry_failed_tasks()
-        return EndpointOutput(
-            message=translator.translate("Failed tasks retry launched")
-        )
+        return EndpointOutput(message=translator.translate("Failed tasks retry launched"))
 
     @crud_task_router.get("/{task_id}/recreate")
     async def recreate_task(
@@ -160,9 +185,7 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
             return EndpointOutput(
                 error=EndpointError(
                     title=translator.translate("Unauthorized"),
-                    description=translator.translate(
-                        "You must be logged in as a verified admin to recreate tasks."
-                    ),
+                    description=translator.translate("You must be logged in as a verified admin to recreate tasks."),
                     code="Unauthorized",
                 )
             )
@@ -181,9 +204,7 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
             return EndpointOutput(
                 error=EndpointError(
                     title=translator.translate("Task already running"),
-                    description=translator.translate(
-                        "Running tasks cannot be recreated."
-                    ),
+                    description=translator.translate("Running tasks cannot be recreated."),
                     code="TaskAlreadyRunning",
                 )
             )
@@ -210,9 +231,7 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
             return EndpointOutput(
                 error=EndpointError(
                     title=translator.translate("Unauthorized"),
-                    description=translator.translate(
-                        "You must be logged in as a verified admin to delete tasks."
-                    ),
+                    description=translator.translate("You must be logged in as a verified admin to delete tasks."),
                     code="Unauthorized",
                 )
             )
@@ -231,9 +250,7 @@ def create_crud_task_router(prefix: str = "/api/tasks"):
             return EndpointOutput(
                 error=EndpointError(
                     title=translator.translate("Task already running"),
-                    description=translator.translate(
-                        "Running tasks cannot be deleted."
-                    ),
+                    description=translator.translate("Running tasks cannot be deleted."),
                     code="TaskAlreadyRunning",
                 )
             )

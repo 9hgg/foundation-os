@@ -1,19 +1,19 @@
 @if (!beingPlayed()) {
 	<button
 		(click)="playFile()"
-		class="btn"
-		[style.background-color]="backgroundColor()"
-		[style.color]="textColor()"
+		class="relative flex h-full w-full transform items-center justify-center overflow-hidden rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+		[style.background]="'linear-gradient(135deg, ' + (backgroundColor() || 'var(--color-primary)') + ' 0%, ' + adjustBrightness(backgroundColor() || 'var(--color-primary)', -20) + ' 100%)'"
+		[style.color]="textColor() || 'var(--color-primary-content)'"
 	>
-		<tw-play />
+		<tw-play class="relative z-10 h-3/5 w-3/5 drop-shadow-sm" />
 	</button>
 } @else {
 	<button
 		(click)="pauseFile()"
-		class="btn"
-		[style.background-color]="backgroundColor()"
-		[style.color]="textColor()"
+		class="relative flex h-full w-full transform items-center justify-center overflow-hidden rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+		[style.background]="'linear-gradient(135deg, ' + (backgroundColor() || 'var(--color-primary)') + ' 0%, ' + adjustBrightness(backgroundColor() || 'var(--color-primary)', -20) + ' 100%)'"
+		[style.color]="textColor() || 'var(--color-primary-content)'"
 	>
-		<tw-pause />
+		<tw-pause class="relative z-10 h-3/5 w-3/5 drop-shadow-sm" />
 	</button>
 }

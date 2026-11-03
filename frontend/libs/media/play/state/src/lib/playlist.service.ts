@@ -1,10 +1,24 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { LayoutService } from '@foundation/app/layout';
 import { hashCode } from '@foundation/utils';
 import { BehaviorSubject, filter, Subject, switchMap, tap } from 'rxjs';
 import { PlayerMediaInfo, PlayerService } from './player.service';
 
-const debug = true;
+const debug = false;
+
+/**
+ * End of the buffered range covering `currentTime` (or the last range), in
+ * seconds. Used to render a buffer-health indicator on the seek bar.
+ */
+function bufferedEndSeconds(buffered: TimeRanges | undefined, currentTime: number): number {
+	if (!buffered || buffered.length === 0) return 0;
+	for (let rangeIndex = 0; rangeIndex < buffered.length; rangeIndex++) {
+		if (currentTime >= buffered.start(rangeIndex) && currentTime <= buffered.end(rangeIndex)) {
+			return buffered.end(rangeIndex);
+		}
+	}
+	return buffered.end(buffered.length - 1);
+}
 
 interface PlaylistTheme {
 	backgroundColor?: string;
@@ -36,6 +50,7 @@ export interface PlaylistDetails {
 export class PlaylistService {
 	private _playerService = inject(PlayerService);
 	private _layoutService = inject(LayoutService);
+	private _progressAnimationFrameId: number | null = null;
 
 	autoPlay = signal(true);
 
@@ -49,6 +64,18 @@ export class PlaylistService {
 	currentTime = signal(0);
 	/** Duration of the current item */
 	currentItemDuration = signal(0);
+	/** End of the buffered range of the current item, in seconds */
+	bufferedSeconds = signal(0);
+	/** Whether the current item has buffered enough to start playing */
+	canPlay = signal(false);
+	/** Whether the current item failed to load/play */
+	hasError = signal(false);
+	/** Output volume, 0..1 */
+	volume = signal(1);
+	/** Whether output is muted */
+	muted = signal(false);
+	/** Playback speed multiplier */
+	playbackRate = signal(1);
 	/** random seed (0 == no shuffling) */
 	shuffleItems = signal(false);
 	/** Items of the current playlist */
@@ -109,11 +136,14 @@ export class PlaylistService {
 				filter((f): f is PlayerMediaInfo => !!f),
 				switchMap((playerMediaInfo) => playerMediaInfo.state$$$.$),
 				tap((state) => {
-					console.log('[PlaylistService](constructor.playerMediaInfo.pipe.state)', { state }, state.currentTime);
+					if (debug) console.log('[PlaylistService](constructor.playerMediaInfo.pipe.state)', { state }, state.currentTime);
 
 					this.currentPlayingState.set(state.playing ? 'play' : 'pause');
 					this.currentItemDuration.set(state.duration ?? 0);
 					this.currentTime.set(state.currentTime ?? 0);
+					this.canPlay.set(state.canplay);
+					this.hasError.set(state.error);
+					this.bufferedSeconds.set(bufferedEndSeconds(state.buffered, state.currentTime ?? 0));
 
 					const currentPlaylistId = this.currentPlaylistId();
 					const currentItem = this.currentItem();
@@ -171,24 +201,73 @@ export class PlaylistService {
 			const audioInfoKey = this._generateAudioInfoKey(currentPlaylistId, currentItem.id);
 
 			if (desiredState === 'play') {
-				console.log('[PlaylistService](constructor.effect) play desired', audioInfoKey, currentItem.mediaUrl, currentItem.mediaType);
+				if (debug) console.log('[PlaylistService](constructor.effect) play desired', audioInfoKey, currentItem.mediaUrl, currentItem.mediaType);
 
 				const playerMediaInfo = this._playerService.getOrCreateMediaInfo(audioInfoKey, currentItem.mediaUrl, currentItem.mediaType);
+
+				// apply the current output settings to the (possibly freshly created) media,
+				// without making playback depend on them (changing volume must not restart play)
+				this._playerService.__setVolume(
+					playerMediaInfo,
+					untracked(() => this.volume()),
+					untracked(() => this.muted())
+				);
+				this._playerService.__setPlaybackRate(
+					playerMediaInfo,
+					untracked(() => this.playbackRate())
+				);
 
 				this.currentPlayerMediaInfo$.next(playerMediaInfo);
 
 				this._playerService.__playMediaByAudioInfoKey(audioInfoKey);
 			} else if (desiredState === 'pause') {
-				console.log('[PlaylistService](constructor.effect) pause desired', audioInfoKey);
+				if (debug) console.log('[PlaylistService](constructor.effect) pause desired', audioInfoKey);
 				// nothing to do as we paused all media at the beginning of the effect
 			} else if (desiredState === 'stop') {
-				console.log('[PlaylistService](constructor.effect) stop desired', audioInfoKey);
+				if (debug) console.log('[PlaylistService](constructor.effect) stop desired', audioInfoKey);
 				this._playerService.__seekByAudioInfoKey(audioInfoKey, 0);
+			}
+		});
+
+		// apply live volume/mute changes to the currently playing media
+		effect(() => {
+			const volume = this.volume();
+			const muted = this.muted();
+			const audioInfoKey = this._currentAudioInfoKey();
+			if (!audioInfoKey) return;
+			this._playerService.__setVolumeByAudioInfoKey(audioInfoKey, volume, muted);
+		});
+
+		// apply live playback-rate changes to the currently playing media
+		effect(() => {
+			const playbackRate = this.playbackRate();
+			const audioInfoKey = this._currentAudioInfoKey();
+			if (!audioInfoKey) return;
+			this._playerService.__setPlaybackRateByAudioInfoKey(audioInfoKey, playbackRate);
+		});
+
+		effect(() => {
+			const isPlaying = this.currentPlayingState() === 'play';
+			this.currentPlaylistHash();
+			this.currentItemIndex();
+
+			if (isPlaying) {
+				this.startProgressTicker();
+			} else {
+				this.stopProgressTicker();
 			}
 		});
 	}
 
-	setPlaylist(playlistDetails: PlaylistDetails, autoPlay = true, _indexToPlay?: number) {
+	/** Audio-info key of the current item, or null when nothing is loaded. */
+	private _currentAudioInfoKey(): string | null {
+		const currentItem = this.currentItem();
+		const currentPlaylistId = this.currentPlaylistId();
+		if (!currentItem || !currentPlaylistId) return null;
+		return this._generateAudioInfoKey(currentPlaylistId, currentItem.id);
+	}
+
+	setPlaylist(playlistDetails: PlaylistDetails, autoPlay = true, _indexToPlay?: number, startTime?: number) {
 		// if the playlist is the same as the current one, we just need to play it
 		if (this.currentPlaylistHash() === this.generatePlaylistHash(playlistDetails)) {
 			console.log('[PlaylistService](setPlaylist) same playlist');
@@ -197,6 +276,7 @@ export class PlaylistService {
 			// if the index is different, we need to change it
 			if (indexToPlay !== this.currentItemIndex()) {
 				console.log('[PlaylistService](setPlaylist) new index', indexToPlay);
+				this.seekItemToStart(playlistDetails, indexToPlay);
 				this.currentItemIndex.set(indexToPlay);
 			}
 
@@ -213,11 +293,53 @@ export class PlaylistService {
 		console.log('[PlaylistService](setPlaylist)', playlistDetails);
 
 		if (autoPlay) {
+			const indexToPlay = _indexToPlay ?? 0;
 			this.currentPlaylistId.set(playlistDetails.id);
 			this.currentPlaylistHash.set(this.generatePlaylistHash(playlistDetails));
-			this.currentItemIndex.set(_indexToPlay ?? 0);
+			this.currentItemIndex.set(indexToPlay);
+			// Switching to a different item reuses a cached media element that still
+			// holds its previous currentTime; a caller passing startTime rewinds it so
+			// the clip starts there instead of resuming. undefined = leave it be.
+			if (startTime !== undefined) this.seekItemToStart(playlistDetails, indexToPlay, startTime);
 			this.play();
 		}
+	}
+
+	private seekItemToStart(playlistDetails: PlaylistDetails, itemIndex: number, time = 0) {
+		const playlistItem = playlistDetails.items[itemIndex];
+		if (!playlistItem) return;
+
+		const audioInfoKey = this._generateAudioInfoKey(playlistDetails.id, playlistItem.id);
+		this._playerService.__seekByAudioInfoKey(audioInfoKey, time);
+	}
+
+	private startProgressTicker() {
+		if (this._progressAnimationFrameId !== null) return;
+
+		const tick = () => {
+			const mediaInfo = this.currentPlayerMediaInfo$.value;
+			if (!mediaInfo || mediaInfo.media.paused || mediaInfo.media.ended) {
+				this._progressAnimationFrameId = null;
+				return;
+			}
+
+			const media = mediaInfo.media;
+			this.currentTime.set(media.currentTime);
+			if (Number.isFinite(media.duration)) {
+				this.currentItemDuration.set(media.duration);
+			}
+			this.bufferedSeconds.set(bufferedEndSeconds(media.buffered, media.currentTime));
+
+			this._progressAnimationFrameId = requestAnimationFrame(tick);
+		};
+
+		this._progressAnimationFrameId = requestAnimationFrame(tick);
+	}
+
+	private stopProgressTicker() {
+		if (this._progressAnimationFrameId === null) return;
+		cancelAnimationFrame(this._progressAnimationFrameId);
+		this._progressAnimationFrameId = null;
 	}
 
 	generatePlaylistHash(playlistDetails: PlaylistDetails) {
@@ -256,6 +378,11 @@ export class PlaylistService {
 		this.desiredPlayingState.set('stop');
 	}
 
+	stopAndClose() {
+		this.stop();
+		this._layoutService.displayRootPlayer(false);
+	}
+
 	togglePlayPause() {
 		if (this.desiredPlayingState() === 'play') {
 			this.desiredPlayingState.set('pause');
@@ -276,17 +403,44 @@ export class PlaylistService {
 			return;
 		}
 		const audioInfoKey = this._generateAudioInfoKey(currentPlaylistId, currentPlaylistItem.id);
-		console.log('[PlaylistService](seek)', audioInfoKey, time);
+		if (debug) console.log('[PlaylistService](seek)', audioInfoKey, time);
 
 		this._playerService.__seekByAudioInfoKey(audioInfoKey, time);
+	}
+
+	/** Seek relative to the current position, clamped to [0, duration]. */
+	skip(deltaSeconds: number) {
+		const targetTime = Math.min(this.currentItemDuration(), Math.max(0, this.currentTime() + deltaSeconds));
+		this.seek(targetTime);
+	}
+
+	setVolume(volume: number) {
+		const clampedVolume = Math.min(1, Math.max(0, volume));
+		this.volume.set(clampedVolume);
+		// dragging the volume above zero implicitly unmutes
+		if (clampedVolume > 0) this.muted.set(false);
+	}
+
+	toggleMute() {
+		this.muted.update((muted) => !muted);
+	}
+
+	setPlaybackRate(playbackRate: number) {
+		if (!Number.isFinite(playbackRate) || playbackRate <= 0) return;
+		this.playbackRate.set(playbackRate);
 	}
 
 	naiveNext() {
 		const items = this.currentItems();
 		const currentItemIndex = this.currentItemIndex();
-		let nextIndex = currentItemIndex + 1;
+		const nextIndex = currentItemIndex + 1;
 		if (nextIndex >= items.length) {
-			nextIndex = 0;
+			this.stop();
+			return;
+		}
+		const currentPlaylist = this.currentPlaylist();
+		if (currentPlaylist) {
+			this.seekItemToStart(currentPlaylist, nextIndex);
 		}
 		this.currentItemIndex.set(nextIndex);
 	}

@@ -32,7 +32,7 @@ class OpenTurnsRegressor(TrainableRegressor[FeatureVectorInput]):
     def _to_sample(self, inputs: list[Any]) -> Any:
         rows: list[list[float]] = []
         for item in inputs:
-            if isinstance(item, (int, float)):
+            if isinstance(item, int | float):
                 rows.append([float(item)])
             else:
                 rows.append([float(value) for value in item])

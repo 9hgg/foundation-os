@@ -12,7 +12,6 @@ from libs.ml.models import (
     TextInput,
 )
 
-
 # ─── JsonInput.serialize ──────────────────────────────────────────────────────
 
 def test_json_input_serialize_passthrough() -> None:

@@ -324,6 +324,9 @@ export class RecorderService {
 			navigator.mediaDevices
 				.getUserMedia(constraints)
 				.then((newMediaStream) => {
+					if (this.mediaStream && this.mediaStream !== newMediaStream) {
+						this.mediaStream.getTracks().forEach((track) => track.stop());
+					}
 					this.mediaStream = newMediaStream;
 
 					if (this.recordingProps.withScreen && this.videoStreamMerger) {

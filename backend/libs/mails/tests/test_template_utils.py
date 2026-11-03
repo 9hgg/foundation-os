@@ -1,5 +1,5 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
 from libs.mails.template_utils import render_email_template, render_transactional_email
 
 
@@ -39,4 +39,5 @@ def test_render_transactional_email(mock_render):
         button_url="http://url",
         additional_content=None,
         footer_message=None,
+        origin=None,
     )

@@ -24,6 +24,7 @@ class LDAPSettings(BaseSettings):
     LDAP_PASSWORD: str | None = None
     LDAP_BASE_DN: str | None = None
     LDAP_USER_DN_TEMPLATE: str | None = None
+    LDAP_REQUIRED_GROUP: str | None = None
     LDAP_USER_SEARCH_FILTER: str = (
         "(|(mail={login})(userPrincipalName={login})(sAMAccountName={login})(uid={login}))"
     )
@@ -56,6 +57,7 @@ class LDAPAuthenticatedUser:
     last_name: str | None = None
     display_name: str | None = None
     dn: str | None = None
+    is_group_member: bool = False
 
 
 class LDAPProvider:
@@ -74,10 +76,16 @@ class LDAPProvider:
             server = self._build_server()
             with self._service_connection(server) as service_connection:
                 user_dn, attributes = self._resolve_user(service_connection, login=login)
-            with self._user_connection(server, user_dn=user_dn, password=password):
+            with self._user_connection(server=server, user_dn=user_dn, password=password):
                 pass
         except (LDAPBindError, LDAPSocketOpenError, LDAPException) as exc:
             raise InvalidLDAPDataError() from exc
+
+        is_group_member = False
+        if self.settings.LDAP_REQUIRED_GROUP:
+            member_of = attributes.get("isMemberOf", [])
+            groups = [str(g) for g in (member_of if isinstance(member_of, list) else [member_of])]
+            is_group_member = self.settings.LDAP_REQUIRED_GROUP in groups
 
         email = self._get_attribute(attributes, self.settings.LDAP_EMAIL_ATTRIBUTE)
         if email is None and "@" in login:
@@ -97,6 +105,7 @@ class LDAPProvider:
                 attributes, self.settings.LDAP_DISPLAY_NAME_ATTRIBUTE
             ),
             dn=user_dn,
+            is_group_member=is_group_member,
         )
 
     def _build_server(self) -> Server:
@@ -191,14 +200,15 @@ class LDAPProvider:
         return dict(connection.entries[0].entry_attributes_as_dict)
 
     def _requested_attributes(self) -> list[str]:
-        return list(
-            {
-                self.settings.LDAP_EMAIL_ATTRIBUTE,
-                self.settings.LDAP_FIRST_NAME_ATTRIBUTE,
-                self.settings.LDAP_LAST_NAME_ATTRIBUTE,
-                self.settings.LDAP_DISPLAY_NAME_ATTRIBUTE,
-            }
-        )
+        attrs = {
+            self.settings.LDAP_EMAIL_ATTRIBUTE,
+            self.settings.LDAP_FIRST_NAME_ATTRIBUTE,
+            self.settings.LDAP_LAST_NAME_ATTRIBUTE,
+            self.settings.LDAP_DISPLAY_NAME_ATTRIBUTE,
+        }
+        if self.settings.LDAP_REQUIRED_GROUP:
+            attrs.add("isMemberOf")
+        return list(attrs)
 
     @staticmethod
     def _get_attribute(attributes: dict[str, object], attribute_name: str) -> str | None:
@@ -231,9 +241,12 @@ def process_token(
     user_db = User.get_first_by(email=ldap_user.email, _db=_db)
 
     if user_db:
+        new_app_details = {**(user_db.config.app_details or {}), "ldap_group_member": ldap_user.is_group_member}
+        new_config = user_db.config.model_copy(update={"app_details": new_app_details})
+        patch_dict: dict = {"config": new_config.model_dump()}
         if not user_db.email_verified:
-            user_db.email_verified = True
-            User.patch(obj_id=user_db.id, update_dict={"email_verified": True}, _db=_db)
+            patch_dict["email_verified"] = True
+        User.patch(obj_id=user_db.id, update_dict=patch_dict, _db=_db)
     else:
         if not register_user:
             return TokenProcessingResult(
@@ -248,7 +261,8 @@ def process_token(
             "pseudo": pseudo,
             "email_verified": True,
             "config": User.__config_type__(
-                notification_digest_frequency="daily"
+                notification_digest_frequency="daily",
+                app_details={"ldap_group_member": ldap_user.is_group_member},
             ).model_dump(),
         }
 

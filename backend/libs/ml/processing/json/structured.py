@@ -153,7 +153,7 @@ class StructuredJsonVectorizer:
 
         if isinstance(value, bool):
             return 1.0 if value else 0.0
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return float(value)
         if isinstance(value, str):
             with_context = value.replace(",", ".").strip()
@@ -177,7 +177,7 @@ class StructuredJsonVectorizer:
             return "boolean"
 
         if all(
-            isinstance(value, (int, float)) and not isinstance(value, bool)
+            isinstance(value, int | float) and not isinstance(value, bool)
             for value in values
         ):
             return "numerical"
@@ -246,7 +246,7 @@ class StructuredJsonVectorizer:
                 self._flatten(value=item, output=output, prefix=next_prefix)
             return
 
-        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
             if not value:
                 output[prefix] = None
                 return

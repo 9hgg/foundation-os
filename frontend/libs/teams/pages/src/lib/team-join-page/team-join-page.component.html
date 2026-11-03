@@ -1,0 +1,100 @@
+<div class="hero bg-base-200 min-h-screen pt-16">
+	<div class="hero-content w-full max-w-md flex-col">
+		<div class="card bg-base-100 w-full shrink-0 shadow-2xl">
+			@if (isClaiming()) {
+				<div class="card-body text-center">
+					<span class="loading loading-spinner loading-lg text-primary mx-auto"></span>
+					<p
+						class="text-base-content/70 mt-4"
+						[translate]
+					>
+						Accepting your invitation...
+					</p>
+				</div>
+			} @else if (joinedTeamId()) {
+				<div class="card-body text-center">
+					<div class="avatar placeholder mb-2">
+						<div class="bg-success text-success-content grid h-16 w-16 place-items-center rounded-full">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-8 w-8"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M5 13l4 4L19 7"
+								/>
+							</svg>
+						</div>
+					</div>
+					<h2 class="text-2xl font-bold">
+						@if (joinedTeamName()) {
+							<span [translate]>You have joined</span>
+							<span> {{ joinedTeamName() }}</span>
+						} @else {
+							<span [translate]>You have joined the team</span>
+						}
+					</h2>
+					<p class="text-base-content/70 mt-2 text-sm">
+						<span [translate]>You are in as</span>
+						<span> {{ joinedRole() }}.</span>
+					</p>
+
+					<div class="card-actions mt-6 flex-col gap-2">
+						<button
+							type="button"
+							class="btn btn-primary w-full"
+							(click)="goToTeam()"
+						>
+							<span [translate]>Open the team</span>
+						</button>
+						<button
+							type="button"
+							class="btn btn-ghost w-full"
+							(click)="goToDashboard()"
+						>
+							<span [translate]>Go to my dashboard</span>
+						</button>
+					</div>
+				</div>
+			} @else {
+				<div class="card-body text-center">
+					<div class="avatar placeholder mb-2">
+						<div class="bg-warning text-warning-content grid h-16 w-16 place-items-center rounded-full">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-8 w-8"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0l-7.1 12.25A2 2 0 005 19z"
+								/>
+							</svg>
+						</div>
+					</div>
+					<h2 class="text-2xl font-bold">{{ errorTitle() }}</h2>
+					<p class="text-base-content/70 mt-2 text-sm">{{ errorDescription() }}</p>
+
+					<div class="card-actions mt-6">
+						<button
+							type="button"
+							class="btn btn-ghost w-full"
+							(click)="goToDashboard()"
+						>
+							<span [translate]>Go to my dashboard</span>
+						</button>
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+</div>

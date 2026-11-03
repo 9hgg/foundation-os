@@ -365,7 +365,7 @@ class LLMFewShotClassifier(_LLMFewShotBase, TrainableClassifier[T]):
         )
 
         by_label: dict[str, list[tuple[T, Label]]] = defaultdict(list)
-        for inp, label in zip(inputs, targets):
+        for inp, label in zip(inputs, targets, strict=False):
             by_label[label.id].append((inp, label))
 
         # Phase 1: Induction
@@ -526,7 +526,7 @@ class LLMFewShotClassifier(_LLMFewShotBase, TrainableClassifier[T]):
         label_aliases_by_name: Mapping[str, str],
     ) -> list[dict[str, str]]:
         mistakes: list[dict[str, str]] = []
-        for inp, target, pred in zip(inputs, targets, predictions):
+        for inp, target, pred in zip(inputs, targets, predictions, strict=False):
             pred_id = pred.label_id or ""
             if pred_id != target.id and pred_id != target.name:
                 predicted_label = self._resolve_label_alias(
@@ -615,7 +615,7 @@ class LLMFewShotTextMultiLabelClassifier(
 
         # Each sample appears in every group corresponding to its labels
         by_label: dict[str, list[tuple[TextInput, list[Label]]]] = defaultdict(list)
-        for inp, lbls in zip(inputs, targets):
+        for inp, lbls in zip(inputs, targets, strict=False):
             for label in lbls:
                 by_label[label.id].append((inp, lbls))
 
@@ -806,7 +806,7 @@ class LLMFewShotTextMultiLabelClassifier(
         label_aliases_by_name: Mapping[str, str],
     ) -> list[dict[str, str]]:
         mistakes: list[dict[str, str]] = []
-        for inp, target_labels, pred_preds in zip(inputs, targets, predictions):
+        for inp, target_labels, pred_preds in zip(inputs, targets, predictions, strict=False):
             correct_ids = {lbl.id for lbl in target_labels}
             predicted_ids = {pred.label_id for pred in pred_preds if pred.label_id}
             if correct_ids != predicted_ids:

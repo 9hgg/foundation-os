@@ -1,13 +1,12 @@
 import uuid
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 import sqlmodel
 from pydantic import UUID4, BaseModel, Field
 from sqlalchemy.dialects.postgresql import JSONB
 
-from libs.mcp.display import ResourceDisplayProfile
-from libs.resource import ResourceWithConfig
+from libs.resource import ResourceDisplayProfile, ResourceWithConfig
 from libs.users.config import USER_SETTINGS
 from libs.utils.types import BaseModelWithConfig
 
@@ -21,21 +20,21 @@ class EmailSubscriptionDetails(BaseModel):
     """Details for a specific email subscription/newsletter."""
 
     subscribed: bool = False
-    frequency: Optional[NotificationDigestFrequency] = (
+    frequency: NotificationDigestFrequency | None = (
         None  # For future use if newsletters have frequency options
     )
-    subscribed_at: Optional[str] = (
+    subscribed_at: str | None = (
         None  # ISO datetime string when subscription was made
     )
-    last_sent: Optional[str] = None  # ISO datetime string when last email was sent
+    last_sent: str | None = None  # ISO datetime string when last email was sent
 
 
 class ThemeConfig(BaseModel):
     """Theme configuration for a user."""
 
-    mode: Optional[ThemeMode] = "system"
-    light: Optional[str] = None
-    dark: Optional[str] = None
+    mode: ThemeMode | None = "system"
+    light: str | None = None
+    dark: str | None = None
 
 
 class BillingConfig(BaseModelWithConfig):
@@ -46,10 +45,10 @@ class BillingConfig(BaseModelWithConfig):
     __category__ = "config"
 
     # Stripe linkage
-    stripe_customer_id: Optional[str] = None
+    stripe_customer_id: str | None = None
 
     # Future providers (kept for parity/extensibility)
-    paddle_customer_id: Optional[str] = None
+    paddle_customer_id: str | None = None
 
 
 class FormerEmail(BaseModelWithConfig):
@@ -65,10 +64,10 @@ class UserConfig(BaseModelWithConfig):
     __private__ = True
     __category__ = "config"
 
-    profile_picture_id: Optional[UUID4] = None
+    profile_picture_id: UUID4 | None = None
 
     # Email notification preferences
-    notification_digest_frequency: Optional[NotificationDigestFrequency] = None
+    notification_digest_frequency: NotificationDigestFrequency | None = None
 
     # Newsletter subscriptions - flexible structure for multiple newsletters
     newsletter_subscriptions: dict[str, EmailSubscriptionDetails] = Field(
@@ -79,7 +78,7 @@ class UserConfig(BaseModelWithConfig):
     theme: ThemeConfig = Field(default_factory=ThemeConfig)
 
     # Language preference
-    language: Optional[str] = None
+    language: str | None = None
 
     # Billing config (always present for direct attribute access convenience)
     billing: BillingConfig = Field(default_factory=BillingConfig)
@@ -88,7 +87,7 @@ class UserConfig(BaseModelWithConfig):
     former_emails: list["FormerEmail"] = Field(default_factory=list)
 
     # App-specific user details — each app defines its own typed model for this field
-    app_details: Optional[dict] = None
+    app_details: dict | None = None
 
     def model_post_init(self, __context):
         if isinstance(self.profile_picture_id, str):
@@ -101,7 +100,7 @@ class User(ResourceWithConfig, table=True):
     __title__ = "User"
     __description__ = "A user is a person that can access the application."
     __config_type__ = UserConfig
-    __mcp_display__ = ResourceDisplayProfile(
+    __display_profile__ = ResourceDisplayProfile(
         kind="user",
         title_fields=("pseudo", "email", "first_name", "last_name", "id"),
         subtitle_fields=("email",),
@@ -116,23 +115,23 @@ class User(ResourceWithConfig, table=True):
         ),
     )
 
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    pseudo: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    pseudo: str | None = None
 
-    email: Optional[str] = None
-    email_verified: Optional[bool] = False
-    email_verification_token: Optional[str] = sqlmodel.Field(exclude=True, default=None)
-    email_verification_token_expires: Optional[str] = None  # ISO datetime string
-    password_hashed: Optional[str] = sqlmodel.Field(exclude=True, default=None)
-    reset_password_token: Optional[str] = sqlmodel.Field(exclude=True, default=None)
-    reset_password_token_expires: Optional[str] = sqlmodel.Field(
+    email: str | None = None
+    email_verified: bool | None = False
+    email_verification_token: str | None = sqlmodel.Field(exclude=True, default=None)
+    email_verification_token_expires: str | None = None  # ISO datetime string
+    password_hashed: str | None = sqlmodel.Field(exclude=True, default=None)
+    reset_password_token: str | None = sqlmodel.Field(exclude=True, default=None)
+    reset_password_token_expires: str | None = sqlmodel.Field(
         exclude=True, default=None
     )
 
-    pending_email: Optional[str] = sqlmodel.Field(exclude=True, default=None)
-    change_email_token: Optional[str] = sqlmodel.Field(exclude=True, default=None)
-    change_email_token_expires: Optional[str] = sqlmodel.Field(
+    pending_email: str | None = sqlmodel.Field(exclude=True, default=None)
+    change_email_token: str | None = sqlmodel.Field(exclude=True, default=None)
+    change_email_token_expires: str | None = sqlmodel.Field(
         exclude=True, default=None
     )
 
@@ -145,7 +144,7 @@ class User(ResourceWithConfig, table=True):
     def is_admin(
         self,
         require_verified: bool = True,
-        admin_emails: Optional[list[str]] = None,
+        admin_emails: list[str] | None = None,
     ) -> bool:
         """
         Single source of truth for admin checks.

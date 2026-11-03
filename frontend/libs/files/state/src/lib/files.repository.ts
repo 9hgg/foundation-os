@@ -4,7 +4,22 @@ import { DEFAULT_BACKEND_URL, RequestResponse, SimpleResponse } from '@foundatio
 import { GenericRepository } from '@foundation/table/state';
 import { HttpClient, HttpEventType, HttpHeaders } from '@angular/common/http';
 import { ElementRef, inject, Injectable, Renderer2, RendererFactory2 } from '@angular/core';
-import { combineLatest, EMPTY, filter, finalize, interval, NEVER, Observable, of, shareReplay, skipUntil, switchMap, take, tap } from 'rxjs';
+import { catchError, combineLatest, EMPTY, filter, finalize, interval, NEVER, Observable, of, shareReplay, skipUntil, switchMap, take, tap } from 'rxjs';
+
+/**
+ * Public, non-ACL-filtered file metadata returned by
+ * `/api/files/storage/read/{id}/public-metadata` (same access model as the
+ * streaming endpoint). Only file-derived fields — no filenames/description.
+ */
+export interface FilePublicMetadata {
+	kind?: string;
+	extension?: string;
+	size?: number;
+	duration?: number;
+	width?: number;
+	height?: number;
+	extra?: EntityFile['extra'];
+}
 
 export interface TaskProgressResponse {
 	id: string;
@@ -15,10 +30,18 @@ export interface TaskProgressResponse {
 	completed?: boolean;
 	ended?: boolean;
 	failed?: boolean;
+	/** The task's heartbeat is dead (worker crashed/abandoned it) — it will never complete. */
+	stale?: boolean;
 	artifactTaskId?: string;
 }
 
-export function convertToUrl(fileInput: string | EntityFile, alternative: string = 'default', download = false) {
+/**
+ * @param downloadFilename names the downloaded file (the backend puts it in the
+ * Content-Disposition, which otherwise carries the recorder's timestamped name). Only meaningful
+ * together with `download`.
+ */
+export function convertToUrl(fileInput: string | EntityFile, alternative: string = 'default', download = false, downloadFilename?: string) {
+	const downloadQuery = download ? '?download=true' + (downloadFilename ? '&filename=' + encodeURIComponent(downloadFilename) : '') : '';
 	if (typeof fileInput === 'string') {
 		// http url
 		if (fileInput.startsWith('http')) {
@@ -27,11 +50,11 @@ export function convertToUrl(fileInput: string | EntityFile, alternative: string
 
 		// custom url
 		if (fileInput.startsWith('sp://')) {
-			return DEFAULT_BACKEND_URL + '/api/files/storage/read/' + fileInput.substring(5) + '/' + alternative + (download ? '?download=true' : '');
+			return DEFAULT_BACKEND_URL + '/api/files/storage/read/' + fileInput.substring(5) + '/' + alternative + downloadQuery;
 		}
 		// it's an id (check if it's a file id uuid4)
 		if (fileInput.length == 36) {
-			return DEFAULT_BACKEND_URL + '/api/files/storage/read/' + fileInput + '/' + alternative + (download ? '?download=true' : '');
+			return DEFAULT_BACKEND_URL + '/api/files/storage/read/' + fileInput + '/' + alternative + downloadQuery;
 		}
 
 		// it's a path
@@ -39,7 +62,7 @@ export function convertToUrl(fileInput: string | EntityFile, alternative: string
 	}
 	// console.log('convertToUrl', fileInput, alternative, download);
 
-	return DEFAULT_BACKEND_URL + '/api/files/storage/read/' + fileInput.id + '/' + alternative + (download ? '?download=true' : '');
+	return DEFAULT_BACKEND_URL + '/api/files/storage/read/' + fileInput.id + '/' + alternative + downloadQuery;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -59,6 +82,14 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 		super('file');
 		this._renderer = this._rendererFactory.createRenderer(null, null);
 		window.addEventListener('beforeunload', this.unloadNotification.bind(this));
+	}
+
+	private _i18n_uploadFailedTitle = this._translationService.prep('Upload failed');
+	private _i18n_uploadNoFileRecord = this._translationService.prep('The server did not return a file to upload to.');
+	private _i18n_uploadNoUrl = this._translationService.prep('The server did not return an upload URL. This file may already be in storage.');
+	private _i18n_uploadTransferFailed = this._translationService.prep('The transfer to the storage provider was interrupted. Check your network, browser extensions or VPN, then try again.');
+	private _reportUploadFailure(fileName: string, reason: string) {
+		this._notificationService.error(fileName + ': ' + reason, this._i18n_uploadFailedTitle());
 	}
 
 	private _i18n_renameSentence = this._translationService.prep('Give a new name to this file:');
@@ -100,6 +131,23 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 			);
 	}
 
+	/**
+	 * Fetch a file's public, non-ACL-filtered metadata (duration, dimensions, size, kind...).
+	 * Uses the same access model as the streaming endpoint, so it works for files the current
+	 * user can stream but holds no ACL on — e.g. media referenced by guest form responses.
+	 */
+	public getFilePublicMetadata$(fileId: string) {
+		return this._requestService.getBasic$<{ metadata: FilePublicMetadata }>(`/api/files/storage/read/${fileId}/public-metadata`);
+	}
+
+	/**
+	 * The whole file record, by the same public access model: the store's own read is ACL-filtered
+	 * and returns nothing for a file a guest uploaded into someone's form.
+	 */
+	public getFileDetails$(fileId: string) {
+		return this._requestService.getBasic$<{ file: EntityFile }>(`/api/files/storage/read/${fileId}/details`);
+	}
+
 	///////////////////////////////////////////////
 	//         resumable upload                  //
 	///////////////////////////////////////////////
@@ -112,7 +160,10 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 	 * @param fileSize
 	 * @returns
 	 */
-	public getResumableUploadUrl$(fileName: string, contentType: string, fileSize?: number, alternative?: string, fileId?: string, folder?: { folderPath: string; folderForId: string; folderForKind: string }) {
+	public getResumableUploadUrl$(fileName: string, contentType: string, fileSize?: number, alternative?: string, fileId?: string, folderId?: string, hashClient?: string) {
+		if (folderId !== undefined && folderId.length === 0) {
+			throw new Error('getResumableUploadUrl$: folderId is an empty string -- pass no folderId at all instead of a fake one.');
+		}
 		return this._requestService.post$<
 			SimpleResponse<EntityFile>,
 			{
@@ -123,9 +174,8 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 				alternative?: string;
 				fileId?: string;
 				// folder
-				folderPath?: string;
-				folderForId?: string;
-				folderForKind?: string;
+				folderId?: string;
+				hashClient?: string;
 			}
 		>('/api/files/storage/get-upload-details', {
 			fileName,
@@ -134,9 +184,8 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 			alternative,
 			fileId,
 			// folder
-			folderPath: folder?.folderPath,
-			folderForId: folder?.folderForId,
-			folderForKind: folder?.folderForKind,
+			folderId,
+			hashClient,
 		});
 	}
 
@@ -165,9 +214,14 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 	//         file URL                          //
 	///////////////////////////////////////////////
 
-	displayProgressBar(elementRef?: ElementRef<HTMLElement>): void {
-		// _elementRef.nativeElement.ownerDocument.body
-		const targetNode = elementRef?.nativeElement ?? document.body;
+	displayProgressBar(_elementRef?: ElementRef<HTMLElement>): void {
+		// Always anchor to the document body: this is a fixed-position overlay
+		// meant to span the viewport, and appending it under a caller-provided
+		// element (e.g. an upload button) breaks if any ancestor sets a
+		// transform/filter/perspective, which makes `position: fixed` relative
+		// to that ancestor instead of the viewport — the bar silently renders
+		// off-screen or clipped.
+		const targetNode = document.body;
 
 		// Ensure the percentage is between 0 and 100
 		let percentage = (100 * this.allProgress.reduce((acc, curr) => acc + curr, 0)) / this.allProgress.length;
@@ -205,8 +259,11 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 			this._renderer.appendChild(targetNode, this.backgroundDiv);
 
 			// fix the height of the background div
+			const backgroundDiv = this.backgroundDiv;
 			setTimeout(() => {
-				this._renderer.setStyle(this.backgroundDiv, 'height', '20px');
+				if (this.backgroundDiv === backgroundDiv) {
+					this._renderer.setStyle(backgroundDiv, 'height', '20px');
+				}
 			}, 0);
 
 			// Create and style the text div
@@ -230,19 +287,22 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 		this._renderer.setProperty(this.textDiv, 'innerText', `${roundedPercentage}%`);
 	}
 
-	removeProgressBar(elementRef?: ElementRef): void {
-		const targetNode = elementRef?.nativeElement ?? document.body;
+	removeProgressBar(_elementRef?: ElementRef): void {
+		const targetNode = document.body;
 
 		if (this.backgroundDiv) {
+			const backgroundDiv = this.backgroundDiv;
 			// fix the height of the background div
-			this._renderer.setStyle(this.backgroundDiv, 'height', '0px');
+			this._renderer.setStyle(backgroundDiv, 'height', '0px');
 			// remove the background div from the body
 			setTimeout(() => {
-				this._renderer.removeChild(targetNode, this.backgroundDiv);
-				this.backgroundDiv = null;
-				this.progressDiv = null;
-				this.textDiv = null;
-				this.allProgress = [];
+				if (this.backgroundDiv === backgroundDiv) {
+					this._renderer.removeChild(targetNode, backgroundDiv);
+					this.backgroundDiv = null;
+					this.progressDiv = null;
+					this.textDiv = null;
+					this.allProgress = [];
+				}
 			}, 1000);
 		}
 	}
@@ -255,7 +315,9 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 			alternative?: string;
 			fileId?: string;
 			duration?: number;
-			folder?: { folderPath: string; folderForId: string; folderForKind: string };
+			folderId?: string;
+			/** SHA-256 hex digest computed by the caller before upload, stored as hashClient. Single-file only, same constraint as fileId/duration. */
+			hashClient?: string;
 		}
 	): Observable<RequestResponse<{ file: EntityFile; taskId: string }>[]> {
 		if (!fileList) return EMPTY;
@@ -276,25 +338,38 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 			console.error('You cannot provide a duration and upload multiple files at the same time');
 			return EMPTY;
 		}
+		// if hashClient is provided but we have multiple files, error:
+		if (options?.hashClient && files.length > 1) {
+			console.error('You cannot provide a hashClient and upload multiple files at the same time');
+			return EMPTY;
+		}
 
 		this.isUploading = true;
 		this.nbFilesToUpload = files.length;
 
 		this.allProgress = [];
 
-		const { elementRef, alternative, fileId, folder, duration } = options ?? {};
+		const { elementRef, alternative, fileId, folderId, duration, hashClient } = options ?? {};
 
 		this.displayProgressBar(elementRef);
 
 		const uploadFiles$ = files.map((file, fileIndex) => {
 			console.log('You are uploading this file:', file);
-			const uploadFile$ = this.getResumableUploadUrl$(file.name, file.type, file.size, alternative, fileId, folder).pipe(
+			const uploadFile$ = this.getResumableUploadUrl$(file.name, file.type, file.size, alternative, fileId, folderId, hashClient).pipe(
 				// upload file to url
 				switchMap((res) => {
 					const fileDb = res.result?.data;
-					if (!fileDb) return EMPTY;
+					if (!fileDb) {
+						// A structured backend error has already been reported by RequestService.post$;
+						// only a result without data would otherwise go unnoticed.
+						if (!res.error) this._reportUploadFailure(file.name, this._i18n_uploadNoFileRecord());
+						return EMPTY;
+					}
 					let url = fileDb.uploadUrl;
-					if (!url) return EMPTY;
+					if (!url) {
+						this._reportUploadFailure(file.name, this._i18n_uploadNoUrl());
+						return EMPTY;
+					}
 					url = url.replace(':4200', ':8000');
 					const headers = new HttpHeaders().set(InterceptorSkipHeader, '');
 
@@ -305,7 +380,13 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 							reportProgress: true,
 							observe: 'events',
 							headers,
-						}),
+						}).pipe(
+							catchError((error: unknown) => {
+								this._reportUploadFailure(file.name, this._i18n_uploadTransferFailed());
+								console.error('Resumable upload failed for', file.name, error);
+								return EMPTY;
+							})
+						),
 					]);
 				}),
 				tap(([fileDb, event]) => {
@@ -336,7 +417,6 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 							shareReplay(1)
 						);
 
-						let taskCount = 1;
 						const taskProgress$ = updateAfterUpload$.pipe(
 							switchMap((uau) => {
 								const taskId = uau.result?.taskId;
@@ -344,27 +424,18 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 								return this.getTaskProgress$(taskId, false);
 							})
 						);
+						// Refresh the file record exactly once, when processing is fully done --
+						// not per polling tick or per sub-task milestone. Each tick used to
+						// trigger its own `getObjectById$$$(id, true, true)` (an unconditional,
+						// uncached GET), and with many files uploading concurrently this fanned
+						// out into hundreds of simultaneous /api/files/{id} requests, which was
+						// enough to trip a Starlette BaseHTTPMiddleware concurrency bug on the
+						// backend (Sentry GADZAPP-FULLSTACK-V/B, 2026-08-07).
 						taskProgress$
 							.pipe(
 								tap((tp) => {
 									console.log('Task progress polling:', { progress: tp?.progress, pollingCount: tp?.pollingCount, taskCount: tp?.taskCount });
-									if (tp && tp.taskCount > taskCount) {
-										console.log('New task detected:', { taskId: tp.id, taskCount: tp.taskCount });
-
-										taskCount = tp.taskCount;
-										this.store
-											.getObjectById$$$(fileDb.id, true, true)
-											.pipe(
-												filter((lastFile): lastFile is EntityFile => !!lastFile),
-												take(1),
-												tap((lastFile) => {
-													console.log('File updated:', lastFile);
-												})
-											)
-											.subscribe();
-									}
 								}),
-
 								finalize(() => {
 									console.log('Task progress polling completed for file', fileDb.id);
 									setTimeout(() => {
@@ -446,6 +517,9 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 		try {
 			const response = await fetch(url, { redirect: 'follow' });
 			const text = await response.text();
+			// An endpoint that cannot serve the file answers with our own error envelope, which is
+			// text and would otherwise be handed back as if it were the file's content.
+			if (!response.ok || text.startsWith('{"error"')) return undefined;
 			this.textContentCache.set(url, text);
 			if (this.textContentCache.size > 20) {
 				// remove the first element
@@ -473,7 +547,7 @@ export class FilesRepository extends GenericRepository<EntityFile> {
 				if (stopped) return;
 
 				if (debug) console.log(`[getTaskProgress$] Polling taskId: ${currentTaskId}, count: ${pollingCount}`);
-				this._requestService.getBasic$<{ id: string; progress: number; started?: boolean; completed?: boolean; ended?: boolean; failed?: boolean; artifactTaskId?: string }>(`/api/tasks/processing/${currentTaskId}/progress`).subscribe({
+				this._requestService.getBasic$<{ id: string; progress: number; started?: boolean; completed?: boolean; ended?: boolean; failed?: boolean; stale?: boolean; artifactTaskId?: string }>(`/api/tasks/processing/${currentTaskId}/progress`).subscribe({
 					next: (res) => {
 						const result = res.result;
 						if (debug) console.log(`[getTaskProgress$] Received result for taskId: ${currentTaskId}`, result);

@@ -93,6 +93,7 @@ class ParameterSpec(BaseModelWithConfig):
     label: str
     type: Literal["string", "number", "boolean", "text", "json"]
     description: str | None = None
+    possible_values: list[Any] | None = None
     required: bool = False
     default: Any = None
 

@@ -1,4 +1,19 @@
-import { DEFAULT_USER_PROPS, INITIAL_USERS } from './users.repository';
+import { DEFAULT_USER_PROPS, getConfiguredSentryDomain, INITIAL_USERS } from './users.repository';
+
+describe('getConfiguredSentryDomain', () => {
+	it('returns null while the application environment is not configured', () => {
+		expect(getConfiguredSentryDomain({})).toBeNull();
+		expect(getConfiguredSentryDomain(undefined)).toBeNull();
+	});
+
+	it('returns null when Sentry is disabled for the application', () => {
+		expect(getConfiguredSentryDomain({ environment: {} })).toBeNull();
+	});
+
+	it('returns the configured Sentry domain', () => {
+		expect(getConfiguredSentryDomain({ environment: { sentry: { domain: 'gadz.app' } } })).toBe('gadz.app');
+	});
+});
 
 describe('INITIAL_USERS', () => {
         it('is an empty array', () => {

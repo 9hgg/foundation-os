@@ -1,11 +1,10 @@
-import pytest
-import uuid
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
-from sqlmodel import Field
+
+import pytest
 import sqlalchemy as sa
+from sqlmodel import Field
+
 from libs.resource.resource import Resource
-from libs.utils.deps import get_deps
 
 
 class EndpointResource(Resource, table=True):

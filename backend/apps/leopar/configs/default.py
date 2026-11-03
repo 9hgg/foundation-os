@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from uuid import UUID
 
+import structlog
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,4 +32,4 @@ class GlobalAppSettings(BaseSettings):
 
 
 GLOBAL_APP_SETTINGS = GlobalAppSettings()
-print(f"📋🎬 Leopar default settings loaded: {GLOBAL_APP_SETTINGS.APP_NAME}")
+structlog.get_logger(__name__).info("settings_loaded", app_name=GLOBAL_APP_SETTINGS.APP_NAME)

@@ -1,111 +1,184 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Overlay } from '@angular/cdk/overlay';
 import { TestBed } from '@angular/core/testing';
-import { Overlay, OverlayRef, OverlayPositionBuilder, FlexibleConnectedPositionStrategy } from '@angular/cdk/overlay';
-import { IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY, ImageBlotContextMenuService } from './image-menu.service';
 import { FileModals } from '@foundation/files/modals';
-
-// ---------------------------------------------------------------------------
-// Stubs
-// ---------------------------------------------------------------------------
-const backdropClick$ = { subscribe: vi.fn((cb: any) => ({ unsubscribe: vi.fn() })) };
-const overlayRefStub: Partial<OverlayRef> = {
-	attach: vi.fn().mockReturnValue({ instance: { data: null } }),
-	dispose: vi.fn(),
-	backdropClick: vi.fn().mockReturnValue(backdropClick$),
-};
-
-const positionStrategyStub: Partial<FlexibleConnectedPositionStrategy> = {
-	withPositions: vi.fn().mockReturnThis(),
-};
-const positionBuilderStub = {
-	flexibleConnectedTo: vi.fn().mockReturnValue(positionStrategyStub),
-};
-const overlayStub: Partial<Overlay> = {
-	position: vi.fn().mockReturnValue(positionBuilderStub),
-	create: vi.fn().mockReturnValue(overlayRefStub),
-};
-
-const fileModalsStub = {
-	openFilesSelectionDialog: vi.fn().mockReturnValue({
-		closed: { subscribe: vi.fn() },
-	}),
-};
-
-vi.mock('@foundation/files/modals', () => ({ FileModals: class {} }));
-vi.mock('@foundation/files/state', () => ({ convertToUrl: vi.fn(() => 'https://example.com/img.png') }));
+import { convertToUrl } from '@foundation/files/state';
+import { BehaviorSubject } from 'rxjs';
+import { ImageMenuComponent } from './image-menu.component';
+import { IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY, ImageBlotContextMenuService } from './image-menu.service';
 
 describe('ImageBlotContextMenuService', () => {
-	let service: ImageBlotContextMenuService;
+	const buildService = () => {
+		const closed = new BehaviorSubject<unknown>(null);
+		const openFilesSelectionDialog = vi.fn(() => ({ closed }));
 
-	beforeEach(() => {
-		vi.clearAllMocks();
-		TestBed.configureTestingModule({
-			providers: [
-				ImageBlotContextMenuService,
-				{ provide: Overlay, useValue: overlayStub },
-				{ provide: FileModals, useValue: fileModalsStub },
-			],
-		});
-		service = TestBed.inject(ImageBlotContextMenuService);
-		// Inject the fileModals stub via the private field manually to work around inject()
-		(service as any)._fileModals = fileModalsStub;
-	});
+		TestBed.configureTestingModule({ providers: [ImageBlotContextMenuService, { provide: FileModals, useValue: { openFilesSelectionDialog } }] });
+
+		return { service: TestBed.inject(ImageBlotContextMenuService), overlay: TestBed.inject(Overlay), openFilesSelectionDialog, closed };
+	};
+
+	const rightClickAt = (x: number, y: number) => new MouseEvent('contextmenu', { clientX: x, clientY: y });
 
 	afterEach(() => {
-		// Clean up window key to avoid leaking between tests
-		delete (window as any)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY];
+		delete (window as unknown as Record<string, unknown>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY];
+		document.querySelectorAll('.cdk-overlay-container').forEach((container) => container.remove());
+		TestBed.resetTestingModule();
+		vi.restoreAllMocks();
 	});
 
-	it('is created', () => {
-		expect(service).toBeTruthy();
+	describe('opening the menu', () => {
+		it('attaches the menu where the pointer was, over a backdrop that closes it', () => {
+			const { service } = buildService();
+
+			service.open(rightClickAt(120, 60), { alt: 'a picture' });
+
+			expect(document.querySelector('lib-image-menu')).not.toBeNull();
+			expect(document.querySelector('.transparent-backdrop')).not.toBeNull();
+		});
+
+		it('tells the menu what the image is', () => {
+			const { service } = buildService();
+			const data = { alt: 'a picture', url: 'https://example.test/pic.png' };
+
+			service.open(rightClickAt(0, 0), data);
+
+			expect(document.querySelectorAll('lib-image-menu')).toHaveLength(1);
+		});
+
+		it('replaces an already-open menu rather than stacking a second one', () => {
+			const { service } = buildService();
+
+			service.open(rightClickAt(0, 0), {});
+			service.open(rightClickAt(50, 50), {});
+
+			expect(document.querySelectorAll('lib-image-menu')).toHaveLength(1);
+		});
+
+		it('closes when the backdrop is clicked', () => {
+			const { service } = buildService();
+			service.open(rightClickAt(0, 0), {});
+
+			document.querySelector<HTMLElement>('.transparent-backdrop')?.click();
+
+			expect(document.querySelector('lib-image-menu')).toBeNull();
+		});
 	});
 
-	it('IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY is the expected string', () => {
-		expect(IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY).toBe('openImageBlotContextMenu');
+	describe('the actions', () => {
+		it('deleting reports back to the blot and closes', () => {
+			const { service } = buildService();
+			const callback = vi.fn();
+			service.open(rightClickAt(0, 0), {}, callback);
+
+			service.close('delete');
+
+			expect(callback).toHaveBeenCalledWith({ action: 'delete' });
+			expect(document.querySelector('lib-image-menu')).toBeNull();
+		});
+
+		it('editing opens the file library, filtered to images', () => {
+			const { service, openFilesSelectionDialog } = buildService();
+			service.open(rightClickAt(0, 0), {}, vi.fn());
+
+			service.close('edit');
+
+			expect(openFilesSelectionDialog).toHaveBeenCalledWith(expect.objectContaining({ filters: [{ fieldName: 'kind', value: 'image' }] }));
+			// The menu stays up until the picker answers, so the author can still cancel.
+			expect(document.querySelector('lib-image-menu')).not.toBeNull();
+		});
+
+		it('reports the picked image back to the blot as a url, and closes', () => {
+			const { service, closed } = buildService();
+			const callback = vi.fn();
+			service.open(rightClickAt(0, 0), {}, callback);
+			service.close('edit');
+
+			const file = { id: 'file-1', publicFilename: 'pic.png' };
+			closed.next({ files: [file] });
+
+			expect(callback).toHaveBeenCalledWith({ action: 'edit', newUrl: convertToUrl(file as never) });
+			expect(document.querySelector('lib-image-menu')).toBeNull();
+		});
+
+		it('leaves the image alone when the picker is dismissed', () => {
+			const { service, closed } = buildService();
+			const callback = vi.fn();
+			service.open(rightClickAt(0, 0), {}, callback);
+			service.close('edit');
+
+			closed.next({ files: [] });
+
+			expect(callback).not.toHaveBeenCalled();
+			expect(document.querySelector('lib-image-menu')).not.toBeNull();
+		});
+
+		it('closes on an action it does not know', () => {
+			const { service } = buildService();
+			vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+			service.open(rightClickAt(0, 0), {}, vi.fn());
+
+			service.close('fly-away');
+
+			expect(document.querySelector('lib-image-menu')).toBeNull();
+		});
+
+		it('closing with nothing open is a no-op', () => {
+			const { service } = buildService();
+			vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+			expect(() => service.close()).not.toThrow();
+		});
 	});
 
-	it('setContextMenuInWindow registers a function on window', () => {
-		service.setContextMenuInWindow();
-		expect(typeof (window as any)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY]).toBe('function');
-	});
+	describe('the bridge the blot calls through', () => {
+		// The blot is plain DOM built by Quill; it reaches the app through a function on window.
+		it('publishes an opener on window', () => {
+			const { service } = buildService();
 
-	it('setContextMenuInWindow does not overwrite an existing registration', () => {
-		const existing = vi.fn();
-		(window as any)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY] = existing;
-		service.setContextMenuInWindow();
-		expect((window as any)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY]).toBe(existing);
-	});
+			service.setContextMenuInWindow();
 
-	it('close with "delete" action calls currentCallback with { action: "delete" }', () => {
-		const callback = vi.fn();
-		service.currentCallback = callback;
-		service.close('delete');
-		expect(callback).toHaveBeenCalledWith({ action: 'delete' });
-	});
+			expect(typeof (window as unknown as Record<string, unknown>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY]).toBe('function');
+		});
 
-	it('close with "delete" disposes the overlay', () => {
-		service.currentCallback = vi.fn();
-		// Simulate an open overlay so dispose can be called
-		(service as any).overlayRef = overlayRefStub;
-		service.close('delete');
-		expect(overlayRefStub.dispose).toHaveBeenCalled();
-	});
+		it('opens the menu when the blot calls it', () => {
+			const { service } = buildService();
+			service.setContextMenuInWindow();
+			const callback = vi.fn();
 
-	it('close with unknown action does not call callback', () => {
-		const callback = vi.fn();
-		service.currentCallback = callback;
-		(service as any).overlayRef = overlayRefStub;
-		service.close('unknown');
-		expect(callback).not.toHaveBeenCalled();
-	});
+			(window as unknown as Record<string, (event: MouseEvent, data: unknown, callback: unknown) => void>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY](
+				rightClickAt(10, 10),
+				{ alt: 'a picture' },
+				callback
+			);
 
-	it('close with "edit" action calls useAnExistingPicture (opens file dialog)', () => {
-		const spy = vi.spyOn(service, 'useAnExistingPicture').mockImplementation(() => {});
-		service.close('edit');
-		expect(spy).toHaveBeenCalled();
-	});
+			expect(document.querySelector('lib-image-menu')).not.toBeNull();
+			expect(service.currentCallback).toBe(callback);
+		});
 
-	it('currentCallback is null by default', () => {
-		expect(service.currentCallback).toBeNull();
+		it('leaves an opener already on window alone, so a second service does not steal it', () => {
+			const { service } = buildService();
+			const first = vi.fn();
+			(window as unknown as Record<string, unknown>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY] = first;
+
+			service.setContextMenuInWindow();
+
+			expect((window as unknown as Record<string, unknown>)[IMAGE_BLOT_CONTEXT_MENU_WINDOW_KEY]).toBe(first);
+		});
+	});
+});
+
+describe('ImageMenuComponent', () => {
+	afterEach(() => TestBed.resetTestingModule());
+
+	it('passes the chosen action to the service that owns the overlay', () => {
+		const close = vi.fn();
+		TestBed.configureTestingModule({ providers: [{ provide: ImageBlotContextMenuService, useValue: { close } }] });
+		TestBed.overrideComponent(ImageMenuComponent, { set: { template: '', imports: [], styles: [] } });
+		const fixture = TestBed.createComponent(ImageMenuComponent);
+		fixture.componentInstance.data = { alt: 'a picture' };
+		fixture.detectChanges();
+
+		fixture.componentInstance.onAction('delete');
+
+		expect(close).toHaveBeenCalledWith('delete');
 	});
 });

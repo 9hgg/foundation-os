@@ -1,10 +1,14 @@
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from libs.files.models import File
-from libs.files.processors._generic import GenericProcessor, NoLocalPathError, NoStorageAvailableError, NoStorageFolderPathError
+from libs.files.processors._generic import (
+    GenericProcessor,
+    NoLocalPathError,
+    NoStorageAvailableError,
+    NoStorageFolderPathError,
+)
 from libs.files.storage import GenericStorage
 
 
@@ -124,9 +128,8 @@ def test_clear_local_file_deletes_downloaded_file(tmp_path, mock_file):
 def test_get_storage_details_raises_when_local_path_missing(mock_file):
     processor = object.__new__(DemoProcessor)
     processor.file_db = mock_file
-    with patch.object(DemoProcessor, "download_file", return_value=None):
-        with pytest.raises(NoLocalPathError):
-            processor.get_storage_details()
+    with patch.object(DemoProcessor, "download_file", return_value=None), pytest.raises(NoLocalPathError):
+        processor.get_storage_details()
 
 
 def test_get_storage_details_raises_when_storage_missing(mock_file):
@@ -134,10 +137,9 @@ def test_get_storage_details_raises_when_storage_missing(mock_file):
     processor.file_db = mock_file
     with (
         patch.object(DemoProcessor, "download_file", return_value="/tmp/file.txt"),
-        patch.object(DemoProcessor, "get_storage", return_value=None),
+        patch.object(DemoProcessor, "get_storage", return_value=None),pytest.raises(NoStorageAvailableError)
     ):
-        with pytest.raises(NoStorageAvailableError):
-            processor.get_storage_details()
+        processor.get_storage_details()
 
 
 def test_get_storage_details_raises_when_storage_folder_path_missing(mock_file):
@@ -147,7 +149,6 @@ def test_get_storage_details_raises_when_storage_folder_path_missing(mock_file):
     processor.file_db = mock_file
     with (
         patch.object(DemoProcessor, "download_file", return_value="/tmp/file.txt"),
-        patch.object(DemoProcessor, "get_storage", return_value=storage),
+        patch.object(DemoProcessor, "get_storage", return_value=storage),pytest.raises(NoStorageFolderPathError)
     ):
-        with pytest.raises(NoStorageFolderPathError):
-            processor.get_storage_details()
+        processor.get_storage_details()

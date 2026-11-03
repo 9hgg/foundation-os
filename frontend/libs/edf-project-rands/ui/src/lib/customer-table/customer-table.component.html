@@ -206,26 +206,6 @@
 			</tbody>
 		</table>
 
-		@if (paginatorState.totalNumberOfPages > 1) {
-			<section class="border-base-200 flex items-center justify-between border-t px-4 py-3">
-				<button
-					class="btn btn-sm btn-ghost"
-					(click)="paginatorState.hasPrev ? paginator.previousPage() : null"
-					[disabled]="!paginatorState.hasPrev"
-				>
-					<span [translate]>Previous</span>
-				</button>
-				<span class="text-base-content/60 text-sm">
-					<span [translate]>Page</span> {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} [ {{ paginatorState.totalNumberOfItems }} ]
-				</span>
-				<button
-					class="btn btn-sm btn-ghost"
-					(click)="paginatorState.hasNext ? paginator.nextPage() : null"
-					[disabled]="!paginatorState.hasNext"
-				>
-					<span [translate]>Next</span>
-				</button>
-			</section>
-		}
+		<lib-table-paginator [paginator]="paginator" />
 	</div>
 }

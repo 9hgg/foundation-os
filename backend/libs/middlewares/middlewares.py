@@ -4,23 +4,59 @@ import time
 import typing
 import uuid
 
+import structlog
 from fastapi import Request
 from starlette import status
-from starlette.datastructures import Headers
+from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from libs.logger import print, print_error
+from libs.utils.release import get_release
+
+logger = structlog.get_logger(__name__)
 
 
-class ProcessTimeHeader(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+class ProcessTimeHeader:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
         start_time: float = time.time()
-        response = await call_next(request)
-        process_time: float = round(time.time() - start_time, 2)
-        response.headers["X-Process-Time"] = str(process_time)
-        # print("base_url", request.url, process_time)
-        return response
+
+        async def send_with_process_time(message):
+            if message["type"] == "http.response.start":
+                process_time: float = round(time.time() - start_time, 2)
+                MutableHeaders(scope=message)["X-Process-Time"] = str(process_time)
+            await send(message)
+
+        await self.app(scope, receive, send_with_process_time)
+
+
+class AppVersionHeader:
+    """Stamps the running code's short git SHA onto every response as
+    X-App-Version so a stale cached frontend can notice it is behind a freshly
+    deployed backend and reload itself. Resolved once at import."""
+
+    APP_VERSION = get_release()
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not self.APP_VERSION:
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_version(message):
+            if message["type"] == "http.response.start":
+                MutableHeaders(scope=message)["X-App-Version"] = self.APP_VERSION
+            await send(message)
+
+        await self.app(scope, receive, send_with_version)
 
 
 class LogDeviceIdMiddleware:
@@ -34,7 +70,7 @@ class LogDeviceIdMiddleware:
 
         request = Request(scope)
         session = request.session
-        appSessionId = session.get("appSessionId", None)
+        session.get("appSessionId", None)
 
         # if appSessionId:
         #     print_color("green", "Middleware: appSessionId IN SESSION", appSessionId)
@@ -124,8 +160,8 @@ class CacheControlMiddleware:
         self.cache_duration = cache_duration
         self.exclude_patterns = [re.compile(exclude_pattern) for exclude_pattern in exclude_patterns]
 
-    async def __call__(self, scope, receive, send):
-        async def custom_send(message):
+    async def __call__(self, scope, receive, send):  # noqa: C901
+        async def custom_send(message):  # noqa: C901
             if message.get("type") == "http.response.start":
                 headers = message.setdefault("headers", [])
 
@@ -273,8 +309,10 @@ class ReorientsMiddleware:
         for rule in self.path_mapping:
             if rule["matchingFunction"](path, base_url, method):
                 new_path = rule["pathModifierFunction"](path, base_url, method)
-                print(
-                    "\t redefined path: " + path,
+                logger.info(
+                    "middleware_path_redefined",
+                    original_path=path,
+                    new_path=new_path,
                     request_log_uuid=scope.get("request_log_uuid", "no session"),
                 )
                 scope["path"] = new_path
@@ -295,11 +333,7 @@ class PrintHeader(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         headers = Headers(scope=request.scope)
         for header in headers:
-            # if header.startswith("ba"):
-            print(
-                header,
-                headers[header],
-            )
+            logger.debug("request_header_seen", header_name=header)
         # host = headers.get("host", "").split(":")[0]
         # origin = headers.get("origin", "")
         # referer = headers.get("referer", "")
@@ -329,17 +363,43 @@ class PrintHeader(BaseHTTPMiddleware):
 
 
 # Custom middleware to catch 405 errors
-class Catch405Middleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        if response.status_code == 405:
-            print_error(f"405 Method Not Allowed: {request.method} {request.url}")
-            return JSONResponse(
-                status_code=405,
-                content={
-                    "detail": "Method Not Allowed",
-                    "method": request.method,
-                    "url": str(request.url),
-                },
-            )
-        return response
+class Catch405Middleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
+        replaced = False
+
+        async def send_or_replace(message):
+            nonlocal replaced
+            if message["type"] == "http.response.start":
+                if message["status"] != status.HTTP_405_METHOD_NOT_ALLOWED:
+                    await send(message)
+                    return
+                replaced = True
+                logger.warning(
+                    "http_method_not_allowed",
+                    method=request.method,
+                    path=request.url.path,
+                )
+                response = JSONResponse(
+                    status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+                    content={
+                        "detail": "Method Not Allowed",
+                        "method": request.method,
+                        "url": str(request.url),
+                    },
+                )
+                await response(scope, receive, send)
+                return
+            # The replacement body has already been sent; drop the original one rather
+            # than appending it to a response that is already complete.
+            if not replaced:
+                await send(message)
+
+        await self.app(scope, receive, send_or_replace)

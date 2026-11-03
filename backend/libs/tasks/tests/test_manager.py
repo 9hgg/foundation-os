@@ -1,9 +1,10 @@
-import pytest
 import uuid
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from libs.tasks.tasks_manager import TasksManager
 from libs.tasks.tasks_manager_errors import TaskNotFoundError
-from libs.tasks.models import Task, TaskArguments
 
 
 @pytest.fixture
@@ -35,7 +36,7 @@ def test_create_task(mock_task_db):
     TasksManager.tasks_methods = {"test_method": MagicMock()}
 
     # Success
-    task = TasksManager.create_task(method_name="test_method", title="Test Task", args=[1, 2], kwargs={"a": "b"})
+    TasksManager.create_task(method_name="test_method", title="Test Task", args=[1, 2], kwargs={"a": "b"})
     mock_task_db.create.assert_called_once()
     # task is a mock, so we can't check attributes directly unless we set them
     # But we can check that Task constructor was called with correct arguments

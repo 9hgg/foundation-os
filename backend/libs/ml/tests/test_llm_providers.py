@@ -10,7 +10,6 @@ import pytest
 from libs.ml.llm.client import LLMConfigurationError, LLMEmptyResponseError, LLMMessage
 from libs.ml.llm.providers import OllamaLLMClient, OpenAILLMClient, _normalize_ollama_usage, _normalize_openai_usage
 
-
 # ─── _normalize_*_usage helpers ──────────────────────────────────────────────
 
 def test_normalize_ollama_usage_from_payload() -> None:
@@ -82,9 +81,8 @@ def test_ollama_client_raises_on_empty_content() -> None:
     mock_conn = MagicMock()
     mock_conn.getresponse.return_value = mock_response
 
-    with patch("http.client.HTTPConnection", return_value=mock_conn):
-        with pytest.raises(LLMEmptyResponseError):
-            client.complete([LLMMessage(role="user", content="test")])
+    with patch("http.client.HTTPConnection", return_value=mock_conn), pytest.raises(LLMEmptyResponseError):
+        client.complete([LLMMessage(role="user", content="test")])
 
 
 def test_ollama_client_raises_on_connection_error() -> None:
@@ -92,9 +90,8 @@ def test_ollama_client_raises_on_connection_error() -> None:
     mock_conn = MagicMock()
     mock_conn.request.side_effect = OSError("connection refused")
 
-    with patch("http.client.HTTPConnection", return_value=mock_conn):
-        with pytest.raises(LLMEmptyResponseError):
-            client.complete([LLMMessage(role="user", content="test")])
+    with patch("http.client.HTTPConnection", return_value=mock_conn), pytest.raises(LLMEmptyResponseError):
+        client.complete([LLMMessage(role="user", content="test")])
 
 
 # ─── OpenAILLMClient ─────────────────────────────────────────────────────────
@@ -141,9 +138,8 @@ def test_openai_client_raises_on_empty_content() -> None:
     mock_conn = MagicMock()
     mock_conn.getresponse.return_value = mock_response
 
-    with patch("http.client.HTTPSConnection", return_value=mock_conn):
-        with pytest.raises(LLMEmptyResponseError):
-            client.complete([LLMMessage(role="user", content="test")])
+    with patch("http.client.HTTPSConnection", return_value=mock_conn), pytest.raises(LLMEmptyResponseError):
+        client.complete([LLMMessage(role="user", content="test")])
 
 
 def test_openai_client_raises_on_connection_error() -> None:
@@ -151,9 +147,8 @@ def test_openai_client_raises_on_connection_error() -> None:
     mock_conn = MagicMock()
     mock_conn.request.side_effect = OSError("network error")
 
-    with patch("http.client.HTTPSConnection", return_value=mock_conn):
-        with pytest.raises(LLMEmptyResponseError):
-            client.complete([LLMMessage(role="user", content="test")])
+    with patch("http.client.HTTPSConnection", return_value=mock_conn), pytest.raises(LLMEmptyResponseError):
+        client.complete([LLMMessage(role="user", content="test")])
 
 
 def test_openai_client_uses_override_model() -> None:

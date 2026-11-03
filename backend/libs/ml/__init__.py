@@ -108,7 +108,6 @@ from libs.ml.methods.sklearn import (
     SVMTextClassifier,
     SVRFeatureVectorRegressor,
 )
-from libs.ml.processing.text import SentenceTransformerVectorizer
 from libs.ml.models import (
     Algorithm,
     AlgorithmInput,
@@ -126,6 +125,7 @@ from libs.ml.models import (
     TrainableMultiLabelClassifier,
     TrainableRegressor,
 )
+from libs.ml.processing.text import SentenceTransformerVectorizer
 from libs.ml.targets import (
     ClassificationTarget,
     MultiLabelClassificationTarget,
@@ -195,15 +195,15 @@ __all__ = [
     "RegressionTarget",
     "Regressor",
     "RidgeFeatureVectorRegressor",
-    "SentenceTransformerVectorizer",
     "SVMFeatureVectorClassifier",
     "SVMJsonClassifier",
     "SVMMultiLabelJsonClassifier",
     "SVMMultiLabelTextClassifier",
     "SVMTextClassifier",
     "SVRFeatureVectorRegressor",
-    "ServiceUnavailableError",
     "SemanticCentroidJsonClassifier",
+    "SentenceTransformerVectorizer",
+    "ServiceUnavailableError",
     "SklearnClassifier",
     "SklearnFeatureVectorClassifier",
     "SklearnFeatureVectorRegressor",

@@ -6,7 +6,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Project } from '@edf/edf-project-rands/models';
 import { ProjectsRepository } from '@edf/edf-project-rands/state';
 import { AccessService } from '@foundation/shared/access';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { switchMap } from 'rxjs';
 
@@ -14,6 +14,7 @@ import { switchMap } from 'rxjs';
 	selector: 'lib-projects-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		//
 		CommonModule,
 		ReactiveFormsModule,

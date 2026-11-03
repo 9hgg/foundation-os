@@ -9,7 +9,7 @@ import { finalize, map, Observable, of, shareReplay, switchMap, tap } from 'rxjs
 
 const DEBUG = false;
 
-@Injectable({ providedIn: 'any' })
+@Injectable({ providedIn: 'root' })
 export class InteractionsRepository<T> {
 	store: SmartRestStore<Interaction> = new SmartRestStore<Interaction>('/api/interactions', 'interaction');
 	_requestService = inject(RequestService);
@@ -113,7 +113,12 @@ export class InteractionsRepository<T> {
 		}
 
 		// is it in interactionTokens$_? (find it comparing the key)
-		const interactionTokenAndKey = Object.entries(this.interactionTokensAndKeys$_._).find(([, interactionKeyAndToken]) => interactionKeyAndToken.key === key);
+		// Several sessions can be stored for the same key (the respondent started the form again),
+		// so take the most recently registered one: object keys keep insertion order, and a new
+		// session is always appended.
+		const interactionTokenAndKey = Object.entries(this.interactionTokensAndKeys$_._)
+			.filter(([, interactionKeyAndToken]) => interactionKeyAndToken.key === key)
+			.pop();
 
 		// we have an interaction token for this key
 		if (interactionTokenAndKey) {
@@ -183,10 +188,10 @@ export class InteractionsRepository<T> {
 		return this._requestService.getBasic$<Interaction>('/api/interactions/by-token/' + token).pipe(map((response) => response.result ?? null));
 	}
 
-	private _getOrCreateInteractionForUser$(key: string): Observable<Interaction> {
-		return this._requestService.post$<{ interaction: Interaction; interactionToken: string }, { key: string }>(
+	private _getOrCreateInteractionForUser$(key: string, forceNew = false): Observable<Interaction> {
+		return this._requestService.post$<{ interaction: Interaction; interactionToken: string }, { key: string; forceNew: boolean }>(
 			'/api/interactions/by-user/get-or-create',
-			{ key }
+			{ key, forceNew }
 		).pipe(
 			map((response) => {
 				if (response.result) {
@@ -197,6 +202,58 @@ export class InteractionsRepository<T> {
 				throw new Error('Failed to get or create interaction for user');
 			})
 		);
+	}
+
+	/** Set a host-side lifecycle marker on an interaction (e.g. 'archived', or null to restore).
+	 * Authorized server-side by WRITE on the parent resource. Patches interactionsByItems in
+	 * place on success so the list re-renders without a refetch. */
+	public setInteractionState$(interactionId: string, state: string | null) {
+		return this._requestService.post$<Interaction, { state: string | null }>(`/api/interactions/${interactionId}/state`, { state }).pipe(
+			tap((response) => {
+				if (!response.result) return;
+				this.interactionsByItems.update((byItems) => {
+					const next = { ...byItems };
+					for (const itemId of Object.keys(next)) {
+						const entry = next[itemId];
+						if (!entry.interactions.some((interaction) => interaction.id === interactionId)) continue;
+						next[itemId] = {
+							...entry,
+							interactions: entry.interactions.map((interaction) => (interaction.id === interactionId ? { ...interaction, state } : interaction)),
+						};
+					}
+					return next;
+				});
+			})
+		);
+	}
+
+	/**
+	 * Forget the locally stored session for a key, so the next getOrCreateInteraction$ creates a
+	 * brand-new interaction instead of reopening the existing one. The interaction itself is left
+	 * untouched on the server: this only drops *this device's* claim on it.
+	 */
+	public forgetInteractionForKey(key: string) {
+		const stored = this.interactionTokensAndKeys$_._;
+		const entry = Object.entries(stored).find(([, keyAndToken]) => keyAndToken.key === key);
+		if (!entry) return;
+
+		const [interactionId] = entry;
+		delete this.interactionTokensAndKeys$_[interactionId];
+		delete this.interactions[interactionId];
+		this.pendingInteractionRequests.delete(key);
+	}
+
+	/**
+	 * Start a brand-new session for a key, leaving the previous one untouched.
+	 *
+	 * Forgetting the local token is not enough for a signed-in respondent: the server resolves
+	 * their interaction from user + key, so it would hand the same one straight back. Ask for a
+	 * fresh one explicitly, and fall back to the token flow when nobody is signed in.
+	 */
+	public startNewInteractionForKey$(key: string): Observable<Interaction> {
+		this.forgetInteractionForKey(key);
+		const isAuthenticated = !!this._authTokensRepository.getCurrentAuthToken();
+		return isAuthenticated ? this._getOrCreateInteractionForUser$(key, true) : this.createNewInteraction$(key);
 	}
 
 	public saveInteractionByToken$(interaction: Interaction, _token?: string) {

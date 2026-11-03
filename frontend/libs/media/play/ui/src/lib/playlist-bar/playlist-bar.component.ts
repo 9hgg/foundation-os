@@ -1,89 +1,127 @@
-import { mean } from 'lodash-es';
-
-import { AfterViewInit, ChangeDetectionStrategy, Component, effect, ElementRef, inject, input, signal, viewChild } from '@angular/core';
-import { LayoutService } from '@foundation/app/layout';
+import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, input, signal, viewChild } from '@angular/core';
 import { TwCrossIcon } from '@foundation/icons';
 import { PlaylistService } from '@foundation/media/play/state';
-import { DurationPipe } from '@foundation/utils';
-import { combineLatest, tap } from 'rxjs';
+import { combineLatest, fromEvent, tap } from 'rxjs';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { SeekBarComponent } from '../seek-bar/seek-bar.component';
 
 @Component({
 	selector: 'lib-playlist-bar',
 	standalone: true,
-	imports: [DurationPipe, TwCrossIcon],
+	imports: [TwCrossIcon, SeekBarComponent],
 	templateUrl: './playlist-bar.component.html',
 	styleUrls: ['./playlist-bar.component.css'],
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PlaylistBarComponent implements AfterViewInit {
-	private _layoutService = inject(LayoutService);
-
-	seekBarRef = viewChild.required<ElementRef<HTMLDivElement>>('seekBar');
-	progressBarRef = viewChild.required<ElementRef<HTMLDivElement>>('progressBar');
-	floatingSquare = viewChild<ElementRef<HTMLDivElement>>('floatingSquare');
+export class PlaylistBarComponent {
+	floatingVideoPlayer = viewChild<ElementRef<HTMLDivElement>>('floatingVideoPlayer');
+	floatingVideoContainer = viewChild<ElementRef<HTMLDivElement>>('floatingVideoContainer');
 
 	playlistService = inject(PlaylistService);
-	backgroundBarColor = input<string>('var(--spoken-deep-gray)');
-	// backgroundColor = input<string>('#f1f1f1');
-	// playBarColor = input<string>('#f00');
-	progressBarColor = input<string>('var(--spoken-teal)');
 
 	displayRepeatButton = signal<boolean>(false);
 	displayNextButton = signal<boolean>(true);
 	displayPrevButton = signal<boolean>(true);
 	displayShuffleButton = signal<boolean>(false);
+	isFloatingVideoFullscreen = signal<boolean>(false);
+
+	/** Render the seek bar as a waveform of the current media (opt-in: extra fetch/decode). */
+	useWaveform = input<boolean>(false);
+
+	/** Seconds skipped by the rewind/forward buttons. */
+	readonly skipSeconds = 10;
+	/** Playback speeds cycled through by the speed button. */
+	private readonly _playbackRates = [1, 1.25, 1.5, 2, 0.5];
+
+	/** Whether sound is effectively off (muted or volume at zero). */
+	isSilent = computed(() => this.playlistService.muted() || this.playlistService.volume() === 0);
+
+	/** Media URL fed to the seek bar's waveform variant (null disables it). */
+	waveformMediaUrl = computed(() => (this.useWaveform() ? (this.playlistService.currentItem()?.mediaUrl ?? null) : null));
+
+	/** Still loading: a play is desired/active but the media can't play yet (and no error). */
+	isLoading = computed(() => !!this.playlistService.currentItem() && !this.playlistService.canPlay() && !this.playlistService.hasError());
 
 	constructor() {
-		effect(() => {
-			const currentTime = this.playlistService.currentTime();
-			const currentItemDuration = this.playlistService.currentItemDuration();
-			const percent = currentTime / currentItemDuration;
-			this.progressBarRef().nativeElement.style.width = percent * 100 + '%';
-		});
-
-		combineLatest([this.playlistService.currentPlayerMediaInfo$, toObservable(this.floatingSquare)])
+		combineLatest([this.playlistService.currentPlayerMediaInfo$, toObservable(this.floatingVideoContainer)])
 			.pipe(
 				takeUntilDestroyed(),
-				tap(([mediaInfo, floatingSquare]) => {
-					console.log('[PlaylistBar] mediaInfo:', mediaInfo);
-					if (mediaInfo && floatingSquare) {
+				tap(([mediaInfo, floatingVideoContainer]) => {
+					if (mediaInfo && floatingVideoContainer) {
 						// if mediaInfo.media is a HTMLVideoElement
 						if (mediaInfo.media instanceof HTMLVideoElement) {
-							// append the video element to the floatingSquare
-							floatingSquare.nativeElement.replaceChildren(mediaInfo.media);
+							const videoElement = mediaInfo.media;
+							videoElement.controls = false;
+							videoElement.style.display = 'block';
+							videoElement.style.width = '100%';
+							videoElement.style.height = '100%';
+							videoElement.style.objectFit = 'contain';
+							// append the video element to the floating mini-player
+							floatingVideoContainer.nativeElement.replaceChildren(videoElement);
 						}
 					}
 				})
 			)
 			.subscribe();
+
+		fromEvent(document, 'fullscreenchange')
+			.pipe(
+				takeUntilDestroyed(),
+				tap(() => {
+					const floatingVideoPlayer = this.floatingVideoPlayer()?.nativeElement;
+					this.isFloatingVideoFullscreen.set(!!floatingVideoPlayer && document.fullscreenElement === floatingVideoPlayer);
+				})
+			)
+			.subscribe();
 	}
 
-	ngAfterViewInit() {
-		console.log('[PlaylistBarComponent] ngAfterViewInit');
-
-		this.seekBarRef().nativeElement.addEventListener('click', (event) => {
-			console.log('click');
-
-			this.seek(event);
-		});
-		this.seekBarRef().nativeElement.addEventListener('dblclick', (event) => {
-			console.log('dblclick');
-			this.seek(event, true);
-		});
+	onSeek(time: number) {
+		this.playlistService.seek(time);
 	}
 
-	seek(e: MouseEvent, forcePlay = false) {
-		const percent = e.offsetX / this.seekBarRef().nativeElement.offsetWidth;
-		console.log('seeking at', percent, this.playlistService.currentItemDuration() * percent);
-		this.playlistService.seek(this.playlistService.currentItemDuration() * percent);
-		// this.currentTime.set(percent * this.duration());
-		if (forcePlay) this.playlistService.play();
+	skipBackward() {
+		this.playlistService.skip(-this.skipSeconds);
+	}
+
+	skipForward() {
+		this.playlistService.skip(this.skipSeconds);
+	}
+
+	onVolumeInput(event: Event) {
+		const target = event.target;
+		if (!(target instanceof HTMLInputElement)) return;
+		this.playlistService.setVolume(Number(target.value));
+	}
+
+	toggleMute() {
+		this.playlistService.toggleMute();
+	}
+
+	async toggleFloatingVideoFullscreen(): Promise<void> {
+		const floatingVideoPlayer = this.floatingVideoPlayer()?.nativeElement;
+		if (!floatingVideoPlayer) return;
+
+		try {
+			if (document.fullscreenElement === floatingVideoPlayer) {
+				await document.exitFullscreen();
+				return;
+			}
+
+			await floatingVideoPlayer.requestFullscreen();
+		} catch (err) {
+			console.error('Failed to toggle fullscreen video player: ', err);
+		}
+	}
+
+	cyclePlaybackRate() {
+		const currentRate = this.playlistService.playbackRate();
+		const currentIndex = this._playbackRates.indexOf(currentRate);
+		const nextRate = this._playbackRates[(currentIndex + 1) % this._playbackRates.length];
+		this.playlistService.setPlaybackRate(nextRate);
 	}
 
 	stopAndClose() {
-		this.playlistService.stop();
-		this._layoutService.displayRootPlayer(false);
+		this.playlistService.stopAndClose();
 	}
 
 	next() {

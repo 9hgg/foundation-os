@@ -74,7 +74,7 @@ def read_excel_bytes_to_dfs(path: str) -> dict:
             f"(size={size} bytes): {type(error).__name__}: {error}"
         ) from error
 
-    dfs: dict[str, "pd.DataFrame"] = {}
+    dfs: dict[str, pd.DataFrame] = {}
     for name in xls.sheet_names:
         try:
             dfs[name] = pd.read_excel(xls, sheet_name=name)

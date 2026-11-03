@@ -11,17 +11,19 @@ require custom logic live here.
 
 import uuid
 
+import structlog
 from mcp.server.fastmcp import FastMCP
 
 from libs.acl.methods import can
 from libs.acl.models import Operation, Who
 from libs.db import context_db
 from libs.endpoints.endpoints import apply_operation_access_filter
-from libs.logger.customLogger import print_color
 from libs.mcp.auth import get_user_from_token
 
 from .methods import add_to_folder, share_folder_with
 from .models import Folder, FolderToResource
+
+logger = structlog.get_logger(__name__)
 
 
 def _parse_uuid(value: str, field_name: str) -> tuple[uuid.UUID | None, dict | None]:
@@ -31,7 +33,7 @@ def _parse_uuid(value: str, field_name: str) -> tuple[uuid.UUID | None, dict | N
         return None, {"error": "invalid_uuid", "message": f"Invalid UUID for {field_name}: '{value}'."}
 
 
-def register_folder_mcp_tools(mcp: FastMCP) -> None:
+def register_folder_mcp_tools(mcp: FastMCP) -> None:  # noqa: C901
     """
     Register folder-related MCP tools on *mcp*.
 
@@ -88,10 +90,16 @@ def register_folder_mcp_tools(mcp: FastMCP) -> None:
         - "Add article 9b1deb4d-... to folder 3fa85f64-...".
         - "Put that RF into the Q1 perimeters folder."
         """
-        print_color("cyan", f"[MCP] add_resource_to_folder: folder_id={folder_id!r} resource_id={resource_id!r} kind={resource_kind!r} auth={bool(auth_token)}")
+        logger.debug(
+            "mcp_folder_resource_add_started",
+            folder_id=folder_id,
+            resource_id=resource_id,
+            resource_kind=resource_kind,
+            has_auth=bool(auth_token),
+        )
         user = get_user_from_token(auth_token)
         if not user:
-            print_color("yellow", "[MCP] add_resource_to_folder: unauthorized")
+            logger.warning("mcp_folder_resource_add_unauthorized")
             return {"error": "unauthorized", "message": "Invalid or missing auth_token."}
 
         parsed_folder_id, err = _parse_uuid(folder_id, "folder_id")
@@ -102,7 +110,7 @@ def register_folder_mcp_tools(mcp: FastMCP) -> None:
             return err
 
         if not can(who_id=user.id, resource_type=Folder.__kind__, resource_id=parsed_folder_id, what=Operation.WRITE):
-            print_color("yellow", f"[MCP] add_resource_to_folder: user lacks WRITE on folder {folder_id!r}")
+            logger.warning("mcp_folder_resource_add_forbidden", folder_id=folder_id)
             return {"error": "forbidden", "message": f"User does not have WRITE access to folder {folder_id}."}
 
         class _ResourceProxy:
@@ -110,7 +118,7 @@ def register_folder_mcp_tools(mcp: FastMCP) -> None:
             id = parsed_resource_id
 
         add_to_folder(folder_id=parsed_folder_id, resource=_ResourceProxy())  # type: ignore[arg-type]
-        print_color("cyan", f"[MCP] add_resource_to_folder: done")
+        logger.debug("mcp_folder_resource_added", folder_id=folder_id, resource_kind=resource_kind)
         return {"folder_id": folder_id, "resource_id": resource_id, "resource_kind": resource_kind, "status": "added"}
 
     @mcp.tool()
@@ -150,10 +158,15 @@ def register_folder_mcp_tools(mcp: FastMCP) -> None:
         - "Share the Q1 folder with the Operations team."
         - "Give team 2c963f66-... access to folder 3fa85f64-...".
         """
-        print_color("cyan", f"[MCP] share_folder_with_team: folder_id={folder_id!r} team_id={team_id!r} auth={bool(auth_token)}")
+        logger.debug(
+            "mcp_folder_share_started",
+            folder_id=folder_id,
+            team_id=team_id,
+            has_auth=bool(auth_token),
+        )
         user = get_user_from_token(auth_token)
         if not user:
-            print_color("yellow", "[MCP] share_folder_with_team: unauthorized")
+            logger.warning("mcp_folder_share_unauthorized")
             return {"error": "unauthorized", "message": "Invalid or missing auth_token."}
 
         parsed_folder_id, err = _parse_uuid(folder_id, "folder_id")
@@ -164,11 +177,11 @@ def register_folder_mcp_tools(mcp: FastMCP) -> None:
             return err
 
         if not can(who_id=user.id, resource_type=Folder.__kind__, resource_id=parsed_folder_id, what=Operation.WRITE):
-            print_color("yellow", f"[MCP] share_folder_with_team: user lacks WRITE on folder {folder_id!r}")
+            logger.warning("mcp_folder_share_forbidden", folder_id=folder_id)
             return {"error": "forbidden", "message": f"User does not have WRITE access to folder {folder_id}."}
 
         share_folder_with(folder_id=parsed_folder_id, who=Who.team, who_id=parsed_team_id)
-        print_color("cyan", f"[MCP] share_folder_with_team: done")
+        logger.debug("mcp_folder_shared", folder_id=folder_id)
         return {"folder_id": folder_id, "team_id": team_id, "status": "shared"}
 
     @mcp.tool()
@@ -207,7 +220,7 @@ def register_folder_mcp_tools(mcp: FastMCP) -> None:
         - "What is inside folder 3fa85f64-...?"
         - "List the contents of the Q1 perimeters folder."
         """
-        print_color("cyan", f"[MCP] get_folder_items: folder_id={folder_id!r} auth={bool(auth_token)}")
+        logger.debug("mcp_folder_items_started", folder_id=folder_id, has_auth=bool(auth_token))
         parsed_folder_id, err = _parse_uuid(folder_id, "folder_id")
         if err:
             return err
@@ -225,14 +238,14 @@ def register_folder_mcp_tools(mcp: FastMCP) -> None:
             )
             folder = folder_query.first()
             if not folder:
-                print_color("yellow", f"[MCP] list_folder_contents: folder {folder_id!r} not found or not accessible")
+                logger.warning("mcp_folder_items_not_found", folder_id=folder_id)
                 return {"error": "not_found", "message": f"Folder {folder_id} not found or not accessible."}
 
             items: list[FolderToResource] = (
                 db.query(FolderToResource).filter(FolderToResource.folder_id == parsed_folder_id).all()
             )
 
-        print_color("cyan", f"[MCP] get_folder_items: folder {folder.name!r} has {len(items)} items")
+        logger.debug("mcp_folder_items_completed", folder_id=folder_id, item_count=len(items))
         return {
             "folder": {"id": str(folder.id), "name": folder.name},
             "contents": [{"resource_id": str(item.resource_id), "resource_kind": item.resource_kind} for item in items],

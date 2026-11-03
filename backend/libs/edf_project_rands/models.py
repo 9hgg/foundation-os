@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 import sqlmodel
@@ -50,43 +50,43 @@ class TemplateData(BaseModelWithConfig):
 
 class ReportConfig(BaseModelWithConfig):
     title: str
-    description: Optional[str] = None
-    local_sync_path: Optional[str] = None
-    template: Optional[str] = None
-    templates: Optional[dict[str, TemplateData]] = Field(default_factory=dict)
+    description: str | None = None
+    local_sync_path: str | None = None
+    template: str | None = None
+    templates: dict[str, TemplateData] | None = Field(default_factory=dict)
     data: dict[str, ProjectBasicDataType] = Field(default_factory=dict)
-    pdf_options: Optional[dict[str, Any]] = Field(default_factory=dict)
+    pdf_options: dict[str, Any] | None = Field(default_factory=dict)
 
 
 class ProjectPresentationCustomSlide(BaseModelWithConfig):
     id: str
     label: str
     title: str
-    subtitle: Optional[str] = None
-    body_html: Optional[str] = None
+    subtitle: str | None = None
+    body_html: str | None = None
     body_lines: list[str] = Field(default_factory=list)
-    include_in_toc: Optional[bool] = True
-    show_number: Optional[bool] = True
-    catalog_slide_id: Optional[str] = None
-    before_slide_id: Optional[str] = None
-    after_slide_id: Optional[str] = None
+    include_in_toc: bool | None = True
+    show_number: bool | None = True
+    catalog_slide_id: str | None = None
+    before_slide_id: str | None = None
+    after_slide_id: str | None = None
 
 
 class ProjectPresentationSlideCatalogEntry(BaseModelWithConfig):
     id: str
     label: str
     title: str
-    subtitle: Optional[str] = None
-    body_html: Optional[str] = None
+    subtitle: str | None = None
+    body_html: str | None = None
     body_lines: list[str] = Field(default_factory=list)
-    include_in_toc: Optional[bool] = True
-    show_number: Optional[bool] = True
+    include_in_toc: bool | None = True
+    show_number: bool | None = True
 
 
 class ProjectPresentationCatalog(BaseModelWithConfig):
     id: str
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     selected_years: list[int] = Field(default_factory=list)
     included_batch_ids: list[str] = Field(default_factory=list)
     included_activity_ids: list[str] = Field(default_factory=list)
@@ -104,22 +104,22 @@ class ProjectConfig(BaseModelWithConfig):
     __category__ = "config"
 
     # client principal (id)
-    main_customer_id: Optional[UUID] = None
+    main_customer_id: UUID | None = None
     # commanditaire (id)
-    sponsor_customer_id: Optional[UUID] = None
+    sponsor_customer_id: UUID | None = None
     # chef de projet (id)
-    project_manager_contributor_id: Optional[UUID] = None
+    project_manager_contributor_id: UUID | None = None
     # pilote stratégique (id)
-    strategic_lead_contributor_id: Optional[UUID] = None
-    cost_tracking_file_id: Optional[UUID] = None
+    strategic_lead_contributor_id: UUID | None = None
+    cost_tracking_file_id: UUID | None = None
 
-    report_configs: Optional[dict[str, ReportConfig]] = None
+    report_configs: dict[str, ReportConfig] | None = None
     presentation_catalogs: list[ProjectPresentationCatalog] = Field(default_factory=list)
     presentation_slide_catalog: list[ProjectPresentationSlideCatalogEntry] = Field(
         default_factory=list
     )
 
-    extra_properties: Optional[dict[str, ProjectBasicDataType]] = Field(
+    extra_properties: dict[str, ProjectBasicDataType] | None = Field(
         default_factory=dict
     )
 
@@ -155,9 +155,9 @@ class Project(ResourceWithConfig, table=True):
 
     name: str = Field(index=True)
     code: str = Field(index=True)  # e.g. P120T
-    description: Optional[str] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    description: str | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
 
     config: ProjectConfig = sqlmodel.Field(
         sa_type=JSONB,
@@ -178,14 +178,14 @@ class ContributorConfig(BaseModelWithConfig):
     __private__ = False
     __category__ = "config"
 
-    group_manager: Optional[str] = None
+    group_manager: str | None = None
 
 
 class ProjectCostTrackingContributorSeries(BaseModelWithConfig):
     contributor_key: str
     contributor_name: str
-    contributor_id: Optional[str] = None
-    nni: Optional[str] = None
+    contributor_id: str | None = None
+    nni: str | None = None
     monthly_hours: dict[str, float] = Field(default_factory=dict)
     total_hours: float = 0.0
 
@@ -210,15 +210,15 @@ class Contributor(ResourceWithConfig, table=True):
     __title__ = "Contributor"
     __config_type__ = ContributorConfig
 
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None
 
-    category: Optional[CategoryEnum] = None
-    unit: Optional[str] = None
-    department: Optional[str] = None
-    group: Optional[str] = None
-    NNI: Optional[str] = None
+    category: CategoryEnum | None = None
+    unit: str | None = None
+    department: str | None = None
+    group: str | None = None
+    NNI: str | None = None
 
     config: ContributorConfig = sqlmodel.Field(
         sa_type=JSONB,
@@ -272,11 +272,11 @@ class Customer(Resource, table=True):
     __kind__ = "customer"
     __title__ = "Customer"
 
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    identifier: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    identifier: str | None = None
 
-    unit: Optional[str] = None
+    unit: str | None = None
 
 
 class Batch(Resource, table=True):
@@ -290,8 +290,8 @@ class Batch(Resource, table=True):
     __title__ = "Batch"
 
     title: str
-    description: Optional[str] = None
-    prefix: Optional[str] = None
+    description: str | None = None
+    prefix: str | None = None
 
     project_id: UUID = Field(
         foreign_key="projects.id", nullable=False, ondelete="CASCADE"
@@ -328,15 +328,15 @@ class Deliverable(Resource, table=True):
     __title__ = "Deliverable"
 
     title: str
-    description: Optional[str] = None
+    description: str | None = None
 
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    contractual_end_date: Optional[datetime] = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    contractual_end_date: datetime | None = None
     is_principal: bool = False
     hidden: bool = False
 
-    customer_id: Optional[UUID] = Field(
+    customer_id: UUID | None = Field(
         default=None, foreign_key="customers.id", nullable=True, ondelete="SET NULL"
     )
     __access_rules__ = (
@@ -355,7 +355,7 @@ class AnnualContribution(Resource, table=True):
     __kind__ = "annual_contribution"
     __title__ = "Annual Contribution"
 
-    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
+    id: UUID | None = Field(default_factory=uuid4, primary_key=True)
 
     activity_id: UUID = Field(
         foreign_key="activities.id", nullable=False, ondelete="CASCADE"
@@ -379,7 +379,7 @@ class AnnualFacilityUsage(Resource, table=True):
     __kind__ = "annual_facility_usage"
     __title__ = "Annual Facility Usage"
 
-    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
+    id: UUID | None = Field(default_factory=uuid4, primary_key=True)
 
     activity_id: UUID = Field(
         foreign_key="activities.id", nullable=False, ondelete="CASCADE"
@@ -399,12 +399,12 @@ class ActivityUpdateLink(BaseModelWithConfig):
 
 class ActivityUpdate(BaseModelWithConfig):
     id: str
-    date: Optional[datetime] = None
+    date: datetime | None = None
     source_kind: str = "other"
-    source_name: Optional[str] = None
+    source_name: str | None = None
     file_ids: list[str] = Field(default_factory=list)
     links: list[ActivityUpdateLink] = Field(default_factory=list)
-    title: Optional[str] = None
+    title: str | None = None
     content: str = ""
 
     @field_validator("links", mode="before")
@@ -427,11 +427,11 @@ class ActivityUpdate(BaseModelWithConfig):
 class ActivityProposal(BaseModelWithConfig):
     id: str
     kind: Literal["inflexion", "question", "proposal"] = "question"
-    date: Optional[datetime] = None
-    title: Optional[str] = None
+    date: datetime | None = None
+    title: str | None = None
     content: str = ""
-    answer_content: Optional[str] = None
-    answered: Optional[bool] = None
+    answer_content: str | None = None
+    answered: bool | None = None
     file_ids: list[str] = Field(default_factory=list)
     links: list[ActivityUpdateLink] = Field(default_factory=list)
 
@@ -453,8 +453,8 @@ class ActivityProposal(BaseModelWithConfig):
 
 
 class ActivityConfig(BaseModelWithConfig):
-    updates: Optional[list[ActivityUpdate]] = None
-    proposals: Optional[list[ActivityProposal]] = None
+    updates: list[ActivityUpdate] | None = None
+    proposals: list[ActivityProposal] | None = None
 
 
 class Activity(ResourceWithConfig, table=True):
@@ -469,9 +469,9 @@ class Activity(ResourceWithConfig, table=True):
     __title__ = "Activity"
     __config_type__ = ActivityConfig
 
-    title: Optional[str] = None
-    description: Optional[str] = None
-    prefix: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
+    prefix: str | None = None
 
     batch_id: UUID = Field(foreign_key="batches.id", nullable=False, ondelete="CASCADE")
 
@@ -481,11 +481,11 @@ class Activity(ResourceWithConfig, table=True):
     is_confirmed: bool = False
     hidden: bool = False
 
-    finality: Optional[str] = None
-    strategic_interests: Optional[str] = None
-    synergies: Optional[str] = None
-    risks: Optional[str] = None
-    parades: Optional[str] = None
+    finality: str | None = None
+    strategic_interests: str | None = None
+    synergies: str | None = None
+    risks: str | None = None
+    parades: str | None = None
 
     tags: list[str] = Field(sa_type=JSONB, default_factory=list)
     config: ActivityConfig = sqlmodel.Field(
@@ -508,13 +508,13 @@ class Purchase(Resource, table=True):
 
     title: str
     year: int
-    description: Optional[str] = None
-    supplier: Optional[str] = None
-    details: Optional[str] = None
+    description: str | None = None
+    supplier: str | None = None
+    details: str | None = None
 
-    min_estimated_cost: Optional[float] = None
-    estimated_cost: Optional[float] = None
-    max_estimated_cost: Optional[float] = None
+    min_estimated_cost: float | None = None
+    estimated_cost: float | None = None
+    max_estimated_cost: float | None = None
 
     activity_id: UUID = Field(
         foreign_key="activities.id", nullable=False, ondelete="CASCADE"
@@ -529,7 +529,7 @@ class PresentationDeliverableSnapshot(BaseModelWithConfig):
     """Deliverable with its associated customer."""
 
     deliverable: Deliverable
-    customer: Optional[Customer] = None
+    customer: Customer | None = None
 
 
 class PresentationContributionSnapshot(BaseModelWithConfig):
@@ -571,12 +571,12 @@ class PresentationSnapshot(BaseModelWithConfig):
 
     project: Project
     catalog: ProjectPresentationCatalog
-    main_customer: Optional[Customer] = None
-    sponsor_customer: Optional[Customer] = None
-    project_manager: Optional[Contributor] = None
-    strategic_lead: Optional[Contributor] = None
+    main_customer: Customer | None = None
+    sponsor_customer: Customer | None = None
+    project_manager: Contributor | None = None
+    strategic_lead: Contributor | None = None
     batches: list[PresentationBatchSnapshot]
-    cost_tracking_data: Optional[ProjectCostTrackingData] = None
+    cost_tracking_data: ProjectCostTrackingData | None = None
     # Map of fileId → File for all files referenced in activity updates and proposals
     files: dict[str, File] = Field(default_factory=dict)
 

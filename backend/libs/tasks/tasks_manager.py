@@ -1,15 +1,15 @@
 import datetime
-import sys
 import threading
 import traceback
 import typing
 import uuid
 from typing import ClassVar
 
+import sentry_sdk
+import structlog
 from pydantic import TypeAdapter
 
 from libs.db import context_db
-from libs.logger import print, print_color
 from libs.tasks.tasks_manager_errors import (
     TaskNotFoundError,
 )
@@ -17,6 +17,8 @@ from libs.utils.types import BaseModelWithConfig, serialize
 
 from .config import TASKS_SETTINGS
 from .models import Task, TaskArguments, TaskArtifacts, TaskSlot
+
+logger = structlog.get_logger(__name__)
 
 
 class TaskMethod(BaseModelWithConfig):
@@ -45,24 +47,21 @@ class TasksManager:
         stop_heartbeat_event = threading.Event()
 
         def heartbeat_loop():
-            while not stop_heartbeat_event.wait(
-                TASKS_SETTINGS.HEARTBEAT_INTERVAL_SECONDS
-            ):
+            while not stop_heartbeat_event.wait(TASKS_SETTINGS.HEARTBEAT_INTERVAL_SECONDS):
                 try:
                     cls.update_task(
                         task_id,
                         {
-                            "last_heartbeat_at": datetime.datetime.now(
-                                datetime.timezone.utc
-                            ),
+                            "last_heartbeat_at": datetime.datetime.now(datetime.UTC),
                             "processor_id": processor_id,
                             "processor_kind": processor_kind,
                         },
                     )
-                except Exception as heartbeat_error:
-                    print_color(
-                        "yellow",
-                        f"Task heartbeat failed for {task_id}: {heartbeat_error}",
+                except Exception as error:
+                    logger.warning(
+                        "task_heartbeat_failed",
+                        task_id=str(task_id),
+                        error_type=type(error).__name__,
                     )
 
         heartbeat_thread = threading.Thread(
@@ -89,7 +88,7 @@ class TasksManager:
                 return
             worker_method = WorkerMethod(worker_name=worker_name, fn=fn)
             cls.workers_methods[worker_name] = worker_method
-            print(f"👷 Worker {worker_name} enlisted")
+            logger.info("worker_enlisted", worker_name=worker_name)
             return fn
 
         return decorator
@@ -110,7 +109,7 @@ class TasksManager:
                 return
             task_method = TaskMethod(method_name=method_name, fn=fn)
             cls.tasks_methods[method_name] = task_method
-            print(f"✅ Task method {method_name} enlisted")
+            logger.info("task_method_enlisted", task_method=method_name)
             return fn
 
         return decorator
@@ -121,22 +120,26 @@ class TasksManager:
         cls,
         task_id: uuid.UUID | str,
         purge_on_success: bool = False,
-    processor_id: str | None = TASKS_SETTINGS.PROCESSOR_ID,
-    processor_kind: str | None = TASKS_SETTINGS.PROCESSOR_KIND,
+        processor_id: str | None = TASKS_SETTINGS.PROCESSOR_ID,
+        processor_kind: str | None = TASKS_SETTINGS.PROCESSOR_KIND,
     ):
         """Execute a task"""
 
         task = Task.by_id(obj_id=task_id)
         if task is None:
-            print(f"Task {task_id} not found")
+            logger.warning("task_not_found", task_id=str(task_id))
             return
 
-        print_color("red", f"Executing task {task.title}")
-        print_color("cyan", f"Executing task {task.arguments}")
-        print(f"Task description: {task.description}")
-        print(f"Processor: {processor_id} ({processor_kind})")
+        logger.info(
+            "task_executing",
+            task_id=str(task.id),
+            title=task.title,
+            task_method=task.method_name,
+            processor_id=processor_id,
+            processor_kind=processor_kind,
+        )
 
-        task.started_at = datetime.datetime.now(datetime.timezone.utc)
+        task.started_at = datetime.datetime.now(datetime.UTC)
         task.started = True
         task.processor_id = processor_id
         task.processor_kind = processor_kind
@@ -156,7 +159,7 @@ class TasksManager:
         if not task_method:
             task.ended = True
             task.failed = True
-            task.ended_at = datetime.datetime.now(datetime.timezone.utc)
+            task.ended_at = datetime.datetime.now(datetime.UTC)
 
             artifacts.error_details = f"Task method {task.method_name} not found"
             task.artifacts = serialize(artifacts)
@@ -172,19 +175,20 @@ class TasksManager:
             )
             return
 
-        arguments: TaskArguments = TypeAdapter(TaskArguments).validate_python(
-            task.arguments
+        arguments: TaskArguments = TypeAdapter(TaskArguments).validate_python(task.arguments)
+        logger.debug(
+            "task_arguments_resolved",
+            task_method=task.method_name,
+            positional_count=len(arguments.args),
+            keyword_names=sorted(arguments.kwargs),
         )
-        print(f"Task arguments ({task.method_name}): {arguments}")
 
         stop_heartbeat_event, heartbeat_thread = cls._start_task_heartbeat(
             task.id, task.processor_id, task.processor_kind
         )
 
         try:
-            existing_artifacts = TypeAdapter(TaskArtifacts).validate_python(
-                task.artifacts or {}
-            )
+            existing_artifacts = TypeAdapter(TaskArtifacts).validate_python(task.artifacts or {})
             existing_artifacts.return_value = task_method.fn(
                 *arguments.args, **arguments.kwargs, task=task, task_manager=cls
             )
@@ -192,10 +196,17 @@ class TasksManager:
             task.artifacts = serialize(existing_artifacts, False, True)
             task.completed = True
         except Exception as e:
-            print_color("red", f"Error executing task {task.title}")
-            print_color("red", e)
-            sys.excepthook(*sys.exc_info())
+            logger.exception("task_execution_failed", task_id=str(task.id), title=task.title)
             exception_text = traceback.format_exc()
+
+            # Make Sentry aware of the failure while still handling it: the task is marked failed
+            # below and the worker keeps processing the queue. This is a no-op when Sentry isn't
+            # initialised (e.g. local dev without a DSN). Without it, caught task failures would
+            # only ever land in `artifacts.error_details` and never page anyone.
+            with sentry_sdk.new_scope() as scope:
+                scope.set_tag("task_method", task.method_name)
+                scope.set_context("task", {"id": str(task.id), "title": task.title, "method": task.method_name})
+                sentry_sdk.capture_exception(e)
 
             artifacts = TaskArtifacts()
             artifacts.error_details = str(e) + "\n\n" + exception_text
@@ -206,7 +217,7 @@ class TasksManager:
             heartbeat_thread.join(timeout=1)
             task.ended = True
 
-        task.ended_at = datetime.datetime.now(datetime.timezone.utc)
+        task.ended_at = datetime.datetime.now(datetime.UTC)
         cls.update_task(
             task.id,
             {
@@ -224,6 +235,20 @@ class TasksManager:
     @staticmethod
     def update_task(task_id: uuid.UUID, update_dict: dict):
         Task.patch(obj_id=task_id, update_dict=update_dict)
+
+    @classmethod
+    def set_task_progress(cls, task: Task | None, progress: float) -> None:
+        """Report progress (0-100) for a task currently being executed.
+
+        `task` is the one injected by `execute_task` into every task
+        method's kwargs, so it's set for any task run through the normal
+        processing pipeline. Call directly as `TasksManager.set_task_progress(...)`
+        rather than via the injected `task_manager` kwarg, since it's a no-op
+        when `task` is None (e.g. a task method invoked directly in a test).
+        """
+        if task is None:
+            return
+        cls.update_task(task.id, {"progress": progress})
 
     @classmethod
     def purge_successful_tasks(cls):
@@ -245,10 +270,7 @@ class TasksManager:
         priority: int = 0,
         clear_source_slot: bool = True,
     ) -> Task:
-        if isinstance(task_or_id, Task):
-            source_task = task_or_id
-        else:
-            source_task = Task.by_id(obj_id=task_or_id)
+        source_task = task_or_id if isinstance(task_or_id, Task) else Task.by_id(obj_id=task_or_id)
 
         if source_task is None:
             raise TaskNotFoundError(str(task_or_id))
@@ -258,9 +280,7 @@ class TasksManager:
                 db.query(TaskSlot).filter(TaskSlot.task_id == source_task.id).delete()
                 db.commit()
 
-        task_arguments: TaskArguments = TypeAdapter(TaskArguments).validate_python(
-            source_task.arguments
-        )
+        task_arguments: TaskArguments = TypeAdapter(TaskArguments).validate_python(source_task.arguments)
 
         return cls.create_task(
             method_name=source_task.method_name,
@@ -312,7 +332,7 @@ class TasksManager:
             description=description,
             kind=kind,
             arguments=TaskArguments(args=args, kwargs=kwargs).model_dump(),
-            priority=priority
+            priority=priority,
         )
 
         # save the task

@@ -1,8 +1,8 @@
 import hashlib
 
 import cachetools
-
 from fastapi import Body
+from sqlalchemy import tuple_
 
 from libs.endpoints import create_crud_endpoints
 from libs.i18n.deps import Translator__dep
@@ -12,10 +12,7 @@ from libs.utils.types import BaseModelWithConfig, EndpointError, EndpointOutput
 
 from . import models
 
-
-SMART_TRANSLATION_CACHE: cachetools.TTLCache = cachetools.TTLCache(
-    maxsize=2048, ttl=120
-)
+SMART_TRANSLATION_CACHE: cachetools.TTLCache = cachetools.TTLCache(maxsize=2048, ttl=120)
 
 
 class SentenceToTranslate(BaseModelWithConfig):
@@ -99,6 +96,57 @@ def _get_smart_translation(
     return None
 
 
+def _prefetch_smart_translations(db, sentences_to_translate) -> None:
+    """Load every existing translation for the batch in a single query.
+
+    ``_get_smart_translation`` runs one SELECT per sentence, so a batch of N
+    sentences issued N queries (Sentry N+1 on /translate/multiple). Here we
+    resolve all the (hash, target-lang) pairs that aren't already in the
+    in-process cache with ONE ``... WHERE (hash, language_target) IN (...)``
+    query, then warm ``SMART_TRANSLATION_CACHE`` so the per-sentence lookups in
+    the endpoint become cache hits. Missing pairs are cached as ``None`` so they
+    still fall through to the translator exactly as before.
+    """
+    # distinct (hash, lang) -> cache_key, skipping what's already cached
+    pairs: dict[tuple[str, str], str] = {}
+    for s in sentences_to_translate:
+        cache_key = _build_smart_translation_cache_key(
+            input_sentence=s.input_sentence,
+            lang_code=s.lang_code,
+            translation_context=s.translation_context,
+            input_language=s.input_language,
+        )
+        if cache_key in SMART_TRANSLATION_CACHE:
+            continue
+        hash_string = cache_key.split(":", 1)[0]
+        pairs[(hash_string, s.lang_code)] = cache_key
+
+    if not pairs:
+        return
+
+    rows = (
+        models.Translation.query(db)
+        .filter(tuple_(models.Translation.hash, models.Translation.language_target).in_(list(pairs.keys())))
+        .order_by(models.Translation.time_updated.desc())
+        .all()
+    )
+
+    # Same selection rule as _get_smart_translation: prefer a manual translation,
+    # otherwise the most recent (rows are already ordered by time_updated desc).
+    best: dict[tuple[str, str], tuple[str, bool]] = {}
+    for r in rows:
+        key = (r.hash, r.language_target)
+        if key not in best:
+            best[key] = (r.translated_content, r.translator == "manual")
+        else:
+            _, is_manual = best[key]
+            if not is_manual and r.translator == "manual":
+                best[key] = (r.translated_content, True)
+
+    for pair, cache_key in pairs.items():
+        SMART_TRANSLATION_CACHE[cache_key] = best[pair][0] if pair in best else None
+
+
 def create_crud_translation_router(prefix: str = "/api/translations"):
     crud_translation_router = create_crud_endpoints(
         models.Translation,
@@ -152,11 +200,14 @@ def create_crud_translation_router(prefix: str = "/api/translations"):
     @crud_translation_router.post("/translate/multiple")
     async def translate_multiple_elements(
         translator: Translator__dep,
-        sentences_to_translate: list[SentenceToTranslate] = Body(...),
+        sentences_to_translate: list[SentenceToTranslate] = Body(...),  # noqa: B008
     ):
         translated_sentences: list[SentenceTranslated] = []
 
         with context_db() as db:
+            # One query for the whole batch instead of one SELECT per sentence.
+            _prefetch_smart_translations(db, sentences_to_translate)
+
             for sentence_to_translate in sentences_to_translate:
                 # we don't rely on the front placeholder replacement
                 # instead of using sentence_to_translate.sentenceToTranslate
@@ -183,6 +234,9 @@ def create_crud_translation_router(prefix: str = "/api/translations"):
                         input_language=sentence_to_translate.input_language,
                         rpbt=sentence_to_translate.rpbt,
                         translation_context=sentence_to_translate.translation_context,
+                        # The batch prefetch already established that this
+                        # hash/language pair has no stored translation.
+                        skip_existing_lookup=True,
                     )
 
                 translated_sentences.append(

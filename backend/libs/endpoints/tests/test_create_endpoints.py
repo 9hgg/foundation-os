@@ -1,11 +1,12 @@
-import pytest
 import uuid
 from unittest.mock import MagicMock, patch
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from libs.endpoints.endpoints import create_crud_endpoints
-from libs.utils.deps import get_deps
 from libs.files.models import File
+from libs.utils.deps import get_deps
 
 # Setup app with CRUD router for create tests
 app = FastAPI()

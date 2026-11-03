@@ -4,10 +4,10 @@ import uuid
 
 import sqlalchemy as sa
 import sqlmodel
+from pydantic import Field
 from sqlalchemy.dialects.postgresql import JSONB
 
-from libs.mcp.display import ResourceDisplayProfile
-from libs.resource import Resource
+from libs.resource import Resource, ResourceDisplayProfile
 from libs.utils.types import BaseModelWithConfig
 
 
@@ -18,8 +18,8 @@ class TaskArtifacts(BaseModelWithConfig):
 
 
 class TaskArguments(BaseModelWithConfig):
-    args: list = []
-    kwargs: dict = {}
+    args: list = Field(default_factory=list)
+    kwargs: dict = Field(default_factory=dict)
 
 
 class TaskSlot(sqlmodel.SQLModel, table=True):
@@ -35,13 +35,27 @@ class TaskSlot(sqlmodel.SQLModel, table=True):
     processor_id: str | None = None
 
 
+class WorkerHeartbeat(sqlmodel.SQLModel, table=True):
+    """Tracks whether a same-machine subprocess worker (see
+    `libs.tasks.worker_process.launch_subprocess_worker_if_not_running`) is currently
+    alive, so a new one isn't spawned on top of it. One row per `processor_id`, not a
+    Resource like other elements, same style as TaskSlot.
+    """
+
+    __tablename__ = "worker_heartbeats"
+    processor_id: str = sqlmodel.Field(primary_key=True)
+    pid: int
+    started_at: datetime.datetime = sqlmodel.Field(sa_type=sa.DateTime(timezone=True))
+    last_heartbeat_at: datetime.datetime = sqlmodel.Field(sa_type=sa.DateTime(timezone=True))
+
+
 class Task(Resource, table=True):
     __tablename__ = "tasks"
     __kind__ = "task"
     __description__ = "A Task is a model to represent a task to be executed"
     __title__ = "Task"
     __example__ = "Task"
-    __mcp_display__ = ResourceDisplayProfile(
+    __display_profile__ = ResourceDisplayProfile(
         kind="task",
         title_fields=("title", "method_name", "custom_id", "id"),
         subtitle_fields=("description",),

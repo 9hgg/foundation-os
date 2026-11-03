@@ -130,7 +130,7 @@ class LLMZeroShotClassifier(Classifier[T]):
                 try:
                     prediction = self._parse_response(result)
                     break
-                except InvalidLabelSelectionError as exc:
+                except InvalidLabelSelectionError:
                     if invalid_selection_attempts >= self._max_invalid_selection_retries:
                         raise
                     invalid_selection_attempts += 1
@@ -360,11 +360,11 @@ class LLMZeroShotClassifier(Classifier[T]):
             raise InvalidLabelSelectionError from exc
 
     def _serialize(self, value: Any) -> Any:
-        if isinstance(value, (str, int, float, bool)) or value is None:
+        if isinstance(value, str | int | float | bool) or value is None:
             return value
         if isinstance(value, Mapping):
             return {k: self._serialize(v) for k, v in value.items()}
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             return [self._serialize(i) for i in value]
         try:
             return str(value)

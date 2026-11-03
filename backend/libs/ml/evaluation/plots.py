@@ -38,7 +38,7 @@ def print_precision_recall_curves(
         ap_scores[lbl] = float(average_precision_score(Y_true[:, i], Y_proba[:, i]))
         color = _COLORS[i % len(_COLORS)]
         ch    = _CHARS[i % len(_CHARS)]
-        for r, p in zip(rec, prec):
+        for r, p in zip(rec, prec, strict=False):
             x = max(0, min(int(r * (width - 1)), width - 1))
             y = max(0, min(int((1.0 - p) * (height - 1)), height - 1))
             grid[y][x] = (ch, color)
@@ -140,7 +140,7 @@ def print_precision_recall_table(
     ap_scores: dict[str, float] = {}
     for i, lbl in enumerate(label_names):
         if Y_true[:, i].sum() == 0:
-            curves[lbl] = {r: None for r in recall_levels}
+            curves[lbl] = dict.fromkeys(recall_levels)
             ap_scores[lbl] = float("nan")
             continue
         prec, rec, _ = precision_recall_curve(Y_true[:, i], Y_proba[:, i])

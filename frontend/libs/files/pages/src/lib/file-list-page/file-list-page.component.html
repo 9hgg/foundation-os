@@ -55,6 +55,7 @@
 		<lib-upload-button
 			class="w-full grow"
 			(uploadedFiles)="processUploadedFiles($event)"
+			[folderId]="folderId()"
 			[width]="'100%'"
 			[height]="'384px'"
 			[openOnClick]="false"

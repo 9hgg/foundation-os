@@ -9,6 +9,8 @@ export interface PlotSeries {
 	color?: string;
 	/** Visual opacity of the line/bar (0–1). Useful for secondary series such as min/max bounds. */
 	opacity?: number;
+	/** Dashed stroke -- lets a derived curve stay readable when it rides on top of another. */
+	dashed?: boolean;
 	points: PlotPoint[];
 }
 
@@ -84,6 +86,13 @@ export interface BuildOptionParams {
 	periods: PlotPeriod[];
 	i18nDownload: string;
 	i18nNoData?: string;
+	/** Show a legend listing the series. Overlay bounds (names ending in " min"/" max") are excluded. */
+	showLegend?: boolean;
+	/** Stack line/area series on top of each other -- for additive quantities. */
+	stacked?: boolean;
+	/** Render as steps (no smoothing, no interpolated ramps): a value holds until the next point.
+	 * The honest shape for anything that changes by decision rather than continuously. */
+	step?: boolean;
 }
 
 /** Contract for a single chart-type configuration entry. */

@@ -1,28 +1,30 @@
 import threading
 import uuid
 
+import structlog
 from psycopg2.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
 
 from libs.db import context_db
-from libs.logger import print, print_error, print_warning
 from libs.tasks.models import Task, TaskSlot
 from libs.tasks.tasks_manager import TasksManager
 
 from .config import TASKS_SETTINGS
+
+logger = structlog.get_logger(__name__)
 
 shutdown = False
 running_tasks = False
 
 
 def signal_handler(sig, frame):
-    print("Signal to stop received. Waiting for current task to finish...")
+    logger.info("task_processing_stop_signal_received")
 
     global shutdown, running_tasks
     shutdown = True
 
     if not running_tasks:
-        print("No running tasks. Exiting...")
+        logger.info("task_processing_no_running_tasks_exiting")
         # exit(0)
 
 
@@ -32,9 +34,7 @@ PROCESSOR_INSTANCE_ID = TASKS_SETTINGS.PROCESSOR_ID + "-" + str(uuid.uuid4())
 def clear_slots():
     with context_db() as db:
         # clear slots
-        db.query(TaskSlot).filter(
-            TaskSlot.processor_id == PROCESSOR_INSTANCE_ID
-        ).delete()
+        db.query(TaskSlot).filter(TaskSlot.processor_id == PROCESSOR_INSTANCE_ID).delete()
         db.commit()
 
 
@@ -46,16 +46,17 @@ def process_tasks():
         nb_not_started_tasks = (
             Task.query(db)
             #
-            .filter(Task.started == False).count()
+            .filter(not Task.started)
+            .count()
         )
-    print(f"Number of not started tasks: {nb_not_started_tasks}")
+    logger.info("tasks_not_started_count", count=nb_not_started_tasks)
     # if 1:
     #     exit(0)
 
     while True:
         # handle shutdown
         if shutdown:
-            print("Exiting gracefully...")
+            logger.info("task_processing_exiting_gracefully")
             running_tasks = False
             clear_slots()
             exit(0)
@@ -72,31 +73,35 @@ def process_tasks():
                 .first()
             )
             if first_task_without_a_slot is None:
-                print("No more task to process")
+                logger.info("no_more_task_to_process")
                 break
             else:
-                print(
-                    f"Task {first_task_without_a_slot} to process",
-                )
+                logger.info("task_to_process", task=str(first_task_without_a_slot))
             task_id_to_launch = first_task_without_a_slot[0]
 
             # add it to the slots to prevent other workers from picking it up
             try:
-                task_slot = TaskSlot(
-                    task_id=task_id_to_launch, processor_id=PROCESSOR_INSTANCE_ID
-                )
+                task_slot = TaskSlot(task_id=task_id_to_launch, processor_id=PROCESSOR_INSTANCE_ID)
                 db.add(task_slot)
                 db.commit()
                 TasksManager.execute_task(task_id_to_launch)
-            except UniqueViolation as e:
+            except UniqueViolation as exc:
                 # rely on the database ACID properties to prevent race conditions
-                print_warning("[UniqueViolation]", e)
+                logger.warning(
+                    "task_slot_unique_violation",
+                    task_id=str(task_id_to_launch),
+                    error=str(exc),
+                )
                 db.rollback()
-            except IntegrityError as e:
-                print_warning("[IntegrityError]", e)
+            except IntegrityError as exc:
+                logger.warning(
+                    "task_slot_integrity_error",
+                    task_id=str(task_id_to_launch),
+                    error=str(exc),
+                )
                 db.rollback()
-            except Exception as e:
-                print_error(e)
+            except Exception:
+                logger.exception("task_processing_failed", task_id=str(task_id_to_launch))
                 db.rollback()
 
 
@@ -113,24 +118,50 @@ async def retry_failed_tasks():
             )
         ]
 
-    print(f"Number of failed tasks: {len(failed_task_ids)}")
+    logger.info("failed_tasks_count", count=len(failed_task_ids))
 
     recreated_tasks = 0
     for failed_task_id in failed_task_ids:
         if shutdown:
-            print("Exiting gracefully...")
+            logger.info("task_processing_exiting_gracefully")
             clear_slots()
             exit(0)
 
         try:
             recreated_task = TasksManager.recreate_task(failed_task_id, priority=0)
             recreated_tasks += 1
-            print(f"Recreated failed task {failed_task_id} as {recreated_task.id}")
-        except Exception as e:
-            print_error(e)
+            logger.info(
+                "failed_task_recreated",
+                failed_task_id=failed_task_id,
+                recreated_task_id=str(recreated_task.id),
+            )
+        except Exception:
+            logger.exception("task_recreation_failed", failed_task_id=failed_task_id)
 
     if recreated_tasks > 0:
         await launch_tasks_processing()
+
+
+def run_task_here(task_id: uuid.UUID | str) -> None:
+    """Run one task in this process, right now, instead of waking a worker.
+
+    For work that is small and wanted immediately — a verification link, a password reset, a
+    confirmation — waking the worker costs a container start, so the mail lands minutes after the
+    person asked for it, or never if the job is capped. Running it here costs a thread and a few
+    hundred milliseconds of IO.
+
+    The task row is created and updated exactly as a worker would, so it is tracked, retried and
+    visible in the admin like any other. Only the choice of who executes it differs.
+
+    Not for anything heavy: this thread lives in the API process, so an export or a mix belongs on
+    the worker where it cannot compete with serving requests.
+    """
+    threading.Thread(
+        target=TasksManager.execute_task,
+        args=(task_id,),
+        name=f"run-task-here-{task_id}",
+        daemon=True,
+    ).start()
 
 
 async def launch_tasks_processing():
@@ -141,6 +172,7 @@ async def launch_tasks_processing():
     )
     processing_thread.start()
 
+
 def sync_launch_tasks_processing():
     """
     Try to launch task processing on available workers.
@@ -150,20 +182,24 @@ def sync_launch_tasks_processing():
 
     # Use registered workers from TasksManager
     for worker_name, worker_method in TasksManager.workers_methods.items():
-        print(f"Worker {worker_name}: attempting to launch")
+        logger.info("worker_launch_attempt", worker_name=worker_name)
 
         try:
             # Call the worker method
             result = worker_method.fn()
-            print(f"Successfully launched task processing using worker {worker_name}")
-            print(f"Worker result: {result}")
+            logger.info(
+                "worker_launch_succeeded",
+                worker_name=worker_name,
+                status="success",
+                result_type=type(result).__name__,
+            )
             worker_available = True
             break
 
-        except Exception as e:
-            print_error(f"Failed to launch worker {worker_name}: {e}")
+        except Exception:
+            logger.exception("worker_launch_failed", worker_name=worker_name)
 
     # If no worker was available, call the current server
     if not worker_available:
-        print("No workers available, launching task processing on current server")
+        logger.info("no_workers_available_launching_on_current_server")
         process_tasks()

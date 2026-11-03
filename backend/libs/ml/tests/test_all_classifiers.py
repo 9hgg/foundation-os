@@ -15,14 +15,6 @@ from typing import Any
 import pytest
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from libs.ml.models import (
-    ClassificationPrediction,
-    FeatureVectorInput,
-    JsonInput,
-    Label,
-    RegressionPrediction,
-    TextInput,
-)
 from libs.ml.methods.keyword_classifier import (
     KeywordJsonClassifier,
     KeywordMultiLabelJsonClassifier,
@@ -46,12 +38,12 @@ from libs.ml.methods.sklearn.fv import (
     RandomForestFeatureVectorClassifier,
     RandomForestFeatureVectorRegressor,
     RidgeFeatureVectorRegressor,
-    SVMFeatureVectorClassifier,
-    SVRFeatureVectorRegressor,
     SmartLogisticRegressionFeatureVectorClassifier,
     SmartMLPFeatureVectorClassifier,
     SmartRandomForestFeatureVectorClassifier,
     SmartSVMFeatureVectorClassifier,
+    SVMFeatureVectorClassifier,
+    SVRFeatureVectorRegressor,
 )
 from libs.ml.methods.sklearn.json import (
     GradientBoostingJsonClassifier,
@@ -63,8 +55,6 @@ from libs.ml.methods.sklearn.json import (
     RandomForestJsonClassifier,
     RandomForestMultiLabelJsonClassifier,
     SGDJsonClassifier,
-    SVMJsonClassifier,
-    SVMMultiLabelJsonClassifier,
     SmartLogisticRegressionJsonClassifier,
     SmartLogisticRegressionMultiLabelJsonClassifier,
     SmartMLPJsonClassifier,
@@ -73,6 +63,8 @@ from libs.ml.methods.sklearn.json import (
     SmartRandomForestMultiLabelJsonClassifier,
     SmartSVMJsonClassifier,
     SmartSVMMultiLabelJsonClassifier,
+    SVMJsonClassifier,
+    SVMMultiLabelJsonClassifier,
 )
 from libs.ml.methods.sklearn.text import (
     AdaBoostTextClassifier,
@@ -83,8 +75,6 @@ from libs.ml.methods.sklearn.text import (
     MLPTextClassifier,
     RandomForestMultiLabelTextClassifier,
     RandomForestTextClassifier,
-    SVMMultiLabelTextClassifier,
-    SVMTextClassifier,
     SmartAdaBoostTextClassifier,
     SmartGradientBoostingMultiLabelTextClassifier,
     SmartGradientBoostingTextClassifier,
@@ -96,7 +86,29 @@ from libs.ml.methods.sklearn.text import (
     SmartRandomForestTextClassifier,
     SmartSVMMultiLabelTextClassifier,
     SmartSVMTextClassifier,
+    SVMMultiLabelTextClassifier,
+    SVMTextClassifier,
 )
+from libs.ml.models import (
+    ClassificationPrediction,
+    FeatureVectorInput,
+    JsonInput,
+    Label,
+    RegressionPrediction,
+    TextInput,
+)
+
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore:Stochastic Optimizer.*:sklearn.exceptions.ConvergenceWarning"
+    ),
+    pytest.mark.filterwarnings(
+        r"ignore:\s*\d+ fits failed out of a total of.*:sklearn.exceptions.FitFailedWarning"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:One or more of the test scores are non-finite:UserWarning"
+    ),
+]
 
 # ─── Shared test data ─────────────────────────────────────────────────────────
 

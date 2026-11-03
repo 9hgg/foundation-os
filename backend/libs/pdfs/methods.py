@@ -4,12 +4,13 @@ import hashlib
 import json
 from typing import Any, Protocol
 
+import structlog
 from jinja2 import Environment, select_autoescape
-
-from libs.logger.customLogger import print_warning
 
 from .config import PDFS_SETTINGS
 from .models import PdfRenderOptions, PdfRenderRequest
+
+logger = structlog.get_logger(__name__)
 
 try:  # Optional dependency
     from playwright.async_api import async_playwright
@@ -136,7 +137,7 @@ async def _get_cached_pdf(cache_key: str) -> bytes | None:
     try:
         return await _CACHE.get(cache_key)
     except Exception as exc:  # pragma: no cover - cache errors should not break rendering
-        print_warning(f"PDF cache read failed: {exc}")
+        logger.warning("pdf_cache_read_failed", error_type=type(exc).__name__)
         return None
 
 
@@ -147,7 +148,7 @@ async def _set_cached_pdf(cache_key: str, pdf_bytes: bytes) -> None:
     try:
         await _CACHE.set(cache_key, pdf_bytes)
     except Exception as exc:  # pragma: no cover - cache errors should not break rendering
-        print_warning(f"PDF cache write failed: {exc}")
+        logger.warning("pdf_cache_write_failed", error_type=type(exc).__name__)
 
 
 async def _get_playwright_browser() -> Any:
@@ -220,7 +221,7 @@ async def _render_html_to_pdf(
             pdf_options["footer_template"] = footer_template or "<span></span>"
         if margins:
             pdf_options["margin"] = margins
-        print_warning(f"Rendering PDF with options: {pdf_options}")
+        logger.debug("pdf_rendering", page_size=page_size, landscape=landscape, has_header_footer=has_header_footer)
         pdf_bytes = await page.pdf(**pdf_options)
         return pdf_bytes
     finally:
@@ -274,7 +275,7 @@ async def render_pdf(request: PdfRenderRequest) -> bytes:
         return cached_pdf
 
     template_env = _get_template_environment()
-    render_now = datetime.datetime.now(datetime.timezone.utc)
+    render_now = datetime.datetime.now(datetime.UTC)
     context = dict(request.payload)
     context.update(
         {
@@ -308,7 +309,7 @@ async def render_pdf(request: PdfRenderRequest) -> bytes:
         # Chromium footer templates require explicit font-size to be visible
         footer_template = f'<div style="font-size: 10px; width: 100%; text-align: center;">{content}</div>'
 
-    print_warning(f"we have header_template {header_template} and footer_template {footer_template}")
+    logger.debug("pdf_render_templates", has_header=bool(header_template), has_footer=bool(footer_template))
     margins = _build_margins(options, bool(header_template or footer_template))
 
     pdf_bytes = await _render_html_to_pdf(
@@ -353,7 +354,7 @@ async def render_html(request: PdfRenderRequest) -> str:
         )
 
     template_env = _get_template_environment()
-    render_now = datetime.datetime.now(datetime.timezone.utc)
+    render_now = datetime.datetime.now(datetime.UTC)
     options = request.options or PdfRenderOptions()
     context = dict(request.payload)
     context.update(

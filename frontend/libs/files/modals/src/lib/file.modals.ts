@@ -1,7 +1,7 @@
 import { Dialog } from '@angular/cdk/dialog';
 import { inject, Injectable } from '@angular/core';
 import { EntityFile } from '@foundation/files/models';
-import { FileDisplayModalComponent, FileDisplayModalData } from './file-display-modal/file-display-modal.component';
+import { FileDisplayModalAction, FileDisplayModalComponent, FileDisplayModalData } from './file-display-modal/file-display-modal.component';
 import { FileSelectionModalData, FileSelectionModalResult, FilesSelectionModalComponent } from './files-selection-modal/files-selection-modal.component';
 
 @Injectable({ providedIn: 'root' })
@@ -54,7 +54,7 @@ export class FileModals {
 		});
 	}
 
-	openEntityFileDisplayDialog(entityFile: EntityFile) {
-		return this.openFileDisplayDialog({ entityFile });
+	openEntityFileDisplayDialog(entityFile: EntityFile, title?: string, files?: EntityFile[], actions?: FileDisplayModalAction[]) {
+		return this.openFileDisplayDialog({ entityFile, title, files, actions });
 	}
 }

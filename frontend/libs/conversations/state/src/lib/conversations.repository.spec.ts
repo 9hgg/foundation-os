@@ -64,7 +64,7 @@ describe('ConversationsRepository', () => {
 	it('createConversationFor$ calls the right endpoint', () => {
 		const conversation = { id: 'conv-1', config: {} };
 		requestServiceMock.post$.mockReturnValue(of({ result: { key: 'k', created: true, conversation } }));
-		vi.spyOn(repo.store, 'getObjectById$$$').mockReturnValue({ $: of(conversation) } as any);
+		vi.spyOn(repo.store, 'getObjectByIdPullOnce$$$').mockReturnValue({ $: of(conversation) } as any);
 		vi.spyOn(repo.store, 'upsertObjectLocally').mockReturnValue(undefined as any);
 
 		repo.createConversationFor$('res-1', 'article', 'default').subscribe();
@@ -97,7 +97,7 @@ describe('ConversationsRepository', () => {
 	it('getConversationFor$ upserts conversation locally when found', () => {
 		const conversation = { id: 'conv-2', config: {} };
 		requestServiceMock.getBasic$.mockReturnValue(of({ result: { conversation } }));
-		vi.spyOn(repo.store, 'getObjectById$$$').mockReturnValue({ $: of(conversation) } as any);
+		vi.spyOn(repo.store, 'getObjectByIdPullOnce$$$').mockReturnValue({ $: of(conversation) } as any);
 		vi.spyOn(repo.store, 'upsertObjectLocally').mockReturnValue(undefined as any);
 
 		repo.getConversationFor$('res-1', 'article', 'default').subscribe();

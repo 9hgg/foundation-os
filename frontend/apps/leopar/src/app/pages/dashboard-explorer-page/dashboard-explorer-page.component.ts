@@ -37,7 +37,7 @@ import { createTeamExplorerResourceDefinition } from '@foundation/teams/ui';
 					//
 					createArticleExplorerResourceDefinition(articlesRepo, dialog),
 					createTeamExplorerResourceDefinition(teamsRepo, foldersRepo, dialog),
-					createFileExplorerResourceDefinition(filesRepo, dialog),
+					createFileExplorerResourceDefinition(filesRepo, foldersRepo, dialog),
 					createFolderExplorerResourceDefinition(foldersRepo, dialog),
 				];
 			},

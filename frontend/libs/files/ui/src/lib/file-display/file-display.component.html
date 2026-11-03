@@ -1,38 +1,29 @@
 @let file = entityFile();
 @switch (file.kind) {
 	@case ('image') {
-		@if (file.extra.width) {
-			<div class="badge badge-outline mb-2">{{ file.extra.width }} x {{ file.extra.height }}</div>
-		}
-		<img
-			[src]="getFileUrl(file)"
-			alt="preview"
-			class="max-h-[60vh] rounded object-contain shadow-lg"
-		/>
+		<div class="flex w-full justify-center">
+			<img
+				[src]="getFileUrl(file)"
+				alt="preview"
+				class="max-h-[60vh] rounded object-contain shadow-lg"
+			/>
+		</div>
 	}
 	@case ('video') {
-		<div class="w-full max-w-4xl">
-			<video
-				class="w-full rounded bg-black shadow-lg"
-				[src]="getFileUrl(file)"
-				controls
-			></video>
+		<div class="flex w-full max-w-4xl flex-col gap-2">
+			<lib-inline-player
+				[mediaUrl]="getFileUrl(file)"
+				mediaType="video"
+			></lib-inline-player>
 			<lib-subtitle-loader [entityFileId]="file.id"></lib-subtitle-loader>
 		</div>
 	}
 	@case ('audio') {
 		<div class="bg-base-200 flex w-full max-w-xl flex-col gap-4 rounded-lg p-4">
-			<div class="flex items-center gap-4">
-				<lib-play-button
-					[entityFileId]="file.id"
-					[alternative]="'default'"
-				></lib-play-button>
-				<audio
-					class="w-full"
-					[src]="getFileUrl(file)"
-					controls
-				></audio>
-			</div>
+			<lib-inline-player
+				[mediaUrl]="getFileUrl(file)"
+				mediaType="audio"
+			></lib-inline-player>
 			<lib-subtitle-loader
 				class="bg-base-100 max-h-32 overflow-y-auto rounded p-2 text-sm"
 				[entityFileId]="file.id"

@@ -1,4 +1,4 @@
-import { hashCode, slugify, uuidToBase64 } from './string.utils';
+import { formatUtcTimestamp, hashCode, slugify, uuidToBase64 } from './string.utils';
 
 describe('String Utils', () => {
   describe('hashCode', () => {
@@ -8,6 +8,18 @@ describe('String Utils', () => {
 
     it('should return 0 for empty string', () => {
       expect(hashCode('')).toBe('0');
+    });
+  });
+
+  describe('formatUtcTimestamp', () => {
+    it('formats as DD/MM/YYYY HH:MM UTC, independent of the caller\'s timezone', () => {
+      const date = new Date(Date.UTC(2026, 7, 24, 23, 52));
+      expect(formatUtcTimestamp(date)).toBe('24/08/2026 23:52 UTC');
+    });
+
+    it('pads single digits', () => {
+      const date = new Date(Date.UTC(2026, 0, 5, 3, 7));
+      expect(formatUtcTimestamp(date)).toBe('05/01/2026 03:07 UTC');
     });
   });
 

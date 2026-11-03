@@ -6,6 +6,7 @@ import { BehaviorSubject, Subject } from 'rxjs';
 import { AppConfigService } from '@foundation/app/config';
 import { ConnectionStateService } from '@foundation/network/services';
 import { NotificationService } from '@foundation/notification';
+import { TranslationService } from '@foundation/translations/services';
 import { LayoutService } from './layout.service';
 
 describe('LayoutService', () => {
@@ -71,6 +72,11 @@ describe('LayoutService', () => {
 				{
 					provide: NotificationService,
 					useValue: notificationServiceMock,
+				},
+				{
+					// prep returns a function yielding the (here untranslated) input string.
+					provide: TranslationService,
+					useValue: { prep: (text: string) => () => text },
 				},
 				{
 					provide: ConnectionStateService,

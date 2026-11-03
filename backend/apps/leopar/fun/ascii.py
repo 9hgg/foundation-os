@@ -1,4 +1,3 @@
-from libs.fun.ascii import merge_horizontal
 
 
 def get_leopar_art():

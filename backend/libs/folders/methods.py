@@ -1,4 +1,3 @@
-import typing
 import uuid
 
 from sqlalchemy import text
@@ -182,7 +181,7 @@ def share_folder_with(
     *,
     folder_id: uuid.UUID,
     who: Who | str,
-    who_id: typing.Optional[uuid.UUID] = None,
+    who_id: uuid.UUID | None = None,
     create_read_acl: bool = True,
     create_write_acl: bool = True,
     create_delete_acl: bool = True,

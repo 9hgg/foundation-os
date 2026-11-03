@@ -110,15 +110,31 @@ describe('teams.repository', () => {
 		expect(requestServiceMock.getBasic$).toHaveBeenCalledWith('/api/teams/team-1/change_role/user-1/admin');
 	});
 
-	it('adds a user by email', () => {
+	it('invites a user by email', () => {
 		requestServiceMock.post$.mockReturnValue(of({}));
 
-		repository.addUserToTeamByEmail$('team-1', 'user@example.com', 'admin').subscribe();
+		repository.inviteUserToTeamByEmail$('team-1', 'user@example.com', 'admin').subscribe();
 
-		expect(requestServiceMock.post$).toHaveBeenCalledWith('/api/teams/team-1/add_by_email', {
-			user_email: 'user@example.com',
+		expect(requestServiceMock.post$).toHaveBeenCalledWith('/api/teams/team-1/invitations', {
+			email: 'user@example.com',
 			role: 'admin',
 		});
+	});
+
+	it('revokes an invitation', () => {
+		requestServiceMock.post$.mockReturnValue(of({}));
+
+		repository.revokeTeamInvitation$('team-1', 'invitation-1').subscribe();
+
+		expect(requestServiceMock.post$).toHaveBeenCalledWith('/api/teams/team-1/invitations/invitation-1/revoke', {});
+	});
+
+	it('claims an invitation without alerting on refusal, since the page says it itself', () => {
+		requestServiceMock.post$.mockReturnValue(of({}));
+
+		repository.claimTeamInvitation$('team.secret').subscribe();
+
+		expect(requestServiceMock.post$).toHaveBeenCalledWith('/api/teams/invitations/claim', { token: 'team.secret' }, { silentError: true });
 	});
 
 	it('creates a team and assigns the current user as admin', async () => {

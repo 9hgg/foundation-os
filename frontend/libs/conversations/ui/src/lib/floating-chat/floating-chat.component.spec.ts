@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { FloatingChatComponent } from './floating-chat.component';
-import { ArticlesRepository } from '@foundation/articles/state';
+import { ArticlesRepository, SupportService } from '@foundation/articles/state';
 import { ConversationsRepository } from '@foundation/conversations/state';
 import { UsersRepository } from '@foundation/users/state';
 import { NotificationService } from '@foundation/notification';
@@ -13,12 +13,15 @@ import { ITEM_REPOSITORY } from '@foundation/table/ui';
 
 vi.mock('uuid', () => ({ v4: () => 'mock-uuid' }));
 
+const supportServiceMock = { createTicket$: vi.fn(() => of({ id: 'article-1', kind: 'support', title: 'Support request — x' })) };
+
 const articlesRepoMock = {
 	store: {
 		getObjects$: vi.fn().mockReturnValue(
 			of({ data: [], totalCount: 0, page: 1, hasNext: false, hasPrev: false, self: '', all: '', next: '', prev: '' })
 		),
 		getObjectById$$$: vi.fn().mockReturnValue({ $: of(null) }),
+		getObjectByIdPullOnce$$$: vi.fn().mockReturnValue({ $: of(null) }),
 		postObject$: vi.fn().mockReturnValue(of({ result: { data: { id: 'art-1' } } })),
 	},
 };
@@ -62,6 +65,7 @@ describe('FloatingChatComponent', () => {
 			imports: [FloatingChatComponent],
 			providers: [
 				{ provide: ArticlesRepository, useValue: articlesRepoMock },
+				{ provide: SupportService, useValue: supportServiceMock },
 				{ provide: ITEM_REPOSITORY, useValue: articlesRepoMock },
 				{ provide: ConversationsRepository, useValue: conversationsRepoMock },
 				{ provide: UsersRepository, useValue: usersRepoMock },
@@ -171,27 +175,22 @@ describe('FloatingChatComponent', () => {
 	});
 
 	describe('createNewSupportTicket', () => {
-		it('creates an article and conversation on success', () => {
+		beforeEach(() => {
+			supportServiceMock.createTicket$.mockReturnValue(of({ id: 'article-1', kind: 'support', title: 'Support request — x' }));
+		});
+
+		// Asking for a name got whole problems typed into it and no message written, which
+		// notified nobody: the ticket names itself until the first message renames it.
+		it('opens a ticket without asking for a name', () => {
 			component.createNewSupportTicket();
 
-			expect(notificationMock.prompt).toHaveBeenCalled();
-			expect(articlesRepoMock.store.postObject$).toHaveBeenCalledWith(
-				expect.objectContaining({ kind: 'support', title: 'test ticket' })
-			);
-			expect(conversationsRepoMock.createConversationFor$).toHaveBeenCalled();
+			expect(notificationMock.prompt).not.toHaveBeenCalled();
+			expect(supportServiceMock.createTicket$).toHaveBeenCalledWith('support');
 			expect(component.isCreatingTicket()).toBe(false);
 		});
 
-		it('does nothing when prompt is cancelled', () => {
-			notificationMock.prompt.mockReturnValue({ closed: of(null) });
-
-			component.createNewSupportTicket();
-
-			expect(articlesRepoMock.store.postObject$).not.toHaveBeenCalled();
-		});
-
-		it('stops loading when article creation returns no result', () => {
-			articlesRepoMock.store.postObject$.mockReturnValue(of({}));
+		it('stops loading when the ticket could not be created', () => {
+			supportServiceMock.createTicket$.mockReturnValue(of(null));
 
 			component.createNewSupportTicket();
 

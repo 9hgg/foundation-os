@@ -1,17 +1,20 @@
 import uuid
 
+import structlog
 from fastapi import APIRouter
-from rich import print
 
 from libs.acl.models import Acl
 from libs.db import context_db
 from libs.mails.methods import add_mail_to_db
 from libs.sessions.deps import CurrentSession__dep
+from libs.users.config import USER_SETTINGS
 from libs.users.deps import CurrentUser__dep
 from libs.utils.deps import ClassicDeps__dep
 from libs.utils.types import EndpointError, EndpointOutput
 
 from .endpoints import get_resource_if_READ_allowed, get_resource_if_WRITE_allowed
+
+logger = structlog.get_logger(__name__)
 
 
 def create_dummy_test_endpoints_router():
@@ -28,11 +31,6 @@ def create_dummy_test_endpoints_router():
         It returns the current app, user, session and matching paths.
         """
 
-        if current_user_db:
-            print("user", current_user_db.email)
-        if current_session_db:
-            print("session", current_session_db.id)
-
     # test endpoint
     @api_test_router.get("/test-api/stateless")
     async def test_nothing():
@@ -46,7 +44,7 @@ def create_dummy_test_endpoints_router():
         It returns the current app, user, session and matching paths.
         """
 
-        print("exit test", exit_code)
+        logger.warning("test_api_exit_requested", exit_code=exit_code)
         exit(exit_code)
 
     @api_test_router.get("/test-api/sentry-debug")
@@ -150,7 +148,34 @@ def create_resource_router():
             )
 
         # Update rights
-        from libs.acl.methods import update_acl_rights
+        from libs.acl.methods import count_other_holders, update_acl_rights
+
+        # No resource kind carries an owner column, so its ACL rows are the only record of who may
+        # touch it. Dropping the last write seals it for everybody and dropping the last read hides
+        # it from everybody, with no way back through the product: granting the right again needs a
+        # right nobody holds any more. Handing a resource over still works -- give the other party
+        # the right first, then drop your own.
+        for guarded, verb in (("write", "edit"), ("read", "see")):
+            if rights.get(guarded) == "remove" and (
+                count_other_holders(
+                    operation=guarded,
+                    resource_kind=resource_kind,
+                    resource_id=resource_id,
+                    who_kind=who_kind,
+                    who_id=who_id,
+                )
+                == 0
+            ):
+                return EndpointOutput(
+                    error=EndpointError(
+                        title=f"Someone has to keep {guarded} access",
+                        description=(
+                            f"Removing this {guarded} access would leave nobody able to {verb} "
+                            f"this {resource_kind}. Give {guarded} access to someone else first."
+                        ),
+                        code="LastHolder",
+                    )
+                )
 
         result_acls = update_acl_rights(
             resource_kind=resource_kind,
@@ -172,6 +197,15 @@ def create_resource_router():
         """
         current_user_db, _, _ = classic_deps
 
+        if not current_user_db or not current_user_db.email_verified:
+            return EndpointOutput(
+                error=EndpointError(
+                    title="Unauthorized",
+                    description="A verified account is required to send invitations.",
+                    code="Unauthorized",
+                ),
+            )
+
         if "email" not in request_data:
             return EndpointOutput(
                 error=EndpointError(
@@ -183,12 +217,14 @@ def create_resource_router():
 
         email = request_data["email"].lower()
 
-        # Simple invitation email
-        subject = f"Invitation"
+        # Fixed template, not sourced from request_data: the invited address is the
+        # only untrusted input, and it never flows into the body — keeps this endpoint
+        # unusable to relay attacker-chosen content.
+        subject = "Invitation"
         body = f"Hello,\n\nYou have been invited by {current_user_db.email}.\n\nPlease register at your earliest convenience."
 
         add_mail_to_db(
-            sender_email="contact@example.com",
+            sender_email=USER_SETTINGS.SENDER_EMAIL,
             recipient_emails=[email],
             subject=subject,
             text_content=body,

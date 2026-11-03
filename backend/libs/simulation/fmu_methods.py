@@ -218,9 +218,9 @@ def _normalize_series_value(value: Any) -> float | bool | str | None:
     value_item = value.item() if hasattr(value, "item") else value
     if value_item is None:
         return None
-    if isinstance(value_item, (bool, str)):
+    if isinstance(value_item, bool | str):
         return value_item
-    if isinstance(value_item, (int, float)):
+    if isinstance(value_item, int | float):
         return float(value_item)
     return str(value_item)
 

@@ -70,6 +70,23 @@ def test_generate_alternatives_jpg(mock_storage, mock_file, sample_image_path):
         assert mock_storage.upload.call_count == 3
 
 
+def test_generate_alternatives_uploads_with_correct_content_type(mock_storage, mock_file, sample_image_path):
+    """Every generated alternative must upload with its real mime — the GCP
+    storage backend defaults content_type to application/octet-stream when a
+    caller doesn't pass one, which broke content-type sniffing downstream
+    (e.g. Apple Podcasts rejecting a feed's artwork)."""
+    with patch.object(ImageProcessor, "get_storage_details") as mock_get_details:
+        mock_get_details.return_value = (mock_storage, sample_image_path, "test_folder")
+
+        processor = ImageProcessor(file_db=mock_file)
+        alternatives = processor.generate_alternatives(force=True)
+
+        mime_by_suffix = {alt.storage_suffix: alt.mime for alt in alternatives}
+        for call in mock_storage.upload.call_args_list:
+            storage_suffix = call.kwargs["alternative"]
+            assert call.kwargs["content_type"] == mime_by_suffix[storage_suffix]
+
+
 def test_generate_alternatives_gif(mock_storage, mock_file, sample_gif_path):
     with patch.object(ImageProcessor, "get_storage_details") as mock_get_details:
         mock_get_details.return_value = (mock_storage, sample_gif_path, "test_folder")
@@ -129,6 +146,22 @@ def test_generate_extra_data(mock_storage, mock_file, sample_image_path):
         assert extra.height == 100
 
 
+def test_generate_extra_data_svg_does_not_crash(mock_storage, mock_file, tmp_path):
+    path = tmp_path / "logo.svg"
+    path.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"></svg>')
+
+    with patch.object(ImageProcessor, "get_storage_details") as mock_get_details:
+        mock_get_details.return_value = (mock_storage, str(path), "test_folder")
+
+        processor = ImageProcessor(file_db=mock_file)
+
+        # Neither OpenCV nor Pillow can rasterize SVG; this used to raise
+        # PIL.UnidentifiedImageError instead of returning gracefully.
+        extra = processor.generate_extra_data()
+
+        assert extra is mock_file.extra_
+
+
 def test_generate_square_centered_image_resize(mock_storage, mock_file, tmp_path):
     # Create a large image
     img = Image.new("RGB", (4000, 2000), color="blue")
@@ -170,6 +203,52 @@ def test_generate_same_compressed_image_compression(mock_storage, mock_file, tmp
         # It might return None if it can't compress enough, or an alternative
         if alt:
             assert alt.storage_suffix == "default"
+
+
+def test_generate_same_compressed_image_caps_the_longest_edge(mock_storage, mock_file, tmp_path):
+    img_array = np.random.randint(0, 255, (3000, 4000, 3), dtype=np.uint8)
+    img = Image.fromarray(img_array)
+    path = tmp_path / "large.jpg"
+    img.save(path, quality=95)
+
+    captured_size = {}
+
+    def capture_upload(local_path, **kwargs):
+        with Image.open(local_path) as uploaded:
+            captured_size["dimensions"] = uploaded.size
+        return True
+
+    mock_storage.upload.side_effect = capture_upload
+
+    with patch.object(ImageProcessor, "get_storage_details") as mock_get_details:
+        mock_get_details.return_value = (mock_storage, str(path), "test_folder")
+        processor = ImageProcessor(file_db=mock_file)
+        alt = processor._ImageProcessor__generate_same_compressed_image(force=True)
+
+    assert alt is not None
+    width, height = captured_size["dimensions"]
+    # original is 4000x3000 (4:3) -> longest edge (width) capped to 2000, aspect kept
+    assert width == 2000
+    assert height == 1500
+
+
+def test_generate_same_compressed_image_does_not_upscale_small_images(mock_storage, mock_file, sample_image_path):
+    captured_size = {}
+
+    def capture_upload(local_path, **kwargs):
+        with Image.open(local_path) as uploaded:
+            captured_size["dimensions"] = uploaded.size
+        return True
+
+    mock_storage.upload.side_effect = capture_upload
+
+    with patch.object(ImageProcessor, "get_storage_details") as mock_get_details:
+        mock_get_details.return_value = (mock_storage, sample_image_path, "test_folder")
+        processor = ImageProcessor(file_db=mock_file)
+        alt = processor._ImageProcessor__generate_same_compressed_image(force=True)
+
+    assert alt is not None
+    assert captured_size["dimensions"] == (100, 100)
 
 
 def test_missing_storage_raises_error(mock_file):
@@ -224,17 +303,16 @@ def test_cv2_read_failure_fallback_pil(mock_storage, mock_file, sample_image_pat
         mock_get_details.return_value = (mock_storage, sample_image_path, "test_folder")
         processor = ImageProcessor(file_db=mock_file)
 
-        # Mock cv2.imread to return None
-        with patch("cv2.imread", return_value=None) as mock_imread:
-            # Mock cv2.cvtColor to return valid image (simulating PIL fallback success)
-            with patch("cv2.cvtColor") as mock_cvtColor:
-                mock_cvtColor.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+        # Mock cv2.imread to return None, and cv2.cvtColor to return a valid image
+        # (simulating PIL fallback success)
+        with patch("cv2.imread", return_value=None) as mock_imread, patch("cv2.cvtColor") as mock_cvtColor:
+            mock_cvtColor.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
 
-                alt = processor._ImageProcessor__generate_square_centered_image(force=True)
+            alt = processor._ImageProcessor__generate_square_centered_image(force=True)
 
-                assert alt is not None
-                mock_imread.assert_called()
-                mock_cvtColor.assert_called()
+            assert alt is not None
+            mock_imread.assert_called()
+            mock_cvtColor.assert_called()
 
 
 def test_cv2_read_failure_total(mock_storage, mock_file, sample_image_path):
@@ -243,10 +321,9 @@ def test_cv2_read_failure_total(mock_storage, mock_file, sample_image_path):
         processor = ImageProcessor(file_db=mock_file)
 
         # Mock cv2.imread to return None AND cv2.cvtColor to return None (or PIL failure)
-        with patch("cv2.imread", return_value=None):
-            with patch("cv2.cvtColor", return_value=None):
-                alt = processor._ImageProcessor__generate_square_centered_image(force=True)
-                assert alt is None
+        with patch("cv2.imread", return_value=None), patch("cv2.cvtColor", return_value=None):
+            alt = processor._ImageProcessor__generate_square_centered_image(force=True)
+            assert alt is None
 
 
 def test_generate_square_centered_image_upscale(mock_storage, mock_file, tmp_path):

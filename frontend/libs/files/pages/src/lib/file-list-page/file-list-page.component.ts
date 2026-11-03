@@ -55,50 +55,11 @@ export class FileListPageComponent {
 			});
 
 			if (folderId && fileTable) {
-				// this.files.set([]);
-				this._requestService
-					.getBasic$<{
-						folderId: string;
-						subfolders: { id: string; name: string; parent_id: string }[];
-						subfoldersAndResources: {
-							id: string;
-							name?: string;
-							for_id: null | string;
-							for_kind: null | string;
-							children: { id: string; name: string }[];
-							resources: { id: string; kind: string }[];
-						}[];
-					}>('/api/folders/' + folderId + '/subfolders', undefined, {
-						// extraHeaders: { toCache: '' + 5 * 60 * 1000 }, // 5mn
-					})
-					.pipe(
-						switchMap((response) => {
-							if (DEBUG) console.log('(Effect from folderId) response', { response });
-
-							if (!response.result) {
-								return of([]);
-							}
-							if (response.result.subfoldersAndResources.length === 0) {
-								return of([]);
-							}
-							if (response.result.subfoldersAndResources[0].resources.length === 0) {
-								return of([]);
-							}
-							// first subfolder is the folder itself with its resources and subfolders
-							const files = response.result.subfoldersAndResources[0].resources.filter((r) => r.kind == 'file');
-							if (files.length === 0) {
-								return of([]);
-							}
-							return combineLatest(files.map((fileDetails) => this._filesRepository.store.getObjectByIdPullOnce$$$(fileDetails.id).$));
-						}),
-						tap((files) => {
-							if (DEBUG) console.log('(Effect from folderId) files', { files });
-							// this.files.set(files);
-							fileTable.explicitItems.set(files);
-						})
-					)
-					.subscribe();
+				this._loadFolderFiles$(folderId, fileTable).subscribe();
 			} else {
+				// Deliberate: with no folder selected the table falls back to its paginated repository
+				// request, which lists every readable file — foldered ones included, so a file shows up
+				// both here and inside its folder. This is the wanted "all files" view, not an oversight.
 				fileTable.explicitItems.set(null);
 			}
 		});
@@ -109,14 +70,60 @@ export class FileListPageComponent {
 		});
 	}
 
-	processUploadedFiles(files: (EntityFile | undefined)[]) {
-		// todo: if a folder is selected, add the files to the folder
+	private _loadFolderFiles$(folderId: string, fileTable: FileTableComponent) {
+		return this._requestService
+			.getBasic$<{
+				folderId: string;
+				subfolders: { id: string; name: string; parent_id: string }[];
+				subfoldersAndResources: {
+					id: string;
+					name?: string;
+					for_id: null | string;
+					for_kind: null | string;
+					children: { id: string; name: string }[];
+					resources: { id: string; kind: string }[];
+				}[];
+			}>('/api/folders/' + folderId + '/subfolders', undefined, {
+				// extraHeaders: { toCache: '' + 5 * 60 * 1000 }, // 5mn
+			})
+			.pipe(
+				switchMap((response) => {
+					if (DEBUG) console.log('(Effect from folderId) response', { response });
 
-		// refresh page
+					if (!response.result) {
+						return of([]);
+					}
+					// The endpoint returns the whole descendant subtree, and its query carries no
+					// ORDER BY: the requested folder can come back at any index, not the first one.
+					const currentFolder = response.result.subfoldersAndResources.find((subfolder) => subfolder.id === folderId);
+					if (!currentFolder) {
+						return of([]);
+					}
+					const files = (currentFolder.resources ?? []).filter((r) => r.kind == 'file');
+					if (files.length === 0) {
+						return of([]);
+					}
+					return combineLatest(files.map((fileDetails) => this._filesRepository.store.getObjectByIdPullOnce$$$(fileDetails.id).$));
+				}),
+				tap((files) => {
+					if (DEBUG) console.log('(Effect from folderId) files', { files });
+					fileTable.explicitItems.set(files);
+				})
+			);
+	}
+
+	processUploadedFiles(files: (EntityFile | undefined)[]) {
 		const fileTable = this.fileTable();
-		if (fileTable) {
-			fileTable.paginator.refresh();
+		if (!fileTable) return;
+
+		// Inside a folder the table is fed an explicit list, which a paginator refresh would rebuild
+		// from the same stale items: the folder has to be read again for the new files to show up.
+		const folderId = this.folderId();
+		if (folderId) {
+			this._loadFolderFiles$(folderId, fileTable).subscribe();
+			return;
 		}
+		fileTable.paginator.refresh();
 	}
 
 	public createNewFolder() {

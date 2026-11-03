@@ -1,11 +1,13 @@
-import pytest
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import patch
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from libs.endpoints.endpoints import create_crud_endpoints
 from libs.utils.deps import get_deps
+
 from .conftest import EndpointResource
 
 
@@ -27,21 +29,20 @@ def test_delete_endpoint(mock_deps, mock_db):
         id=mock_res_id,
         name="test",
         size="100",
-        time_created=datetime.now(timezone.utc),
-        time_updated=datetime.now(timezone.utc),
+        time_created=datetime.now(UTC),
+        time_updated=datetime.now(UTC),
     )
 
-    with patch.object(EndpointResource, "in_db", return_value=True):
-        with patch(
-            "libs.endpoints.endpoints.apply_operation_access_filter",
-            side_effect=lambda **kwargs: kwargs["query"],
-        ):
-            mock_query = mock_db.query.return_value
-            mock_query.filter.return_value = mock_query
-            mock_query.first.return_value = mock_res
+    with patch.object(EndpointResource, "in_db", return_value=True), patch(
+        "libs.endpoints.endpoints.apply_operation_access_filter",
+        side_effect=lambda **kwargs: kwargs["query"],
+    ):
+        mock_query = mock_db.query.return_value
+        mock_query.filter.return_value = mock_query
+        mock_query.first.return_value = mock_res
 
-            with patch.object(EndpointResource, "delete") as mock_delete:
-                mock_delete.return_value = mock_res
-                response = test_client.delete(f"/test_resources_options/{mock_res_id}")
-                assert response.status_code == 200
-                mock_delete.assert_called_once()
+        with patch.object(EndpointResource, "delete") as mock_delete:
+            mock_delete.return_value = mock_res
+            response = test_client.delete(f"/test_resources_options/{mock_res_id}")
+            assert response.status_code == 200
+            mock_delete.assert_called_once()

@@ -1,6 +1,7 @@
 import uuid
 
-from pydantic import BaseModel
+import structlog
+from fastapi import Request
 
 from libs.acl.methods import (
     Operation,
@@ -10,26 +11,65 @@ from libs.acl.methods import (
 from libs.acl.models import Acl, Who
 from libs.db import context_db
 from libs.endpoints import create_crud_endpoints
+from libs.teams.config import TEAM_SETTINGS
+from libs.teams.invitations import (
+    find_invitation,
+    find_invitation_for_email,
+    mint_invitation,
+    normalise_email,
+    read_link_token,
+    refresh_invitation,
+)
+from libs.teams.mails import send_invitation_email
 from libs.teams.methods import (
     add_to_team,
     change_team_owner,
     change_team_role,
     get_team_with_members_with_roles,
     remove_from_team,
+    set_team_invitations,
 )
 from libs.users.models import User
 from libs.utils.deps import ClassicDeps__dep
-from libs.utils.types import EndpointError, EndpointOutput
+from libs.utils.origin import get_preferred_origin
+from libs.utils.types import BaseModelWithConfig, EndpointError, EndpointOutput
 
-from .models import Membership, Team
+from .models import Membership, Team, TeamInvitation, TeamInvitationPublic
+
+logger = structlog.get_logger(__name__)
 
 
-class AddUserByEmailRequest(BaseModel):
-    user_email: str
+class InviteByEmailRequest(BaseModelWithConfig):
+    email: str
     role: str = "member"
 
 
-def create_crud_team_router(prefix: str = "/api/teams"):
+class ClaimInvitationRequest(BaseModelWithConfig):
+    token: str
+
+
+class ClaimedInvitation(BaseModelWithConfig):
+    """What the join page needs to say "you are in" and send the person somewhere."""
+
+    team_id: uuid.UUID
+    team_name: str | None
+    role: str
+
+
+def _display_name(user: User | None) -> str | None:
+    """What to put in front of "invited you". None when a profile says nothing about who it is --
+    the mail then leads with the team instead of a stranger's name."""
+    if not user:
+        return None
+    full_name = " ".join(part for part in (user.first_name, user.last_name) if part).strip()
+    return user.pseudo or full_name or None
+
+
+def _public_invitation(invitation: TeamInvitation) -> TeamInvitationPublic:
+    return TeamInvitationPublic(**invitation.model_dump(exclude={"token_hash"}))
+
+
+def create_crud_team_router(prefix: str = "/api/teams"):  # noqa: C901  (router factory: one function, many endpoints)
     crud_team_router = create_crud_endpoints(
         Team,
         prefix=prefix,
@@ -305,13 +345,20 @@ def create_crud_team_router(prefix: str = "/api/teams"):
 
         return EndpointOutput(result=result)
 
-    # Add a user to a team by email
-    @crud_team_router.post("/{team_id}/add_by_email")
-    async def add_user_to_team_by_email(
+    # Invite somebody to a team by email
+    @crud_team_router.post("/{team_id}/invitations")
+    async def invite_user_to_team_by_email(
         team_id: uuid.UUID,
-        request: AddUserByEmailRequest,
+        request: InviteByEmailRequest,
+        http_request: Request,
         classic_deps: ClassicDeps__dep,
     ):
+        """Send an invitation, whether or not the address already has an account.
+
+        Nobody is added by this call. Somebody who already uses the app is invited exactly like
+        somebody who does not -- joining a team is theirs to accept, and an admin knowing your
+        address is not consent.
+        """
 
         current_user_db, _, translator = classic_deps
 
@@ -349,63 +396,238 @@ def create_crud_team_router(prefix: str = "/api/teams"):
                 )
             )
 
-        # Find user by email
-        user = User.get_first_by(email=request.user_email)
-        if not user:
+        email = normalise_email(request.email)
+        if not email:
             return EndpointOutput(
                 error=EndpointError(
-                    title=translator.translate("User not found"),
-                    description=translator.translate("No user found with this email address"),
-                    code="user_not_found",
+                    title=translator.translate("No email provided"),
+                    description=translator.translate("An invitation needs an address to go to"),
+                    code="no_email_provided",
                     details={
                         "team_id": team_id,
-                        "user_email": request.user_email,
                     },
                 )
             )
-        with context_db() as db:
-            member = (
-                db.query(Membership)
-                .filter(
-                    Membership.team_id == team_id,
-                    Membership.user_id == user.id,
-                )
-                .first()
-            )
-            if member:
-                return EndpointOutput(
-                    error=EndpointError(
-                        title=translator.translate("User already in team"),
-                        description=translator.translate("This user is already a member of the team"),
-                        code="user_already_in_team",
-                        details={
-                            "team_id": team_id,
-                            "user_id": user.id,
-                        },
+
+        # Already a member? Then there is nothing to offer -- checked before minting, so a second
+        # invitation is never sent to somebody who has already joined.
+        user = User.get_first_by(email=email)
+        if user:
+            with context_db() as db:
+                member = (
+                    db.query(Membership)
+                    .filter(
+                        Membership.team_id == team_id,
+                        Membership.user_id == user.id,
                     )
+                    .first()
                 )
+                if member:
+                    return EndpointOutput(
+                        error=EndpointError(
+                            title=translator.translate("User already in team"),
+                            description=translator.translate(
+                                "This user is already a member of the team"
+                            ),
+                            code="user_already_in_team",
+                            details={
+                                "team_id": team_id,
+                                "user_id": user.id,
+                            },
+                        )
+                    )
 
-        # Use existing method to add user to team
-        add_to_team(team_id=team_id, user_id=user.id, role=request.role)
+        # Re-inviting rotates the existing invitation rather than adding a second one, so an
+        # address never has two live links and the newest mail is the only one that works.
+        invitations = dict(team.config.invitations)
+        existing = find_invitation_for_email(invitations, email)
+        if existing:
+            invitation, token = refresh_invitation(existing, role=request.role)
+        else:
+            invitation, token = mint_invitation(
+                email=email,
+                role=request.role,
+                invited_by=str(current_user_db.id) if current_user_db else None,
+            )
+        invitations[invitation.id] = invitation
+        set_team_invitations(team_id=team_id, invitations=invitations)
 
-        # Create ACL for the user on the team
-        # All team members get READ access
+        frontend_url = get_preferred_origin(http_request, TEAM_SETTINGS.FRONTEND_URL)
+        if not frontend_url:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Frontend URL not configured"),
+                    description=translator.translate(
+                        "Please set FRONTEND_URL environment variable"
+                    ),
+                    code="frontend_url_not_configured",
+                )
+            )
+
+        send_invitation_email(
+            recipient_email=email,
+            team_id=team_id,
+            team_name=team.name,
+            role=invitation.role,
+            token=token,
+            invited_by_name=_display_name(current_user_db),
+            frontend_url=frontend_url,
+            translator=translator,
+        )
+        logger.info("team_invitation_sent", team_id=str(team_id), refreshed=bool(existing))
+
+        return EndpointOutput(result=_public_invitation(invitation))
+
+    # Revoke an invitation
+    @crud_team_router.post("/{team_id}/invitations/{invitation_id}/revoke")
+    async def revoke_team_invitation(
+        team_id: uuid.UUID,
+        invitation_id: str,
+        classic_deps: ClassicDeps__dep,
+    ):
+        current_user_db, _, translator = classic_deps
+
+        team = Team.by_id(team_id)
+        if not team:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Team not found"),
+                    description=translator.translate("The specified team does not exist"),
+                    code="team_not_found",
+                    details={
+                        "team_id": team_id,
+                    },
+                )
+            )
+
+        if (
+            cannot(
+                who_id=current_user_db.id if current_user_db else None,
+                resource_type=Team,
+                resource_id=team_id,
+                what=Operation.WRITE,
+                who=Who.user,
+            )
+            and team.owner_id != current_user_db.id
+        ):
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Access denied"),
+                    description=translator.translate("You cannot write over this team"),
+                    code="access_denied",
+                    details={
+                        "team_id": team_id,
+                    },
+                )
+            )
+
+        invitations = dict(team.config.invitations)
+        if invitation_id not in invitations:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Invitation not found"),
+                    description=translator.translate("This invitation is no longer pending"),
+                    code="invitation_not_found",
+                    details={
+                        "team_id": team_id,
+                        "invitation_id": invitation_id,
+                    },
+                )
+            )
+
+        invitations.pop(invitation_id)
+        set_team_invitations(team_id=team_id, invitations=invitations)
+        logger.info("team_invitation_revoked", team_id=str(team_id))
+
+        return EndpointOutput(result={"team_id": team_id, "invitation_id": invitation_id})
+
+    # Claim an invitation
+    @crud_team_router.post("/invitations/claim")
+    async def claim_team_invitation(
+        request: ClaimInvitationRequest,
+        classic_deps: ClassicDeps__dep,
+    ):
+        """Join the team a link was minted for.
+
+        Authorized by the token alone -- the person claiming has no rights on the team yet, which
+        is the whole point. The role granted is the one the invitation carries now, not the one it
+        carried when the mail went out.
+        """
+
+        current_user_db, _, translator = classic_deps
+
+        if not current_user_db:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Not authorized"),
+                    description=translator.translate("Sign in to accept this invitation"),
+                    code="unauthorized",
+                )
+            )
+
+        # One error for every way a link can fail to open something, so a stranger holding a token
+        # learns nothing about which teams exist or which invitations are live.
+        invalid = EndpointOutput(
+            error=EndpointError(
+                title=translator.translate("Invitation not valid"),
+                description=translator.translate(
+                    "This invitation link is invalid, or it has expired"
+                ),
+                code="invitation_not_valid",
+            )
+        )
+
+        read = read_link_token(request.token)
+        if not read:
+            return invalid
+        team_id, token = read
+
+        team = Team.by_id(team_id)
+        if not team:
+            return invalid
+
+        invitation = find_invitation(team.config.invitations, token)
+        if not invitation:
+            return invalid
+
+        if not current_user_db.email or normalise_email(current_user_db.email) != invitation.email:
+            return EndpointOutput(
+                error=EndpointError(
+                    title=translator.translate("Invitation is for another address"),
+                    description=translator.translate(
+                        "Sign in with the address this invitation was sent to"
+                    ),
+                    code="invitation_other_email",
+                    details={
+                        "invited_email": invitation.email,
+                    },
+                )
+            )
+
+        add_to_team(team_id=team_id, user_id=current_user_db.id, role=invitation.role)
         create_default_acls_by_id(
             resource_id=team_id,
             resource_kind=Team.__kind__,
             who=Who.user,
-            who_id=user.id,
+            who_id=current_user_db.id,
             create_read_acl=True,
-            create_write_acl=(request.role == "admin"),  # Only admins get WRITE access
-            create_delete_acl=False,  # Only team creator should be able to delete
+            create_write_acl=(invitation.role == "admin"),
+            create_delete_acl=False,
         )
 
+        # Cleared once claimed: the link is spent, and a team's config should not keep a record of
+        # who was invited to become somebody who is simply a member now.
+        invitations = dict(team.config.invitations)
+        invitations.pop(invitation.id, None)
+        set_team_invitations(team_id=team_id, invitations=invitations)
+        logger.info("team_invitation_claimed", team_id=str(team_id))
+
         return EndpointOutput(
-            result={
-                "team_id": team_id,
-                "user_id": user.id,
-                "role": request.role,
-            }
+            result=ClaimedInvitation(
+                team_id=team_id,
+                team_name=team.name,
+                role=invitation.role,
+            )
         )
 
     # Change team ownership

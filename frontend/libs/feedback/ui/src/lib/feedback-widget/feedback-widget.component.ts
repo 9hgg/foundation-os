@@ -3,6 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { QuillTextareaComponent } from '@foundation/quill/ui';
 import {
+	CtaFeedbackBlock,
+	CtaFeedbackLink,
 	FeedbackBlock,
 	FeedbackBlockResponse,
 	FeedbackConfig,
@@ -14,6 +16,7 @@ import {
 	TextareaFeedbackBlock,
 	TextFeedbackBlock,
 } from '@foundation/feedback/models';
+import { Router } from '@angular/router';
 import { FeedbackService } from '@foundation/feedback/state';
 
 type FeedbackWidgetState = 'loading' | 'form' | 'submitted' | 'hidden' | 'dismissed' | 'error';
@@ -251,11 +254,28 @@ function emptyDraft(): BlockDraft {
 											(ngModelChange)="updateDraftText(i, $event)"
 										/>
 									}
+									@case ('cta') {
+										<div class="flex flex-wrap gap-2">
+											@for (link of asCta(block).links; track link.id) {
+												<button
+													type="button"
+													class="btn btn-primary btn-sm"
+													(click)="followCtaLink(i, link)"
+												>
+													{{ link.label }}
+												</button>
+											}
+										</div>
+									}
 								}
 							</div>
 						}
 
-						<div class="flex justify-end">
+						<!-- An announcement asks nothing: its links are the whole interaction. -->
+						<div
+							class="flex justify-end"
+							[class.hidden]="isAnnouncementOnly()"
+						>
 							<button
 								class="btn btn-primary"
 								[disabled]="!canSubmit() || isSubmitting()"
@@ -282,6 +302,7 @@ export class FeedbackWidgetComponent {
 	readonly feedbackConfig = input.required<FeedbackConfig>();
 
 	private _feedbackService = inject(FeedbackService);
+	private _router = inject(Router);
 
 	readonly state = signal<FeedbackWidgetState>('loading');
 	readonly isSubmitting = signal(false);
@@ -290,6 +311,9 @@ export class FeedbackWidgetComponent {
 	readonly drafts = signal<BlockDraft[]>([]);
 
 	readonly npsRange = Array.from({ length: 11 }, (_, i) => i);
+
+	/** Nothing to submit when every block is an announcement. */
+	readonly isAnnouncementOnly = computed(() => this.feedbackConfig().blocks.every((block) => block.kind === 'cta'));
 
 	readonly canSubmit = computed(() => {
 		const blocks = this.feedbackConfig().blocks;
@@ -375,6 +399,10 @@ export class FeedbackWidgetComponent {
 	asFile(block: FeedbackBlock): FileFeedbackBlock {
 		if (block.kind === 'file') return block;
 		throw new Error(`Expected file block, got ${block.kind}`);
+	}
+	asCta(block: FeedbackBlock): CtaFeedbackBlock {
+		if (block.kind === 'cta') return block;
+		throw new Error(`Expected cta block, got ${block.kind}`);
 	}
 	asSupportTicket(block: FeedbackBlock): SupportTicketFeedbackBlock {
 		if (block.kind === 'support-ticket') return block;
@@ -552,6 +580,24 @@ export class FeedbackWidgetComponent {
 		return draft;
 	}
 
+	/**
+	 * Record the click, then go where the link points. The recorded response is what makes the
+	 * click-through rate readable later: an interaction exists for everyone who saw the card,
+	 * a response only for those who clicked.
+	 */
+	followCtaLink(blockIndex: number, link: CtaFeedbackLink): void {
+		const alreadyClicked = (this.drafts()[blockIndex]?.selectedIds ?? []) as string[];
+		const clickedIds = alreadyClicked.includes(link.id) ? alreadyClicked : [...alreadyClicked, link.id];
+		this.drafts.update((drafts) => drafts.map((draft, index) => (index === blockIndex ? { ...draft, selectedIds: clickedIds } : draft)));
+		this._feedbackService.saveAnswer(this.slug(), blockIndex, { kind: 'cta', clickedIds });
+
+		if (link.external) {
+			window.open(link.url, '_blank', 'noopener');
+			return;
+		}
+		this._router.navigateByUrl(link.url);
+	}
+
 	private _isBlockAnswered(block: FeedbackBlock, draft: BlockDraft): boolean {
 		switch (block.kind) {
 			case 'mcq':
@@ -570,6 +616,9 @@ export class FeedbackWidgetComponent {
 				return draft.imageDataUrl.length > 0;
 			case 'support-ticket':
 				return draft.textValue.trim().length > 0;
+			// An announcement asks nothing, so it never blocks a submit.
+			case 'cta':
+				return true;
 		}
 	}
 

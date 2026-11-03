@@ -1,6 +1,7 @@
 import os
 from logging.config import fileConfig
 
+import structlog
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
@@ -8,14 +9,16 @@ from sqlmodel import SQLModel
 # this line is necessary for SQLModel to list all models
 from apps.leopar.app import *
 
+logger = structlog.get_logger(__name__)
+
 # if not set, raise error
 DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URI")
 if not DATABASE_URL:
-    print("ERROR: SQLALCHEMY_DATABASE_URI not set")
+    logger.error("sqlalchemy_database_uri_not_set")
     exit(1)
 
 
-print("ALEMBIC ENV SETUP", os.getenv("SQLALCHEMY_DATABASE_URI"))
+logger.info("alembic_env_setup")
 
 
 # this is the Alembic Config object, which provides
@@ -87,8 +90,8 @@ def run_migrations_online():
 
 
 if context.is_offline_mode():
-    print("Running migration offline")
+    logger.info("migration_running", mode="offline")
     run_migrations_offline()
 else:
-    print("Running migration online")
+    logger.info("migration_running", mode="online")
     run_migrations_online()

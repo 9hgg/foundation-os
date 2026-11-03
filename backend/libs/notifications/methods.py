@@ -1,32 +1,37 @@
 import datetime
 import re
 import textwrap
-from typing import Optional
 from uuid import UUID
 
+import structlog
+
+# Digest dry-run diagnostics intentionally include rendered context.
+# ruff: noqa: G004
 from sqlalchemy import and_, exists, or_
 from sqlalchemy.orm import Session
 
 from libs.acl.methods import create_default_acls, get_user_writers
 from libs.acl.models import Acl, Operation, Who
 from libs.db import context_db
-from libs.logger.customLogger import print
-from libs.mails.methods import add_mail_to_db
+from libs.mails.methods import add_mail_to_db, mail_task_description
 from libs.mails.template_utils import render_transactional_email
 from libs.resource import Resource, ResourceManager
 from libs.tasks.tasks_manager import TasksManager
+from libs.users.config import USER_SETTINGS
 from libs.users.methods import _get_user_display_info
 from libs.users.models import User
 
 from .models import Notification
 
+logger = structlog.get_logger(__name__)
+
 
 def _create_notification(
     *,
-    title: Optional[str],
-    content: Optional[str],
+    title: str | None,
+    content: str | None,
     target_id: str | UUID | None,
-    target_kind: Optional[str],
+    target_kind: str | None,
     kind: str = "default",
     read: bool = False,
     config: dict | None = None,
@@ -86,13 +91,13 @@ def notify(
     # )
 
     if for_key:
-        print("Looking for interaction with key:", for_key)
+        logger.debug("notification_lookup", key=for_key)
         notification_db = Notification.get_first_by(
             key=for_key,
             _db=_db,
         )
         if notification_db:
-            print("Notification already exists for key:", for_key)
+            logger.debug("notification_exists", key=for_key)
             notification_db.title = title
             notification_db.content = content
             notification_db.read = False
@@ -101,14 +106,14 @@ def notify(
             notification_db.target_kind = resource.__kind__ if resource else None
             notification_db.kind = kind
             notification_db.config = config
-            notification_db.time_created = datetime.datetime.now(datetime.timezone.utc)
-            print("Updating existing notification:", notification_db)
+            notification_db.time_created = datetime.datetime.now(datetime.UTC)
+            logger.debug("notification_update", key=for_key)
             notification_db.save()
 
             return notification_db
         else:
-            print("No existing notification found for key:", for_key)
-    print("Creating new notification for key:", for_key)
+            logger.debug("notification_missing", key=for_key)
+    logger.debug("notification_create", key=for_key)
 
     notification_db = _create_notification(
         title=title,
@@ -132,6 +137,38 @@ def notify(
     )
 
     return notification_db
+
+
+def notify_admins(
+    #
+    *,
+    resource: Resource | None,
+    config: dict | None = None,
+    kind: str = "default",
+    content: str | None = None,
+    current_user_db: User | None = None,
+    for_key: str | None = None,
+):
+    """Notify every configured app admin (``USER_SETTINGS.ADMIN_EMAILS``).
+
+    The admin who triggered the action is skipped so they aren't notified of
+    their own activity.
+    """
+    for email in USER_SETTINGS.ADMIN_EMAILS:
+        admin = User.get_first_by(email=email)
+        if not admin:
+            continue
+        if current_user_db and admin.id == current_user_db.id:
+            continue
+
+        notify(
+            resource=resource,
+            config=config,
+            kind=kind,
+            content=content,
+            user=admin,  # <= notify the admin
+            for_key="user:" + str(admin.id) + ("_" + for_key if for_key else ""),
+        )
 
 
 def notify_to_writers(
@@ -159,7 +196,7 @@ def notify_to_writers(
         else []
     )
     # for acl in resource_write_acls:
-    #     print("ACL:", acl)
+    #     logger.info("ACL:", acl)
 
     # notify the resource WRITER(s)
     for acl in resource_write_acls:
@@ -168,27 +205,21 @@ def notify_to_writers(
             continue
 
         if acl.who == Who.admin:
-            # notify joris@spoken.systems
-            admin = User.get_first_by(email="joris@spoken.systems")
-            if admin:
-                if current_user_db and admin.id == current_user_db.id:
-                    continue
-
-                notify(
-                    resource=resource_db,
-                    config=config,
-                    kind=kind,
-                    content=content,
-                    user=admin,  # <= notify the admin
-                    for_key="user:" + str(admin.id) + ("_" + for_key if for_key else ""),
-                )
+            notify_admins(
+                resource=resource_db,
+                config=config,
+                kind=kind,
+                content=content,
+                current_user_db=current_user_db,
+                for_key=for_key,
+            )
             continue
 
         resource_writer_db = User.by_id(acl.who_id) if acl.who_id else None
         if not resource_writer_db:
             continue
 
-        print("Key for writer:", for_key)
+        logger.info("notify_to_writers_key", for_key=for_key)
         notify(
             resource=resource_db,
             config=config,
@@ -226,14 +257,14 @@ def notification_digests(period: str, dry: bool = False):
         period: The digest period ('hourly', 'daily', 'weekly', 'monthly')
         dry: If True, run in dry mode without actually sending emails
     """
-    print(f"[notification_digests] Starting digest generation for period: {period} {'(DRY RUN)' if dry else ''}")
+    logger.info(f"[notification_digests] Starting digest generation for period: {period} {'(DRY RUN)' if dry else ''}")
 
     if period not in ["hourly", "daily", "weekly", "monthly"]:
-        print(f"[notification_digests] Invalid period: {period}. Must be 'hourly', 'daily', 'weekly', or 'monthly'")
+        logger.info(f"[notification_digests] Invalid period: {period}. Must be 'hourly', 'daily', 'weekly', or 'monthly'")
         return
 
     # Calculate the time range for the digest
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     time_deltas = {
         "hourly": datetime.timedelta(hours=1),
         "daily": datetime.timedelta(days=1),
@@ -254,19 +285,19 @@ def notification_digests(period: str, dry: bool = False):
         )
 
         users = users_query.all()
-        print(f"[notification_digests] Found {len(users)} users with {period} digest frequency and verified emails")
+        logger.info(f"[notification_digests] Found {len(users)} users with {period} digest frequency and verified emails")
 
         for user in users:
             _process_user_digest(db, user, time_cutoff, now, period, dry)
 
-    print(f"[notification_digests] Completed digest generation for period: {period} {'(DRY RUN)' if dry else ''}")
+    logger.info(f"[notification_digests] Completed digest generation for period: {period} {'(DRY RUN)' if dry else ''}")
 
 
 def _process_user_digest(
     db: Session, user: User, time_cutoff: datetime.datetime, now: datetime.datetime, period: str, dry: bool = False
 ) -> None:
     """Process digest for a single user."""
-    print(f"[notification_digests] Processing user: {user.email} {'(DRY RUN)' if dry else ''}")
+    logger.info(f"[notification_digests] Processing user: {user.email} {'(DRY RUN)' if dry else ''}")
 
     # Get user's notifications from the last period with ACL checking
     notifications_query = db.query(Notification).filter(
@@ -292,14 +323,26 @@ def _process_user_digest(
     )
 
     notifications = notifications_query.all()
-    print(f"[notification_digests] Found {len(notifications)} notifications for user {user.email}")
+    logger.info(f"[notification_digests] Found {len(notifications)} notifications for user {user.email}")
 
     if not notifications:
-        print(f"[notification_digests] No notifications for user {user.email}, skipping {'(DRY RUN)' if dry else ''}")
+        logger.info(f"[notification_digests] No notifications for user {user.email}, skipping {'(DRY RUN)' if dry else ''}")
         return
 
     # Send digest email
     _send_digest_email(user, notifications, period, dry)
+
+
+def _user_display_from(config) -> str:
+    """Who a notification is about, as a digest line should name them.
+
+    Four branches spelled this out identically, which is three chances to change a name format in
+    one place and forget the rest.
+    """
+    if not config.user_id:
+        return "Unknown user"
+    display_name, starred_email = _get_user_display_info(config.user_id)
+    return f"{display_name} ({starred_email})" if starred_email else display_name
 
 
 def _format_notification_for_digest(notification: Notification) -> str:
@@ -307,47 +350,44 @@ def _format_notification_for_digest(notification: Notification) -> str:
     config = notification.config
 
     if notification.kind == "reaction":
-        user_id = getattr(config, "user_id", None)
-        emoji = getattr(config, "emoji", "👍")
-
-        if user_id:
-            display_name, starred_email = _get_user_display_info(user_id)
-            user_display = f"{display_name} ({starred_email})" if starred_email else display_name
-        else:
-            user_display = "Unknown user"
+        emoji = config.emoji or "👍"
+        user_display = _user_display_from(config)
 
         return f'{user_display} reacted with "{emoji}" to your content'
 
     elif notification.kind == "comment":
-        user_id = getattr(config, "user_id", None)
-
-        if user_id:
-            display_name, starred_email = _get_user_display_info(user_id)
-            user_display = f"{display_name} ({starred_email})" if starred_email else display_name
-        else:
-            user_display = "Unknown user"
+        user_display = _user_display_from(config)
 
         return f"New comment by {user_display}"
 
     elif notification.kind == "reply":
-        user_id = getattr(config, "user_id", None)
-
-        if user_id:
-            display_name, starred_email = _get_user_display_info(user_id)
-            user_display = f"{display_name} ({starred_email})" if starred_email else display_name
-        else:
-            user_display = "Unknown user"
+        user_display = _user_display_from(config)
 
         return f"New reply by {user_display}"
 
+    elif notification.kind in ("ticket", "feature_request"):
+        user_display = _user_display_from(config)
+
+        what = "feature request" if notification.kind == "feature_request" else "ticket"
+        return f"New {what} by {user_display}"
+
     elif notification.kind == "interaction.interview":
-        interaction_details = getattr(config, "interaction_details", {})
+        interaction_details = config.interaction_details or {}
         if interaction_details:
             steps_seen = interaction_details.get("nbStepsSeen", 0)
             total_steps = interaction_details.get("nbTotalSteps", 0)
             return f"New interview interaction ({steps_seen}/{total_steps} steps completed)"
         else:
             return "New interview interaction"
+
+    elif notification.kind == "interaction.form":
+        interaction_details = config.interaction_details or {}
+        if interaction_details:
+            steps_seen = interaction_details.get("nbStepsSeen", 0)
+            total_steps = interaction_details.get("nbTotalSteps", 0)
+            return f"New form response ({steps_seen}/{total_steps} steps answered)"
+        else:
+            return "New form response"
 
     else:
         # Fallback for unknown notification types
@@ -380,7 +420,7 @@ def _send_digest_email(user: User, notifications: list[Notification], period: st
     content_parts = []
 
     # Sort notification types by priority (most important first)
-    type_priority = {"interaction.interview": 1, "comment": 2, "reply": 3, "reaction": 4}
+    type_priority = {"interaction.form": 1, "interaction.interview": 1, "comment": 2, "reply": 3, "reaction": 4}
 
     sorted_types = sorted(notifications_by_type.items(), key=lambda x: type_priority.get(x[0], 99))
 
@@ -391,6 +431,7 @@ def _send_digest_email(user: User, notifications: list[Notification], period: st
             "comment": "Comments",
             "reply": "Replies",
             "interaction.interview": "Interview Interactions",
+            "interaction.form": "Form Responses",
         }
 
         # Singular forms for when there's only 1 notification
@@ -399,6 +440,7 @@ def _send_digest_email(user: User, notifications: list[Notification], period: st
             "comment": "Comment",
             "reply": "Reply",
             "interaction.interview": "Interview Interaction",
+            "interaction.form": "Form Response",
         }
 
         kind_display = type_display_names.get(kind, kind.replace("_", " ").title())
@@ -470,11 +512,11 @@ def _send_digest_email(user: User, notifications: list[Notification], period: st
 
     # Add email to the queue (or simulate in dry mode)
     if dry:
-        print(f"[notification_digests] DRY RUN - Would queue email for user {user.email}")
-        print(f"[notification_digests] DRY RUN - Subject: {subject}")
-        print(f"[notification_digests] DRY RUN - Notifications count: {len(notifications)}")
-        print("[notification_digests] DRY RUN - Email content preview:")
-        print(f"[notification_digests] DRY RUN - {main_content[:1000]}{'...' if len(main_content) > 1000 else ''}")
+        logger.info(f"[notification_digests] DRY RUN - Would queue email for user {user.email}")
+        logger.info(f"[notification_digests] DRY RUN - Subject: {subject}")
+        logger.info(f"[notification_digests] DRY RUN - Notifications count: {len(notifications)}")
+        logger.info("[notification_digests] DRY RUN - Email content preview:")
+        logger.info(f"[notification_digests] DRY RUN - {main_content[:1000]}{'...' if len(main_content) > 1000 else ''}")
     else:
         try:
             mail = add_mail_to_db(
@@ -487,15 +529,15 @@ def _send_digest_email(user: User, notifications: list[Notification], period: st
             )
 
             TasksManager.create_task(
-                title="send_email",
+                title="Send notification digest",
                 custom_id=f"{mail.id}-0",
                 method_name="send_email",
-                description="Send template email",
+                description=mail_task_description(mail),
                 kwargs={
                     "mail_id": mail.id,
                 },
             )
-            print(f"[notification_digests] Email queued for user {user.email}: {mail.id}")
+            logger.info(f"[notification_digests] Email queued for user {user.email}: {mail.id}")
 
         except Exception as e:
-            print(f"[notification_digests] Error queuing email for user {user.email}: {e}")
+            logger.info(f"[notification_digests] Error queuing email for user {user.email}: {e}")

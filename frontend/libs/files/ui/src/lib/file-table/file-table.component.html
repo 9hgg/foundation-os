@@ -1,12 +1,15 @@
 @if (paginator.state$ | async; as paginatorState) {
 	<div class="flex h-full w-full flex-col">
+		<!-- The rows scroll; the footer below stays put. min-h-0 is what lets a flex child shrink
+		     below its content instead of pushing the footer off the bottom. -->
 		<div
 			name="table-container"
-			class="bg-base-100 card border-base-200 w-full border shadow-sm"
+			class="bg-base-100 card border-base-200 min-h-0 w-full flex-1 overflow-auto border shadow-sm"
 		>
 			<table
 				name="table-body"
 				class="table w-full"
+				[class.table-xs]="denseDisplay()"
 			>
 				<!-- Head -->
 				<thead class="bg-base-200 text-base-content/60 text-xs font-bold tracking-wider uppercase">
@@ -156,10 +159,14 @@
 								<!-- Download -->
 								<td>
 									<div>
-										<lib-download-button
-											(click)="$event.stopImmediatePropagation()"
-											[entityFileId]="entityFile.id"
-										></lib-download-button>
+										<!-- The paginator seeds placeholder rows while a page loads, whose id is the row
+										     index rather than a file id. Nothing to download until the real file arrives. -->
+										@if (entityFile.id?.length === 36) {
+											<lib-download-button
+												(click)="$event.stopImmediatePropagation()"
+												[entityFileId]="entityFile.id"
+											></lib-download-button>
+										}
 									</div>
 								</td>
 
@@ -356,24 +363,9 @@
 		</div>
 
 		<!-- Footer -->
-		@if (paginatorState.totalNumberOfPages > 1) {
-			<div class="bg-base-100/95 supports-backdrop-filter:bg-base-100/85 border-base-200 bottom-0 mt-4 flex items-center justify-between rounded-lg border p-4 shadow-sm backdrop-blur">
-				<button
-					class="btn btn-sm btn-outline"
-					[disabled]="!paginatorState.hasPrev"
-					(click)="paginator.previousPage()"
-				>
-					<span [translate]>Previous</span>
-				</button>
-				<span class="text-sm font-medium"> <span [translate]>Page</span> {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} </span>
-				<button
-					class="btn btn-sm btn-outline"
-					[disabled]="!paginatorState.hasNext"
-					(click)="paginator.nextPage()"
-				>
-					<span [translate]>Next</span>
-				</button>
-			</div>
-		}
+		<lib-table-paginator
+			[paginator]="paginator"
+			[denseDisplay]="denseDisplay()"
+		/>
 	</div>
 }

@@ -6,10 +6,10 @@
 
 	@if (mediaMode === null) {
 		<!-- If no media mode, display the choice buttons -->
-		<div class="flex h-full w-full items-center justify-center space-x-4">
+		<div class="flex h-full w-full flex-wrap items-center justify-center gap-2 sm:gap-4">
 			@if (displayAudioBtn) {
 				<button
-					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-4 rounded-lg"
+					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-2 rounded-lg sm:p-4"
 					[style.backgroundColor]="backgroundColor()"
 					[style.color]="fontColor()"
 					[style.borderColor]="borderColor()"
@@ -17,9 +17,7 @@
 					(click)="setMediaMode(MediaModeOptions.audio)"
 				>
 					<tw-mic
-						class="inline-block"
-						[style.width]="buttonWidth()"
-						[style.height]="buttonHeight()"
+						class="inline-block h-7 w-7 sm:h-11 sm:w-11"
 					></tw-mic>
 					<div class="mt-2 block text-sm font-medium">{{ t('audio') }}</div>
 				</button>
@@ -27,7 +25,7 @@
 
 			@if (displayVideoBtn) {
 				<button
-					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-4 rounded-lg transition-all duration-200 hover:scale-105"
+					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-2 rounded-lg sm:p-4 transition-all duration-200 hover:scale-105"
 					[style.backgroundColor]="backgroundColor()"
 					[style.color]="fontColor()"
 					[style.borderColor]="borderColor()"
@@ -35,9 +33,7 @@
 					(click)="setMediaMode(MediaModeOptions.video)"
 				>
 					<tw-cam
-						class="inline-block"
-						[style.width]="buttonWidth()"
-						[style.height]="buttonHeight()"
+						class="inline-block h-7 w-7 sm:h-11 sm:w-11"
 					></tw-cam>
 					<div class="mt-2 block text-sm font-medium">{{ t('video') }}</div>
 				</button>
@@ -45,7 +41,7 @@
 
 			@if (displayScreenCaptureWithVideoBtn) {
 				<button
-					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-4 rounded-lg transition-all duration-200 hover:scale-105"
+					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-2 rounded-lg sm:p-4 transition-all duration-200 hover:scale-105"
 					[style.backgroundColor]="backgroundColor()"
 					[style.color]="fontColor()"
 					[style.borderColor]="borderColor()"
@@ -53,11 +49,25 @@
 					(click)="setMediaMode(MediaModeOptions.screenCaptureAndVideo)"
 				>
 					<tw-screen-capture
-						class="inline-block"
-						[style.width]="buttonWidth()"
-						[style.height]="buttonHeight()"
+						class="inline-block h-7 w-7 sm:h-11 sm:w-11"
 					></tw-screen-capture>
 					<div class="mt-2 block text-sm font-medium">{{ t('screen') }}</div>
+				</button>
+			}
+
+			@if (displayScreenCaptureBtn) {
+				<button
+					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-2 rounded-lg sm:p-4 transition-all duration-200 hover:scale-105"
+					[style.backgroundColor]="backgroundColor()"
+					[style.color]="fontColor()"
+					[style.borderColor]="borderColor()"
+					[style.borderRadius]="borderRadius()"
+					(click)="setMediaMode(MediaModeOptions.screenCapture)"
+				>
+					<tw-screen-capture
+						class="inline-block h-7 w-7 sm:h-11 sm:w-11"
+					></tw-screen-capture>
+					<div class="mt-2 block text-sm font-medium">{{ t('screen only') }}</div>
 				</button>
 			}
 
@@ -70,7 +80,7 @@
 				/>
 
 				<button
-					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-4 rounded-lg transition-all duration-200 hover:scale-105"
+					class="media-mode-button flex cursor-pointer select-none flex-col items-center justify-center p-2 rounded-lg sm:p-4 transition-all duration-200 hover:scale-105"
 					[style.backgroundColor]="backgroundColor()"
 					[style.color]="fontColor()"
 					[style.borderColor]="borderColor()"
@@ -78,9 +88,7 @@
 					(click)="browseFileBtn.click()"
 				>
 					<tw-upload
-						class="inline-block"
-						[style.width]="buttonWidth()"
-						[style.height]="buttonHeight()"
+						class="inline-block h-7 w-7 sm:h-11 sm:w-11"
 					></tw-upload>
 					<div class="mt-2 block text-sm font-medium">{{ t('upload') }}</div>
 				</button>
@@ -190,15 +198,15 @@
 				<!-- Record Actions -->
 				<section
 					name="record-actions"
-					class="absolute bottom-1/2 left-1/2 mt-2 flex -translate-x-1/2 translate-y-1/2 items-center justify-between"
+					class="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center justify-center gap-3"
 				>
 					@if (!recordingProps.occupied) {
 						<!-- Record button or "countdown" -->
 						@if (!counting) {
-							<div class="flex flex-col items-center justify-center space-y-4">
-								<span class="whitespace-nowrap rounded-lg bg-gray-900/80 px-4 py-2 text-sm font-medium text-gray-200 backdrop-blur-sm">{{ t('Hit the button when ready') }}</span>
+							<div class="flex flex-col items-center justify-center space-y-2 sm:space-y-4">
+								<span class="text-current/60 whitespace-nowrap text-xs font-medium sm:text-sm">{{ t('Hit the button when ready') }}</span>
 								<button
-									class="record-control-button px-6 py-3 text-lg font-semibold"
+									class="record-control-button cursor-pointer whitespace-nowrap px-4 py-2 text-sm font-semibold sm:px-6 sm:py-3 sm:text-lg"
 									[style.backgroundColor]="backgroundColor()"
 									[style.color]="fontColor()"
 									[style.borderColor]="borderColor()"
@@ -231,22 +239,22 @@
 							@if (recordingProps.recordingState === 'recording') {
 								<!-- Stop button + Cancel -->
 								<button
-									class="record-control-button flex items-center space-x-2 px-6 py-3 text-lg font-semibold transition-all duration-200 hover:scale-105"
+									class="record-control-button flex cursor-pointer items-center space-x-1 whitespace-nowrap px-4 py-2 text-sm font-semibold transition-all duration-200 hover:scale-105 sm:space-x-2 sm:px-6 sm:py-3 sm:text-lg"
 									[style.backgroundColor]="backgroundColor()"
 									[style.color]="fontColor()"
 									[style.borderColor]="borderColor()"
 									[style.borderRadius]="borderRadius()"
 									(click)="stopRecording()"
 								>
-									<tw-stop class="h-6 w-6"></tw-stop>
+									<tw-stop class="h-5 w-5 sm:h-6 sm:w-6"></tw-stop>
 									<span>{{ t('stop') }}</span>
 								</button>
 
 								<button
-									class="ml-3 rounded-lg bg-gray-700/80 p-3 text-gray-300 transition-all duration-200 hover:bg-red-500/80 hover:text-white backdrop-blur-sm"
+									class="ml-2 rounded-lg bg-gray-700/80 p-2 text-gray-300 transition-all duration-200 hover:bg-red-500/80 hover:text-white backdrop-blur-sm sm:ml-3 sm:p-3"
 									(click)="cancelCurrentRecording()"
 								>
-									<tw-delete class="h-6 w-6"></tw-delete>
+									<tw-delete class="h-5 w-5 sm:h-6 sm:w-6"></tw-delete>
 								</button>
 							} @else {
 								<!-- States: 'recording-asked', 'countdown', 'stopped-asked', etc. -->

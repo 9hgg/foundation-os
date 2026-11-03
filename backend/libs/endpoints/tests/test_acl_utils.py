@@ -1,6 +1,6 @@
-import pytest
 import uuid
 from unittest.mock import MagicMock, patch
+
 from libs.endpoints.endpoints import add_acl_filters, get_resource_if_READ_allowed
 from libs.users.models import User
 

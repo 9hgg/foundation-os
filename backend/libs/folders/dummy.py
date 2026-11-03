@@ -1,15 +1,19 @@
 import random
 import uuid
 
+import structlog
+
 from libs.db import context_db
 from libs.folders.methods import get_subfolders
 from libs.folders.models import Folder
+
+logger = structlog.get_logger(__name__)
 
 
 def seed_1000_random_folders_with_subfolders():
     with context_db() as db:
         folder_ids = [x[0] for x in db.query(Folder.id).all()]
-        print(f"Found {len(folder_ids)} folders", folder_ids[:10])
+        logger.info("folders_loaded", count=len(folder_ids), sample_ids=folder_ids[:10])
         for i in range(5000):
             new_folder_id = uuid.uuid4()
             Folder.create(
@@ -43,10 +47,10 @@ def get_some_example():
     if not original_folder:
         return
 
-    print(original_folder)
+    logger.info("folder_example_loaded", folder_id=str(original_folder.id))
 
     sub_folders = get_subfolders(folder_id=original_folder.id)
-    print(f"Found {len(sub_folders)} subfolders")
+    logger.info("subfolders_loaded", count=len(sub_folders), folder_id=str(original_folder.id))
     # print_folder_recursive(folder_id=original_folder.id)
 
 

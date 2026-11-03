@@ -1,10 +1,7 @@
-import pytest
-from unittest.mock import MagicMock
 from libs.auth.providers.auth_provider_manager import (
-    AuthProvidersManager,
     AlreadyEnlistedAuthProviderError,
     AuthProviderNotFoundError,
-    EnlistedAuthProvider,
+    AuthProvidersManager,
 )
 
 

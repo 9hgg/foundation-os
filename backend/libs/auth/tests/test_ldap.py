@@ -69,11 +69,10 @@ def test_process_token(
 
     user_db.email_verified = False
     process_token({"login": "alice", "password": "secret"})
-    mock_user.patch.assert_called_with(
-        obj_id=user_db.id,
-        update_dict={"email_verified": True},
-        _db=None,
-    )
+    patch_call = mock_user.patch.call_args
+    assert patch_call.kwargs["obj_id"] == user_db.id
+    assert patch_call.kwargs["_db"] is None
+    assert patch_call.kwargs["update_dict"]["email_verified"] is True
 
     mock_user.get_first_by.return_value = None
     result = process_token({"login": "alice", "password": "secret"}, register_user=False)

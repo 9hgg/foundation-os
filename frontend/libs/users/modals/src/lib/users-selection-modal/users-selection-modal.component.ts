@@ -22,6 +22,8 @@ export interface UserSelectionModalData {
 	selectionConstraints?: UserSelectionConstraints;
 	filters?: Filter[];
 	alreadySelectedUsers?: User[];
+	/** List every user rather than the ones the caller can read. Admin-only, enforced server-side. */
+	bypassAcls?: boolean;
 }
 
 export const DEFAULT_FILE_SELECTION_MODAL_DATA: Partial<UserSelectionModalData> & Required<Pick<UserSelectionModalData, 'selectionConstraints'>> = {
@@ -45,7 +47,7 @@ export interface UserSelectionModalResult {
 })
 export class UsersSelectionModalComponent {
 	public usersRepository = inject(UsersRepository);
-	userTableChild = viewChild.required(UserTableComponent);
+	userTableChild = viewChild(UserTableComponent);
 	selectedUsers$$$ = BehaviorSubjectReplayedFromObs<User[]>([], from([]));
 
 	constructor(
@@ -56,6 +58,7 @@ export class UsersSelectionModalComponent {
 		// forwarding modal parameters to the user table
 		effect(() => {
 			const userTable = this.userTableChild();
+			if (!userTable) return;
 			userTable.itemsSelector.selectMultiple(userSelectionModalData.alreadySelectedUsers ?? []);
 			this.selectedUsers$$$.setSource(userTable.itemsSelector.selectedItems$);
 		});
@@ -79,7 +82,7 @@ export class UsersSelectionModalComponent {
 	}
 
 	save() {
-		this.close({ users: this.userTableChild().itemsSelector.selectedItems });
+		this.close({ users: this.userTableChild()?.itemsSelector.selectedItems ?? [] });
 	}
 
 	cancel() {

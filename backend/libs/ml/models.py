@@ -1,7 +1,7 @@
 import contextlib
 import inspect
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Generic, TypeVar, get_args, get_origin
+from typing import Any, ClassVar, TypeVar, get_args, get_origin
 
 from PIL.Image import Image as PillowImage
 from pydantic import (
@@ -65,7 +65,9 @@ class JsonInput(AlgorithmInput):
     _input_type_as_str: str = "json"
 
     @classmethod
-    def serialize(cls, payload: dict[str, Any], *, ignore_unserializable: bool = False) -> dict[str, Any]:
+    def serialize(
+        cls, payload: dict[str, Any], *, ignore_unserializable: bool = False
+    ) -> dict[str, Any]:
         """Return a JSON-safe copy of payload.
 
         When ignore_unserializable=True, values that cannot be serialised to
@@ -125,7 +127,12 @@ class ClassificationPrediction(Prediction):
         default=None,
         description="The ID of the predicted label. None if no label could be predicted.",
     )
-    score: float | None = None
+    score: float | None = Field(
+        default=None,
+        description="Confidence score for the prediction, between 0 and 1 ideally. Optional. " \
+        "Can be used for thresholding or ranking predictions, but should not be interpreted as a" \
+        " calibrated probability unless explicitly stated by the algorithm.",
+    )
     _output_type_as_str: str = "label"
 
 
@@ -153,7 +160,7 @@ TAlgorithmInput = TypeVar("TAlgorithmInput", bound=AlgorithmInput)
 TAlgorithmOutput = TypeVar("TAlgorithmOutput", bound=AlgorithmOutput)
 
 
-class Algorithm(ABC, Generic[TAlgorithmInput, TAlgorithmOutput]):
+class Algorithm[TAlgorithmInput: AlgorithmInput, TAlgorithmOutput: AlgorithmOutput](ABC):
     """Base class for all ML algorithms. Subclass to implement a specific task family."""
 
     trainable: bool = False

@@ -38,7 +38,7 @@ export class TeamPillComponent implements OnDestroy {
 			if (!teamId_) return;
 
 			this._teamsRepository.store
-				.getObjectById$$$(teamId_, true)
+				.getObjectByIdPullOnce$$$(teamId_)
 				.pipe(
 					filter((a) => !!a),
 					take(1),

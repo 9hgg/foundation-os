@@ -1,6 +1,25 @@
-<div
-	class="h-full w-full overflow-auto cursor-pointer"
-	[innerText]="subtitle()"
-	(click)="copyToClipboard()"
-	title="Click to copy subtitle to clipboard"
-></div>
+@if (display() === 'follow') {
+	<!-- Buttons, not lines of text: each one moves the player, so it should be reachable by keyboard
+	     and announced as something you can do. -->
+	@for (cue of cues(); track $index) {
+		<button
+			type="button"
+			class="hover:bg-base-content/5 flex w-full cursor-pointer items-baseline gap-3 rounded px-1 py-0.5 text-left transition-colors"
+			[class.font-semibold]="hasBeenSaid(cue)"
+			[title]="'Play from here' | translate | async"
+			(click)="seek.emit(cue.start)"
+		>
+			<span class="shrink-0 text-xs tabular-nums opacity-60">{{ formatTimestamp(cue.start) }}</span>
+			<span>{{ cue.text }}</span>
+		</button>
+	}
+} @else if (text()) {
+	<button
+		type="button"
+		class="w-full cursor-pointer text-left"
+		[class]="display() === 'prose' ? 'line-clamp-2' : 'h-full overflow-auto'"
+		[innerText]="text()"
+		(click)="copyToClipboard()"
+		title="Click to copy subtitle to clipboard"
+	></button>
+}

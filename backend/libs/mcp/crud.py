@@ -28,14 +28,15 @@ import textwrap
 from typing import Any
 
 import httpx
+import structlog
 from mcp.server.fastmcp import FastMCP
 
 from libs.endpoints.types import PaginatedResponse, SimpleResponse
-from libs.logger.customLogger import print_color
 from libs.mcp.resource_filter import build_field_filter_class, filters_to_strings
 from libs.resource import Resource
 from libs.utils.types import EndpointError, EndpointOutput
 
+logger = structlog.get_logger(__name__)
 
 
 def _field_summary(ResourceClass: type[Resource]) -> str:
@@ -56,7 +57,7 @@ def _field_summary(ResourceClass: type[Resource]) -> str:
     return "\n".join(lines) if lines else "(no fields)"
 
 
-def enlist_crud_operations_as_mcp_tools(
+def enlist_crud_operations_as_mcp_tools(  # noqa: C901
     mcp: FastMCP,
     ResourceClass: type[Resource],
     backend_url: str,
@@ -157,7 +158,15 @@ def enlist_crud_operations_as_mcp_tools(
             auth_token: str | None = None,
         ) -> PaginatedEnvelope:
             filter_strings = filters_to_strings(filters)
-            print_color("cyan", f"[MCP:CRUD] list_{kind}: page={page} page_size={page_size} filters={filter_strings!r} ordering_by={ordering_by!r} auth={bool(auth_token)}")
+            logger.debug(
+                "mcp_crud_list_started",
+                kind=kind,
+                page=page,
+                page_size=page_size,
+                filters=filter_strings,
+                ordering_by=ordering_by,
+                has_auth=bool(auth_token),
+            )
             params: dict[str, Any] = {"page": page, "page_size": page_size}
             if filter_strings:
                 params["filters"] = filter_strings
@@ -166,13 +175,18 @@ def enlist_crud_operations_as_mcp_tools(
             headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
             async with httpx.AsyncClient() as client:
                 resp = await client.get(base, params=params, headers=headers)
-                print_color("cyan", f"[MCP:CRUD] list_{kind}: HTTP {resp.status_code}")
+                logger.debug("mcp_crud_list_response", kind=kind, status_code=resp.status_code)
                 resp.raise_for_status()
             data_json = resp.json()
 
             data_json_result = data_json.get("result") or {}
-            data_json_error = data_json.get("error",None)
-            print_color("cyan", f"[MCP:CRUD] list_{kind}: response JSON received, parsing result... result={data_json_result} error={data_json_error}")
+            data_json_error = data_json.get("error", None)
+            logger.debug(
+                "mcp_crud_list_result_parsed",
+                kind=kind,
+                result=data_json_result,
+                error=data_json_error,
+            )
 
             # try to parse the error as EndpointError, and the result as list[ResourceClass]
             if data_json_error:
@@ -181,11 +195,18 @@ def enlist_crud_operations_as_mcp_tools(
                 error_description = error.description if error else None
                 error_code = error.code if error else None
                 error_details = error.details if error else None
-                print_color("yellow", f"[MCP:CRUD] list_{kind}: error={error_title} description={error_description} code={error_code} details={error_details}")
+                logger.warning(
+                    "mcp_crud_list_error",
+                    kind=kind,
+                    error_title=error_title,
+                    error_description=error_description,
+                    error_code=error_code,
+                    error_details=error_details,
+                )
 
             if data_json_result:
                 items = data_json_result.get("data", [])
-                print_color("cyan", f"[MCP:CRUD] list_{kind}: result contains {len(items)} items")
+                logger.debug("mcp_crud_list_completed", kind=kind, item_count=len(items))
 
             return data_json  # type: ignore[return-value]
 
@@ -232,18 +253,18 @@ def enlist_crud_operations_as_mcp_tools(
         """).strip()
 
         async def _get(resource_id: str, auth_token: str | None = None) -> SimpleEnvelope:
-            print_color("cyan", f"[MCP:CRUD] get_{kind}: resource_id={resource_id!r} auth={bool(auth_token)}")
+            logger.debug("mcp_crud_get_started", kind=kind, resource_id=resource_id, has_auth=bool(auth_token))
             headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
             async with httpx.AsyncClient() as client:
                 resp = await client.get(f"{base}/{resource_id}", headers=headers)
-                print_color("cyan", f"[MCP:CRUD] get_{kind}: HTTP {resp.status_code}")
+                logger.debug("mcp_crud_get_response", kind=kind, status_code=resp.status_code)
                 resp.raise_for_status()
             data = resp.json()
             if err := (data.get("error") if isinstance(data, dict) else None):
-                print_color("yellow", f"[MCP:CRUD] get_{kind}: error={err}")
+                logger.warning("mcp_crud_get_error", kind=kind, error=err)
             else:
                 resource_id_result = ((data.get("result") or {}).get("data") or {}).get("id")
-                print_color("cyan", f"[MCP:CRUD] get_{kind}: found id={resource_id_result!r}")
+                logger.debug("mcp_crud_get_completed", kind=kind, resource_id=resource_id_result)
             return data  # type: ignore[return-value]
 
         _get.__doc__ = _get_doc
@@ -269,18 +290,18 @@ def enlist_crud_operations_as_mcp_tools(
         """).strip()
 
         async def _create(data: dict[str, Any], auth_token: str) -> SimpleEnvelope:
-            print_color("cyan", f"[MCP:CRUD] create_{kind}: data_keys={list(data.keys())} auth={bool(auth_token)}")
+            logger.debug("mcp_crud_create_started", kind=kind, data_keys=list(data.keys()), has_auth=bool(auth_token))
             headers = {"Authorization": f"Bearer {auth_token}"}
             async with httpx.AsyncClient() as client:
                 resp = await client.post(base, json=data, headers=headers)
-                print_color("cyan", f"[MCP:CRUD] create_{kind}: HTTP {resp.status_code}")
+                logger.debug("mcp_crud_create_response", kind=kind, status_code=resp.status_code)
                 resp.raise_for_status()
             result = resp.json()
             if err := (result.get("error") if isinstance(result, dict) else None):
-                print_color("yellow", f"[MCP:CRUD] create_{kind}: error={err}")
+                logger.warning("mcp_crud_create_error", kind=kind, error=err)
             else:
                 new_id = ((result.get("result") or {}).get("data") or {}).get("id")
-                print_color("cyan", f"[MCP:CRUD] create_{kind}: created id={new_id!r}")
+                logger.debug("mcp_crud_create_completed", kind=kind, resource_id=new_id)
             return result  # type: ignore[return-value]
 
         _create.__doc__ = _create_doc
@@ -306,17 +327,23 @@ def enlist_crud_operations_as_mcp_tools(
         """).strip()
 
         async def _patch(resource_id: str, data: dict[str, Any], auth_token: str) -> SimpleEnvelope:
-            print_color("cyan", f"[MCP:CRUD] patch_{kind}: resource_id={resource_id!r} data_keys={list(data.keys())} auth={bool(auth_token)}")
+            logger.debug(
+                "mcp_crud_patch_started",
+                kind=kind,
+                resource_id=resource_id,
+                data_keys=list(data.keys()),
+                has_auth=bool(auth_token),
+            )
             headers = {"Authorization": f"Bearer {auth_token}"}
             async with httpx.AsyncClient() as client:
                 resp = await client.patch(f"{base}/{resource_id}", json=data, headers=headers)
-                print_color("cyan", f"[MCP:CRUD] patch_{kind}: HTTP {resp.status_code}")
+                logger.debug("mcp_crud_patch_response", kind=kind, status_code=resp.status_code)
                 resp.raise_for_status()
             result = resp.json()
             if err := (result.get("error") if isinstance(result, dict) else None):
-                print_color("yellow", f"[MCP:CRUD] patch_{kind}: error={err}")
+                logger.warning("mcp_crud_patch_error", kind=kind, error=err)
             else:
-                print_color("cyan", f"[MCP:CRUD] patch_{kind}: ok")
+                logger.debug("mcp_crud_patch_completed", kind=kind, resource_id=resource_id)
             return result  # type: ignore[return-value]
 
         _patch.__doc__ = _patch_doc
@@ -343,17 +370,23 @@ def enlist_crud_operations_as_mcp_tools(
         """).strip()
 
         async def _update(resource_id: str, data: dict[str, Any], auth_token: str) -> SimpleEnvelope:
-            print_color("cyan", f"[MCP:CRUD] update_{kind}: resource_id={resource_id!r} data_keys={list(data.keys())} auth={bool(auth_token)}")
+            logger.debug(
+                "mcp_crud_update_started",
+                kind=kind,
+                resource_id=resource_id,
+                data_keys=list(data.keys()),
+                has_auth=bool(auth_token),
+            )
             headers = {"Authorization": f"Bearer {auth_token}"}
             async with httpx.AsyncClient() as client:
                 resp = await client.put(f"{base}/{resource_id}", json=data, headers=headers)
-                print_color("cyan", f"[MCP:CRUD] update_{kind}: HTTP {resp.status_code}")
+                logger.debug("mcp_crud_update_response", kind=kind, status_code=resp.status_code)
                 resp.raise_for_status()
             result = resp.json()
             if err := (result.get("error") if isinstance(result, dict) else None):
-                print_color("yellow", f"[MCP:CRUD] update_{kind}: error={err}")
+                logger.warning("mcp_crud_update_error", kind=kind, error=err)
             else:
-                print_color("cyan", f"[MCP:CRUD] update_{kind}: ok")
+                logger.debug("mcp_crud_update_completed", kind=kind, resource_id=resource_id)
             return result  # type: ignore[return-value]
 
         _update.__doc__ = _update_doc
@@ -373,17 +406,17 @@ def enlist_crud_operations_as_mcp_tools(
         """).strip()
 
         async def _delete(resource_id: str, auth_token: str) -> SimpleEnvelope:
-            print_color("cyan", f"[MCP:CRUD] delete_{kind}: resource_id={resource_id!r} auth={bool(auth_token)}")
+            logger.debug("mcp_crud_delete_started", kind=kind, resource_id=resource_id, has_auth=bool(auth_token))
             headers = {"Authorization": f"Bearer {auth_token}"}
             async with httpx.AsyncClient() as client:
                 resp = await client.delete(f"{base}/{resource_id}", headers=headers)
-                print_color("cyan", f"[MCP:CRUD] delete_{kind}: HTTP {resp.status_code}")
+                logger.debug("mcp_crud_delete_response", kind=kind, status_code=resp.status_code)
                 resp.raise_for_status()
             result = resp.json()
             if err := (result.get("error") if isinstance(result, dict) else None):
-                print_color("yellow", f"[MCP:CRUD] delete_{kind}: error={err}")
+                logger.warning("mcp_crud_delete_error", kind=kind, error=err)
             else:
-                print_color("cyan", f"[MCP:CRUD] delete_{kind}: ok")
+                logger.debug("mcp_crud_delete_completed", kind=kind, resource_id=resource_id)
             return result  # type: ignore[return-value]
 
         _delete.__doc__ = _delete_doc
@@ -484,10 +517,7 @@ def _build_fields_summary(config_by_kind: dict[str, dict[str, Any]]) -> str:
     blocks: list[str] = []
     for kind in sorted(config_by_kind):
         ResourceClass = config_by_kind[kind]["ResourceClass"]
-        blocks.append(
-            f"- ``{kind}`` ({ResourceClass.__name__}):\n"
-            f"{_indent_block(_field_summary(ResourceClass), '  ')}"
-        )
+        blocks.append(f"- ``{kind}`` ({ResourceClass.__name__}):\n{_indent_block(_field_summary(ResourceClass), '  ')}")
     return "\n".join(blocks)
 
 
@@ -519,7 +549,7 @@ def _register_merged_list(
         List resources of any registered kind with pagination + filters.
 
         Pass ``kind`` to select which resource type to query — must be one of:
-        {', '.join(repr(k) for k in kinds)}.
+        {", ".join(repr(k) for k in kinds)}.
 
         Filters are an optional list of dicts with the same shape as the
         non-merged ``list_<kind>`` tools:
@@ -546,7 +576,15 @@ def _register_merged_list(
     ) -> dict[str, Any]:
         config = _config_for_op(config_by_kind, kind, "read")
         filter_strings = filters_to_strings(filters)
-        print_color("cyan", f"[MCP:CRUD] list_resource[{kind}]: page={page} page_size={page_size} filters={filter_strings!r} ordering_by={ordering_by!r} auth={bool(auth_token)}")
+        logger.debug(
+            "mcp_crud_list_resource_started",
+            kind=kind,
+            page=page,
+            page_size=page_size,
+            filters=filter_strings,
+            ordering_by=ordering_by,
+            has_auth=bool(auth_token),
+        )
         params: dict[str, Any] = {"page": page, "page_size": page_size}
         if filter_strings:
             params["filters"] = filter_strings
@@ -555,7 +593,7 @@ def _register_merged_list(
         headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
         async with httpx.AsyncClient() as client:
             resp = await client.get(config["base"], params=params, headers=headers)
-            print_color("cyan", f"[MCP:CRUD] list_resource[{kind}]: HTTP {resp.status_code}")
+            logger.debug("mcp_crud_list_resource_response", kind=kind, status_code=resp.status_code)
             resp.raise_for_status()
         return resp.json()
 
@@ -570,7 +608,7 @@ def _register_merged_get(mcp: FastMCP, config_by_kind: dict[str, dict[str, Any]]
         Retrieve a single resource of any registered kind by its UUID.
 
         Pass ``kind`` to select the resource type — must be one of:
-        {', '.join(repr(k) for k in kinds)}.
+        {", ".join(repr(k) for k in kinds)}.
 
         If you do not yet have the UUID, call ``list_resource`` first.
 
@@ -578,15 +616,15 @@ def _register_merged_get(mcp: FastMCP, config_by_kind: dict[str, dict[str, Any]]
             kind: resource kind enum.
             resource_id: UUID of the resource to retrieve.
             auth_token: bearer token from the ``login`` tool; pass it for authenticated reads.
-    """).strip()
+    """).strip()  # noqa: S608
 
     async def _get_resource(kind: str, resource_id: str, auth_token: str | None = None) -> dict[str, Any]:
         config = _config_for_op(config_by_kind, kind, "read")
-        print_color("cyan", f"[MCP:CRUD] get_resource[{kind}]: resource_id={resource_id!r} auth={bool(auth_token)}")
+        logger.debug("mcp_crud_get_resource_started", kind=kind, resource_id=resource_id, has_auth=bool(auth_token))
         headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{config['base']}/{resource_id}", headers=headers)
-            print_color("cyan", f"[MCP:CRUD] get_resource[{kind}]: HTTP {resp.status_code}")
+            logger.debug("mcp_crud_get_resource_response", kind=kind, status_code=resp.status_code)
             resp.raise_for_status()
         return resp.json()
 
@@ -601,18 +639,23 @@ def _register_merged_create(mcp: FastMCP, config_by_kind: dict[str, dict[str, An
         Create a new resource of the given kind. Requires authentication.
 
         ``kind`` must be one of:
-        {', '.join(repr(k) for k in kinds)}.
+        {", ".join(repr(k) for k in kinds)}.
 
         Available fields per kind (see ``list_resource`` doc for the full list).
     """).strip()
 
     async def _create_resource(kind: str, data: dict[str, Any], auth_token: str) -> dict[str, Any]:
         config = _config_for_op(config_by_kind, kind, "create")
-        print_color("cyan", f"[MCP:CRUD] create_resource[{kind}]: data_keys={list(data.keys())} auth={bool(auth_token)}")
+        logger.debug(
+            "mcp_crud_create_resource_started",
+            kind=kind,
+            data_keys=list(data.keys()),
+            has_auth=bool(auth_token),
+        )
         headers = {"Authorization": f"Bearer {auth_token}"}
         async with httpx.AsyncClient() as client:
             resp = await client.post(config["base"], json=data, headers=headers)
-            print_color("cyan", f"[MCP:CRUD] create_resource[{kind}]: HTTP {resp.status_code}")
+            logger.debug("mcp_crud_create_resource_response", kind=kind, status_code=resp.status_code)
             resp.raise_for_status()
         return resp.json()
 
@@ -627,16 +670,22 @@ def _register_merged_patch(mcp: FastMCP, config_by_kind: dict[str, dict[str, Any
         Partially update a resource (only supplied fields change).
 
         ``kind`` must be one of:
-        {', '.join(repr(k) for k in kinds)}.
+        {", ".join(repr(k) for k in kinds)}.
     """).strip()
 
     async def _patch_resource(kind: str, resource_id: str, data: dict[str, Any], auth_token: str) -> dict[str, Any]:
         config = _config_for_op(config_by_kind, kind, "patch")
-        print_color("cyan", f"[MCP:CRUD] patch_resource[{kind}]: resource_id={resource_id!r} data_keys={list(data.keys())} auth={bool(auth_token)}")
+        logger.debug(
+            "mcp_crud_patch_resource_started",
+            kind=kind,
+            resource_id=resource_id,
+            data_keys=list(data.keys()),
+            has_auth=bool(auth_token),
+        )
         headers = {"Authorization": f"Bearer {auth_token}"}
         async with httpx.AsyncClient() as client:
             resp = await client.patch(f"{config['base']}/{resource_id}", json=data, headers=headers)
-            print_color("cyan", f"[MCP:CRUD] patch_resource[{kind}]: HTTP {resp.status_code}")
+            logger.debug("mcp_crud_patch_resource_response", kind=kind, status_code=resp.status_code)
             resp.raise_for_status()
         return resp.json()
 
@@ -651,16 +700,22 @@ def _register_merged_update(mcp: FastMCP, config_by_kind: dict[str, dict[str, An
         Fully replace a resource (all fields must be provided).
 
         ``kind`` must be one of:
-        {', '.join(repr(k) for k in kinds)}.
+        {", ".join(repr(k) for k in kinds)}.
     """).strip()
 
     async def _update_resource(kind: str, resource_id: str, data: dict[str, Any], auth_token: str) -> dict[str, Any]:
         config = _config_for_op(config_by_kind, kind, "update")
-        print_color("cyan", f"[MCP:CRUD] update_resource[{kind}]: resource_id={resource_id!r} data_keys={list(data.keys())} auth={bool(auth_token)}")
+        logger.debug(
+            "mcp_crud_update_resource_started",
+            kind=kind,
+            resource_id=resource_id,
+            data_keys=list(data.keys()),
+            has_auth=bool(auth_token),
+        )
         headers = {"Authorization": f"Bearer {auth_token}"}
         async with httpx.AsyncClient() as client:
             resp = await client.put(f"{config['base']}/{resource_id}", json=data, headers=headers)
-            print_color("cyan", f"[MCP:CRUD] update_resource[{kind}]: HTTP {resp.status_code}")
+            logger.debug("mcp_crud_update_resource_response", kind=kind, status_code=resp.status_code)
             resp.raise_for_status()
         return resp.json()
 
@@ -675,16 +730,16 @@ def _register_merged_delete(mcp: FastMCP, config_by_kind: dict[str, dict[str, An
         Delete a resource.
 
         ``kind`` must be one of:
-        {', '.join(repr(k) for k in kinds)}.
+        {", ".join(repr(k) for k in kinds)}.
     """).strip()
 
     async def _delete_resource(kind: str, resource_id: str, auth_token: str) -> dict[str, Any]:
         config = _config_for_op(config_by_kind, kind, "delete")
-        print_color("cyan", f"[MCP:CRUD] delete_resource[{kind}]: resource_id={resource_id!r} auth={bool(auth_token)}")
+        logger.debug("mcp_crud_delete_resource_started", kind=kind, resource_id=resource_id, has_auth=bool(auth_token))
         headers = {"Authorization": f"Bearer {auth_token}"}
         async with httpx.AsyncClient() as client:
             resp = await client.delete(f"{config['base']}/{resource_id}", headers=headers)
-            print_color("cyan", f"[MCP:CRUD] delete_resource[{kind}]: HTTP {resp.status_code}")
+            logger.debug("mcp_crud_delete_resource_response", kind=kind, status_code=resp.status_code)
             resp.raise_for_status()
         return resp.json()
 

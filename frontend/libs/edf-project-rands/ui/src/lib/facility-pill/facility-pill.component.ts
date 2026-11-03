@@ -42,7 +42,7 @@ export class FacilityPillComponent implements OnDestroy {
 			}
 
 			this._facilitiesRepository.store
-				.getObjectById$$$(facilityId_, true)
+				.getObjectByIdPullOnce$$$(facilityId_)
 				.$.pipe(
 					filter((a) => !!a),
 					take(1),

@@ -3,12 +3,12 @@ import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { EntityFile } from '@foundation/files/models';
 import { convertToUrl } from '@foundation/files/state';
-import { PlayButtonComponent, SubtitleLoaderComponent } from '@foundation/media/play/ui';
+import { InlinePlayerComponent, SubtitleLoaderComponent } from '@foundation/media/play/ui';
 
 @Component({
 	selector: 'lib-file-display',
 	standalone: true,
-	imports: [CommonModule, PlayButtonComponent, SubtitleLoaderComponent],
+	imports: [CommonModule, InlinePlayerComponent, SubtitleLoaderComponent],
 	templateUrl: './file-display.component.html',
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	styleUrl: './file-display.component.css',

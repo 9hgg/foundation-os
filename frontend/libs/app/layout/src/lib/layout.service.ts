@@ -1,6 +1,7 @@
 import { AppConfigService } from '@foundation/app/config';
 import { ConnectionStateService } from '@foundation/network/services';
 import { NotificationService } from '@foundation/notification';
+import { TranslationService } from '@foundation/translations/services';
 import { DOCUMENT } from '@angular/common';
 import { Injectable, Renderer2, RendererFactory2, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
@@ -14,6 +15,11 @@ export class LayoutService {
 	private _activatedRoute = inject(ActivatedRoute);
 	private _connectionStateService = inject(ConnectionStateService);
 	private _notificationService = inject(NotificationService);
+	private _translationService = inject(TranslationService);
+
+	// Connection-state notifications (translated for the user's language).
+	private _i18n_offline = this._translationService.prep('You are offline.');
+	private _i18n_backOnline = this._translationService.prep('You are back online.');
 
 	displayOfflinePill = signal(false);
 
@@ -21,6 +27,10 @@ export class LayoutService {
 	rootHeaderHeightPx = signal(100);
 	rootPlayerVisible = signal(false); // 100px
 	rootPlayerHeightPx = signal(100);
+	/** Whether the root player draws its progress as a waveform. Set by whatever page is being
+	 * played from -- the bar is mounted once in the app shell, so it cannot read a per-collection
+	 * setting itself. Costs an extra fetch and decode of the audio, hence opt-in. */
+	rootPlayerWaveform = signal(false);
 	rootFooterVisible = signal(false); // 100px
 	rootFooterHeightPx = signal(50);
 
@@ -67,9 +77,9 @@ export class LayoutService {
 	constructor() {
 		this._connectionStateService.connected$$.pipe(skip(1)).subscribe((connected) => {
 			if (connected) {
-				this._notificationService.snack('You are back online.', undefined, { dialogTarget: 'connection-state' });
+				this._notificationService.snack(this._i18n_backOnline(), undefined, { dialogTarget: 'connection-state' });
 			} else {
-				this._notificationService.warning('You are offline.', undefined, { dialogTarget: 'connection-state' });
+				this._notificationService.warning(this._i18n_offline(), undefined, { dialogTarget: 'connection-state' });
 			}
 		});
 

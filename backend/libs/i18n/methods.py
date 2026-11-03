@@ -1,15 +1,18 @@
 import contextlib
+import re
 
 import fastapi
+import structlog
 from sqlalchemy.orm import Session
 from starlette.datastructures import Headers
 
 from libs.i18n.config import I18N_SETTINGS
 from libs.i18n.translators.translator_manager import TranslatorNotFoundError, TranslatorsManager
-from libs.logger import print_color
 from libs.resource.resource import context_db
 
 from .models import SimpleTranslator, Translation
+
+logger = structlog.get_logger(__name__)
 
 # this key can be used to force the language in
 #  the GET parameters or in the POST payload
@@ -17,7 +20,6 @@ HTTP_KEY_LANG = "_lang"  # could be set in a config
 
 
 def get_translator_from_config():
-
     # Iterate over the configured translators in order
     translator_to_use = None
     translator_title = None
@@ -30,7 +32,7 @@ def get_translator_from_config():
             translator_title = translator_name
             break
         except TranslatorNotFoundError:
-            print_color("red", f"Translator {translator_name} not found")
+            logger.warning("translator_not_found", translator_name=translator_name)
             continue
 
     # Fallback if no configured translator is found
@@ -41,7 +43,7 @@ def get_translator_from_config():
             translator_to_use = TranslatorsManager.get_translator("default")
             translator_title = "default"
         except Exception:
-            print_color("red", "Default translator not found")
+            logger.warning("default_translator_not_found")
             return None, None  # No translator available
 
     return translator_to_use, translator_title
@@ -55,6 +57,7 @@ def translate(
     input_language: str | None = "en",
     replace_placeholders_before_translation: bool = False,
     translation_context: str | None = None,
+    skip_existing_lookup: bool = False,
 ) -> str:
     """Translate a sentence using the app's translation table
 
@@ -94,7 +97,11 @@ def translate(
                 sentence = sentence.replace("§" + k, v)
 
         translated_sentence = translator_to_use.get_translation(
-            sentence, lang, translation_context, input_language=input_language
+            sentence,
+            lang,
+            translation_context,
+            input_language=input_language,
+            skip_existing_lookup=skip_existing_lookup,
         )
 
     else:
@@ -102,17 +109,36 @@ def translate(
         #  values from the kv dict if available
 
         if kv is not None:
-            for k, v in kv.items():
+            for k in kv:
                 sentence = sentence.replace("§" + k, '<span class="notranslate">§' + k + "</span>")
 
         translated_sentence = translator_to_use.get_translation(
-            sentence, lang, translation_context, input_language=input_language
+            sentence,
+            lang,
+            translation_context,
+            input_language=input_language,
+            skip_existing_lookup=skip_existing_lookup,
         )
         if kv is not None:
             for k, v in kv.items():
-                translated_sentence = translated_sentence.replace("§" + k, v)
+                translated_sentence = _replace_placeholder(translated_sentence, k, v)
 
     return translated_sentence
+
+
+def _replace_placeholder(sentence: str, key: str, value: str) -> str:
+    """Replace a §key placeholder with its value, tolerating MT mangling.
+
+    Even though placeholders are wrapped in a ``notranslate`` span before
+    translation, some machine translators still rewrite the token — in
+    particular they turn underscores in the key into whitespace (or drop them),
+    so ``§user_email`` comes back as ``§user email``. A plain
+    ``str.replace("§user_email", value)`` then misses it and the raw
+    placeholder leaks to the user. We match the underscores as optional
+    whitespace to substitute reliably.
+    """
+    placeholder_pattern = "§" + re.escape(key).replace("_", r"[_\s]*")
+    return re.sub(placeholder_pattern, lambda _match: value, sentence)
 
 
 def get_translator(
@@ -145,13 +171,20 @@ def get_translator(
     _, translator_title = get_translator_from_config()
 
     new_translator = SimpleTranslator(
-        translate=lambda sentence, kv=None, lang=default_lang, input_language="en", rpbt=False, translation_context=None: translate(
+        translate=lambda sentence,
+        kv=None,
+        lang=default_lang,
+        input_language="en",
+        rpbt=False,
+        translation_context=None,
+        skip_existing_lookup=False: translate(
             sentence,
             kv=kv,
             lang=lang,
             input_language=input_language,
             replace_placeholders_before_translation=rpbt,
             translation_context=translation_context,
+            skip_existing_lookup=skip_existing_lookup,
         ),
         title=translator_title,
     )
@@ -178,5 +211,5 @@ def delete_translations_by_translator(translator_name: str, _db: Session | None 
         query = db.query(Translation).filter(Translation.translator == translator_name)
         deleted_count = query.delete()
         db.commit()
-        print_color("orange", f"Deleted {deleted_count} translations for translator {translator_name}")
+        logger.info("translations_deleted", translator_name=translator_name, deleted_count=deleted_count)
         return deleted_count

@@ -1,7 +1,7 @@
 /* eslint-disable @angular-eslint/prefer-inject */
 import { AnnualContribution, CategoryEnum, getDailyCostWithOverhead } from '@edf/edf-project-rands/models';
 import { AnnualContributionsRepository, ContributorsRepository } from '@edf/edf-project-rands/state';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { TranslateDirective } from '@foundation/translations/services';
 import { CommonModule } from '@angular/common';
 import { Attribute, ChangeDetectionStrategy, Component, EventEmitter, Output, inject, input, signal } from '@angular/core';
@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 	selector: 'lib-annual-contribution-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		CommonModule,
 		TranslateDirective,
 		ReactiveFormsModule,

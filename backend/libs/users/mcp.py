@@ -5,13 +5,14 @@ Import this module in your MCP app and call ``register_user_mcp_tools`` to
 expose login capabilities to MCP clients.
 """
 
+import structlog
 from mcp.server.fastmcp import FastMCP
 
-
 from libs.db import context_db
-from libs.logger.customLogger import print_color
 from libs.users.models import User
 from libs.utils import crypto, tokens
+
+logger = structlog.get_logger(__name__)
 
 
 def register_user_mcp_tools(mcp: FastMCP) -> None:
@@ -54,22 +55,22 @@ def register_user_mcp_tools(mcp: FastMCP) -> None:
         - "Log in as alice@example.com with password hunter2."
         - "Authenticate so I can create a folder."
         """
-        print_color("cyan", f"[MCP] login: email={email!r}")
+        logger.debug("mcp_login_started", email=email)
         with context_db() as db:
             user: User | None = db.query(User).filter(User.email == email.lower()).first()
 
         if not user:
-            print_color("yellow", f"[MCP] login: no user found for {email!r}")
+            logger.warning("mcp_login_user_not_found", email=email)
             return {"error": "invalid_credentials", "message": "Invalid email or password."}
         if not user.password_hashed:
-            print_color("yellow", f"[MCP] login: user {email!r} has no password")
+            logger.warning("mcp_login_password_unset", email=email)
             return {"error": "no_password", "message": "This account has no password set. Use an OAuth provider instead."}
         if not crypto.verify_secret(password, user.password_hashed):
-            print_color("yellow", f"[MCP] login: wrong password for {email!r}")
+            logger.warning("mcp_login_invalid_password", email=email)
             return {"error": "invalid_credentials", "message": "Invalid email or password."}
 
-        auth_token = tokens.create_jwt_token(token_context_key="auth", subject=user.id)
-        print_color("cyan", f"[MCP] login: success for user_id={user.id!s}")
+        auth_token = tokens.create_jwt_token(token_context_key="auth", subject=user.id)  # noqa: S106
+        logger.info("mcp_login_succeeded", user_id=str(user.id))
         return {"auth_token": auth_token, "user_id": str(user.id), "email": user.email}
 
     @mcp.tool()
@@ -102,13 +103,13 @@ def register_user_mcp_tools(mcp: FastMCP) -> None:
         - "Who am I logged in as?"
         - "What is the user_id for my current session?"
         """
-        print_color("cyan", "[MCP] get_current_user: called")
+        logger.debug("mcp_get_current_user_started")
         from libs.mcp.auth import get_user_from_token
 
         user = get_user_from_token(auth_token)
         if not user:
-            print_color("yellow", "[MCP] get_current_user: invalid or expired token")
+            logger.warning("mcp_get_current_user_invalid_token")
             return {"error": "unauthorized", "message": "Invalid or expired auth_token."}
 
-        print_color("cyan", f"[MCP] get_current_user: user_id={user.id!s} email={user.email!r}")
+        logger.debug("mcp_get_current_user_succeeded", user_id=str(user.id), email=user.email)
         return {"user_id": str(user.id), "email": user.email, "pseudo": user.pseudo}

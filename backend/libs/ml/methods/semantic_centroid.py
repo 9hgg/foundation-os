@@ -95,6 +95,17 @@ def _centroid_text(centroid: SemanticCentroidDescription) -> str:
     )
 
 
+def _clean_embedding_candidate_text(text: str) -> str:
+    cleaned = re.sub(r"[^\w\s]", " ", text, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _truncate_text(text: str, max_chars: int) -> str:
+    if max_chars <= 0 or len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip()
+
+
 def _cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
     dot = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = math.sqrt(sum(x * x for x in a))
@@ -123,6 +134,7 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
         refinement_iterations: int = 0,
         max_refinement_samples_per_label: int = 20,
         embedding_batch_size: int = 32,
+        max_embedding_chars: int = 2000,
         distance: Literal["cosine"] = "cosine",
         # Scoring: how per-label scores are derived from individual centroid scores.
         # "max"  — label score = best matching centroid (default).
@@ -157,6 +169,7 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
         self.refinement_iterations = refinement_iterations
         self.max_refinement_samples_per_label = max_refinement_samples_per_label
         self.embedding_batch_size = embedding_batch_size
+        self.max_embedding_chars = max_embedding_chars
         self.distance = distance
         self.label_score_aggregation = label_score_aggregation
         self.contrast_examples_per_other_label = contrast_examples_per_other_label
@@ -359,7 +372,7 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
 
     def _classify_from_enriched(self, enriched: list[str]) -> list[ClassificationPrediction]:
         """Core classification on already-enriched texts — no enrich call here."""
-        embeddings = self._embed_texts(enriched)
+        embeddings = self._embed_candidate_texts(enriched)
         predictions: list[ClassificationPrediction] = []
 
         # Group centroid indices by label for aggregation
@@ -414,6 +427,17 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
             )
         return predictions
 
+    def _prepare_candidate_embedding_text(self, text: str) -> str:
+        cleaned = _clean_embedding_candidate_text(text)
+        return _truncate_text(cleaned, self.max_embedding_chars)
+
+    def _prepare_centroid_embedding_text(self, text: str) -> str:
+        return _clean_embedding_candidate_text(text)
+
+    def _embed_candidate_texts(self, texts: list[str]) -> list[list[float]]:
+        prepared = [self._prepare_candidate_embedding_text(text) for text in texts]
+        return self._embed_texts(prepared)
+
     def _embed_texts(self, texts: list[str]) -> list[list[float]]:
         missing = [text for text in texts if text not in self._embedding_cache]
         for start in range(0, len(missing), self.embedding_batch_size):
@@ -432,7 +456,11 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
         for label_id in sorted(descriptions):
             for centroid in descriptions[label_id][: self.max_centroids_per_label]:
                 centroid_refs.append((label_id, centroid))
-                centroid_texts.append(self.enrich(_centroid_text(centroid)))
+                centroid_texts.append(
+                    self._prepare_centroid_embedding_text(
+                        self.enrich(_centroid_text(centroid))
+                    )
+                )
 
         embeddings = self._embed_texts(centroid_texts)
         self.descriptions_ = {
@@ -457,14 +485,27 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
         samples: list[str],
         contrast_examples: list[str] | None = None,
     ) -> list[SemanticCentroidDescription]:
-        response = structured_completion(
-            self.llm_client,
-            self._centroid_prompt(samples, contrast_examples=contrast_examples or []),
-            SemanticCentroidSet,
-            model=self.clustering_model,
-            temperature=0.0,
-        )
-        return response.centroids[: self.max_centroids_per_label]
+        messages = self._centroid_prompt(samples, contrast_examples=contrast_examples or [])
+        for attempt in range(3):
+            response = structured_completion(
+                self.llm_client,
+                messages,
+                SemanticCentroidSet,
+                model=self.clustering_model,
+                temperature=0.0,
+            )
+            centroids = response.centroids[: self.max_centroids_per_label]
+            issues = self._centroid_embedding_issues(centroids)
+            if not issues:
+                return centroids
+            messages = [
+                *messages,
+                LLMMessage(
+                    role="user",
+                    content=self._centroid_length_feedback(issues, attempt + 1),
+                ),
+            ]
+        return self._shrink_centroids_for_embedding(centroids)
 
     def _generate_refinement_centroids(
         self,
@@ -473,25 +514,96 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
         existing_centroids: list[SemanticCentroidDescription],
         max_new_centroids: int,
     ) -> list[SemanticCentroidDescription]:
-        response = structured_completion(
-            self.llm_client,
-            self._refinement_prompt(
-                missed_samples=missed_samples,
-                existing_centroids=existing_centroids,
-                max_new_centroids=max_new_centroids,
-            ),
-            SemanticCentroidSet,
-            model=self.clustering_model,
-            temperature=0.0,
+        messages = self._refinement_prompt(
+            missed_samples=missed_samples,
+            existing_centroids=existing_centroids,
+            max_new_centroids=max_new_centroids,
         )
+        for attempt in range(3):
+            response = structured_completion(
+                self.llm_client,
+                messages,
+                SemanticCentroidSet,
+                model=self.clustering_model,
+                temperature=0.0,
+            )
+            centroids = self._dedupe_refinement_centroids(
+                response.centroids, existing_centroids, max_new_centroids
+            )
+            issues = self._centroid_embedding_issues(centroids)
+            if not issues:
+                return centroids
+            messages = [
+                *messages,
+                LLMMessage(
+                    role="user",
+                    content=self._centroid_length_feedback(issues, attempt + 1),
+                ),
+            ]
+        return self._shrink_centroids_for_embedding(centroids)
+
+    def _dedupe_refinement_centroids(
+        self,
+        centroids: list[SemanticCentroidDescription],
+        existing_centroids: list[SemanticCentroidDescription],
+        max_new_centroids: int,
+    ) -> list[SemanticCentroidDescription]:
         existing_names = {
             centroid.name.strip().lower() for centroid in existing_centroids
         }
         return [
             centroid
-            for centroid in response.centroids
+            for centroid in centroids
             if centroid.name.strip().lower() not in existing_names
         ][:max_new_centroids]
+
+    def _centroid_embedding_issues(
+        self, centroids: list[SemanticCentroidDescription]
+    ) -> list[str]:
+        if self.max_embedding_chars <= 0:
+            return []
+        issues: list[str] = []
+        for index, centroid in enumerate(centroids, start=1):
+            text = self._prepare_centroid_embedding_text(
+                self.enrich(_centroid_text(centroid))
+            )
+            if len(text) > self.max_embedding_chars:
+                issues.append(
+                    f"centroid {index} ({centroid.name!r}) is {len(text)} chars"
+                )
+        return issues
+
+    def _centroid_length_feedback(self, issues: list[str], attempt: int) -> str:
+        rendered_issues = "\n".join(f"- {issue}" for issue in issues)
+        return (
+            f"The centroid text is too long for the embedding model "
+            f"(limit: {self.max_embedding_chars} chars after cleanup). "
+            f"Attempt {attempt}/3 failed:\n{rendered_issues}\n\n"
+            "Regenerate the JSON with much shorter centroid names, descriptions, "
+            "and prototype examples. Keep the same language and discriminative meaning. "
+            "Each full centroid (name + description + examples) must fit under the limit."
+        )
+
+    def _shrink_centroids_for_embedding(
+        self, centroids: list[SemanticCentroidDescription]
+    ) -> list[SemanticCentroidDescription]:
+        if self.max_embedding_chars <= 0:
+            return centroids
+        shrunk: list[SemanticCentroidDescription] = []
+        for centroid in centroids:
+            budget = max(80, self.max_embedding_chars // 3)
+            shrunk.append(
+                SemanticCentroidDescription(
+                    name=_truncate_text(centroid.name, 80),
+                    description=_truncate_text(centroid.description, budget),
+                    examples=[
+                        _truncate_text(example, budget)
+                        for example in centroid.examples[:3]
+                    ]
+                    or [_truncate_text(centroid.description, budget)],
+                )
+            )
+        return shrunk
 
     def _centroid_prompt(
         self,
@@ -509,7 +621,7 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
             )
             contrast_block = (
                 "\n\nFor reference, the following examples belong to OTHER classes. "
-                "Your centroids must NOT match them — use them to make your descriptions "
+                "Your subclasses must NOT match them — use them to make your descriptions "
                 "more discriminative:\n\n"
                 f"{rendered_contrast}"
             )
@@ -517,28 +629,25 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
             LLMMessage(
                 role="system",
                 content=(
-                    "You group same-class samples into compact, discriminative "
-                    "semantic centroid descriptions. Return only the requested JSON. "
-                    "The domain can be anything: maintenance events, reviews, recipes, "
-                    "game feedback, support tickets, or another text classification task."
+                    "You group same-class provided samples into compact, discriminative "
+                    "semantic sub-classes."
+                    "The domain must be inferred from the provided samples. Do not create random or generic sub-classes — they must be grounded in the actual shared semantics of the samples."
                 ),
             ),
             LLMMessage(
                 role="user",
                 content=(
-                    "All examples below belong to the same internal target class. "
-                    "You do not need to name or infer that class.\n"
-                    f"Create at most {self.max_centroids_per_label} semantic sub-reasons "
+                    "All samples below belong to the same target class. "
+                    f"Create at most {self.max_centroids_per_label} semantic sub-classes "
                     "that explain recurring reasons why these samples belong together. "
                     "Keep descriptions short, specific, and useful for nearest-centroid "
                     "classification.\n\n"
-                    "For each centroid, examples must be rewritten prototype snippets: "
+                    "For each sub-class, you must create examples, rewritten prototype snippets: "
                     "short paraphrases with the same semantic ideas and important words. "
                     "Do not copy full input samples verbatim. Do not write references like "
                     "'Example 2' or 'Sample 4'.\n\n"
-                    "IMPORTANT: write all centroid names, descriptions, and example snippets "
-                    "in the same language as the input examples below. "
-                    "Do not translate.\n\n"
+                    "IMPORTANT: write all sub-class names, descriptions, and example snippets "
+                    "in the same language as the input examples below. \n\n"
                     f"{rendered_examples}"
                     f"{contrast_block}"
                 ),
@@ -631,26 +740,26 @@ class SemanticCentroidJsonClassifier(TrainableClassifier[JsonInput]):
             LLMMessage(
                 role="system",
                 content=(
-                    "You refine semantic centroids for a classifier. Return only "
-                    "new centroid descriptions that explain missed same-class samples. "
-                    "The domain is arbitrary; do not assume a specific business domain."
+                    "You refine semantic classes for a classifier. Return only "
+                    "new class descriptions that explain missed same-class samples. "
+                    "The domain is inferred from provided samples."
                 ),
             ),
             LLMMessage(
                 role="user",
                 content=(
-                    f"Existing centroids for this internal target class:\n"
+                    f"Existing sub-classes for this target class:\n"
                     f"{rendered_centroids or '- none'}\n\n"
-                    "The current centroid classifier misclassified these samples, "
+                    "The current distance-based classifier misclassified these samples, "
                     "but they all belong to this same internal target class. Create at most "
-                    f"{max_new_centroids} additional centroids or improved example "
+                    f"{max_new_centroids} additional subclasses or improved example "
                     "groups that cover the missed samples without duplicating existing "
-                    "centroids.\n\n"
-                    "For each centroid, examples must be rewritten prototype snippets: "
+                    "subclasses.\n\n"
+                    "For each subclass, examples must be rewritten prototype snippets: "
                     "short paraphrases with the same semantic ideas and important words. "
                     "Do not copy full input samples verbatim. Do not write references like "
                     "'Example 2' or 'Sample 4'.\n\n"
-                    "IMPORTANT: write all centroid names, descriptions, and example snippets "
+                    "IMPORTANT: write all subclass names, descriptions, and example snippets "
                     "in the same language as the missed samples below. "
                     "Do not translate.\n\n"
                     f"{rendered_misses}"

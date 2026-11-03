@@ -1,0 +1,131 @@
+<div
+	name="seek-bar-row"
+	class="flex flex-row items-center gap-2"
+	[style.color]="contentColor()"
+>
+	<!-- current time -->
+	@if (showTimeLabels()) {
+		<div
+			name="current-time"
+			class="min-w-10 select-none text-right text-sm tabular-nums"
+		>
+			{{ displayTime() | duration }}
+		</div>
+	}
+
+	<!-- interactive track -->
+	<div
+		name="seek-bar-track-wrapper"
+		class="relative flex-1 py-3"
+	>
+		<!-- time left, centred over the track — the tooltip takes the same spot while scrubbing -->
+		@if (showRemainingTime() && !tooltipVisible() && durationValue() > 0) {
+			<div
+				name="remaining-time"
+				class="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 select-none text-xs tabular-nums opacity-60"
+			>
+				-{{ remainingTime() | duration }}
+			</div>
+		}
+
+		<!-- tooltip -->
+		@if (tooltipVisible()) {
+			<div
+				name="seek-bar-tooltip"
+				class="pointer-events-none absolute -top-1 z-10 -translate-x-1/2 rounded bg-neutral px-1.5 py-0.5 text-xs tabular-nums text-neutral-content shadow"
+				[style.left.%]="tooltipPercent()"
+			>
+				{{ tooltipTime() | duration }}
+			</div>
+		}
+
+		<div
+			#track
+			role="slider"
+			name="seek-bar-track"
+			class="group relative w-full touch-none"
+			[class.h-1.5]="!showWaveform()"
+			[class.rounded-full]="!showWaveform()"
+			[class.h-10]="showWaveform()"
+			[class.cursor-pointer]="!disabled()"
+			[class.is-scrubbing]="isScrubbing()"
+			[attr.tabindex]="disabled() ? -1 : 0"
+			[attr.aria-label]="ariaLabel()"
+			[attr.aria-orientation]="'horizontal'"
+			[attr.aria-valuemin]="0"
+			[attr.aria-valuemax]="durationValue()"
+			[attr.aria-valuenow]="displayTime()"
+			[attr.aria-valuetext]="ariaValueText()"
+			[attr.aria-disabled]="disabled()"
+			[style.backgroundColor]="waveformDrawn() ? 'transparent' : hasError() ? errorColor() : trackColor()"
+			(pointerdown)="onPointerDown($event)"
+			(pointermove)="onPointerMove($event)"
+			(pointerup)="onPointerUp($event)"
+			(pointercancel)="onPointerUp($event)"
+			(pointerleave)="onPointerLeave()"
+			(keydown)="onKeydown($event)"
+		>
+			@if (showWaveform()) {
+				<!-- waveform variant -->
+				<lib-waveform
+					class="pointer-events-none absolute inset-0"
+					[audioUrl]="mediaUrl()"
+					(hasBars)="waveformDrawn.set($event)"
+					[progressRatio]="progressRatio()"
+					[playedColor]="hasError() ? errorColor() : progressColor()"
+					[unplayedColor]="trackColor()"
+				/>
+				<!-- playhead -->
+				<div
+					name="seek-bar-playhead"
+					class="seek-bar-progress pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2"
+					[style.left.%]="progressPercent()"
+					[style.backgroundColor]="hasError() ? errorColor() : progressColor()"
+				></div>
+			} @else {
+				<!-- buffered range -->
+				<div
+					name="seek-bar-buffered"
+					class="absolute inset-y-0 left-0 rounded-full opacity-30"
+					[style.width.%]="bufferedPercent()"
+					[style.backgroundColor]="bufferedColor()"
+				></div>
+
+				<!-- progress -->
+				<div
+					name="seek-bar-progress"
+					class="seek-bar-progress absolute inset-y-0 left-0 rounded-full"
+					[style.width.%]="progressPercent()"
+					[style.backgroundColor]="hasError() ? errorColor() : progressColor()"
+				></div>
+
+				<!-- thumb -->
+				<div
+					name="seek-bar-thumb"
+					class="seek-bar-thumb absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus:opacity-100"
+					[class.opacity-100]="isScrubbing()"
+					[style.left.%]="progressPercent()"
+					[style.backgroundColor]="thumbColor()"
+				></div>
+			}
+
+			<!-- loading spinner -->
+			@if (loading() && !hasError()) {
+				<span
+					name="seek-bar-loading"
+					class="loading loading-spinner loading-xs absolute right-0 top-1/2 -translate-y-1/2"
+				></span>
+			}
+		</div>
+	</div>
+
+	<!-- duration -->
+	@if (showTimeLabels()) {
+		<div
+			name="total-duration"
+			class="min-w-10 select-none text-left text-sm tabular-nums"
+		>
+			{{ durationValue() | duration }}
+		</div>
+	}
+</div>

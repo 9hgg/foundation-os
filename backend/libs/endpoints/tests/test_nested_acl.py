@@ -10,14 +10,15 @@ from unittest.mock import MagicMock
 
 import pytest
 import sqlmodel
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 from sqlmodel import create_engine
 
 from libs.acl.models import Acl, Operation, Who
-from libs.endpoints.endpoints import apply_operation_access_filter
-from libs.resource import Resource, SameAccessAs
+from libs.endpoints.endpoints import apply_operation_access_filter, build_effective_acl_clause
+from libs.resource import CanReadIfReadOverJsonArray, Resource, SameAccessAs
 from libs.teams.models import Membership
-
 
 # ---------------------------------------------------------------------------
 # Minimal resource hierarchy for these tests
@@ -70,7 +71,7 @@ def engine(tmp_path_factory):
         f"sqlite:///{db_path}",
         connect_args={"check_same_thread": False},
     )
-    # Only create the tables we need – avoids JSONB/ENUM issues with other models
+    # Only create the tables we need - avoids JSONB/ENUM issues with other models
     for tbl in _TABLES:
         tbl.create(eng, checkfirst=True)
     yield eng
@@ -118,7 +119,7 @@ def _make_acl(resource, operation: Operation, who: Who, who_id=None) -> Acl:
 def test_direct_acl_gives_access(db, user):
     """A resource with a direct ACL for the user is returned."""
     parent = _insert(db, AclParent(name="parent-direct"))
-    acl = _insert(db, _make_acl(parent, Operation.READ, Who.user, user.id))
+    _insert(db, _make_acl(parent, Operation.READ, Who.user, user.id))
 
     query = db.query(AclParent)
     result = apply_operation_access_filter(
@@ -254,3 +255,43 @@ def test_other_user_acl_does_not_give_access(db, user):
     ).all()
 
     assert not any(r.id == parent.id for r in result)
+
+
+class AclJsonParent(Resource, table=True):
+    __tablename__ = "test_acl_json_parents"
+    __kind__ = "test_acl_json_parent"
+    config: dict = sqlmodel.Field(sa_type=JSONB, default_factory=dict)
+
+
+class AclJsonChild(Resource, table=True):
+    __tablename__ = "test_acl_json_children"
+    __kind__ = "test_acl_json_child"
+
+
+AclJsonChild.__access_rules__ = (CanReadIfReadOverJsonArray(AclJsonParent, array_field="child_ids"),)
+
+
+def test_json_array_rule_generates_jsonb_containment_sql(user):
+    """The JSONB many-to-many rule (Postgres-only @>) can't run on the SQLite test DB, so
+    assert it compiles to `parent.config['child_ids'] @> jsonb_build_array(child.id)`."""
+    clause = build_effective_acl_clause(
+        ResourceClass=AclJsonChild,
+        resource_expr=AclJsonChild,
+        current_user_db=user,
+        session=None,
+        operation=Operation.READ,
+    )
+    sql = str(clause.compile(dialect=postgresql.dialect()))
+
+    assert "@>" in sql
+    assert "jsonb_build_array" in sql
+
+
+def test_file_defers_read_to_the_albums_that_list_it():
+    """Wiring guard: importing albums attaches the album->file JSON rule onto File."""
+    from libs.albums.models import Album
+    from libs.files.models import File
+
+    rule = next(r for r in File.__access_rules__ if isinstance(r, CanReadIfReadOverJsonArray))
+    assert rule.target_resource is Album
+    assert rule.array_field == "file_ids"

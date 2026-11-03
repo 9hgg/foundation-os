@@ -1,9 +1,12 @@
 import typing
 
-from libs.logger import print
+import structlog
+
 from libs.utils.types import BaseModelWithConfig
 
-from ..models import Mail, MailSettings, MailTemplate
+from ..models import Mail, MailSettings
+
+logger = structlog.get_logger(__name__)
 
 COMMASPACE = ", "
 
@@ -25,22 +28,9 @@ class GenericMailProvider(BaseModelWithConfig):
         subject: str,
         text_content: str,
         html_content: str | None = None,
-        attachments: list[str] = [],
+        cc_emails: list[str] | None = None,
+        attachments: list[str] | None = None,
         dry_run: bool = False,
-    ):
-        """Should send the mail using the provider"""
-        raise NotImplementedError()
-
-    def send_email_from_template(
-        self,
-        *,
-        template: MailTemplate,
-        sender_email: str,
-        recipient_emails: list[str],
-        subject: str,
-        text_content: str,
-        html_content: str | None = None,
-        attachments: list[str] = [],
     ):
         """Should send the mail using the provider"""
         raise NotImplementedError()
@@ -53,20 +43,19 @@ class GenericMailProvider(BaseModelWithConfig):
         subject: str,
         text_content: str,
         html_content: str | None = None,
-        attachments: list[str] = [],
-        headers: list[typing.Tuple[str, str]] = [],
+        attachments: list[str] | None = None,
+        headers: list[tuple[str, str]] | None = None,
     ):
-        print()
-        print("DRY RUN: email not sent")
-        print(40 * "-")
-        print("sender_email", sender_email)
-        print("recipient_emails", recipient_emails)
-        print("subject", subject)
-        print("text_content", text_content)
-        print("html_content", html_content)
-        print("attachments", attachments)
-        print("headers", headers)
-        print(40 * "-")
-        print("config", self.config.host)
-        print()
+        if headers is None:
+            headers = []
+        if attachments is None:
+            attachments = []
+        logger.info(
+            "mail_dry_run",
+            provider=type(self).__name__,
+            recipient_count=len(recipient_emails),
+            attachment_count=len(attachments),
+            header_count=len(headers),
+            has_html=html_content is not None,
+        )
         return

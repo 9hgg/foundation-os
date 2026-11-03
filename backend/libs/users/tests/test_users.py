@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
-import pytest
-from libs.users.methods import get_current_user_optional, _get_user_display_info
+
+from libs.users.methods import _get_user_display_info, get_current_user_optional
 
 
 @patch("libs.users.methods.jwt.decode")

@@ -11,6 +11,8 @@ export interface Interaction extends Resource {
 	 * For anonymous interactions this is null/undefined.
 	 */
 	userId?: string | null;
+	/** Host-side lifecycle marker; null = active. e.g. 'archived'. Hiding is a UI concern. */
+	state?: string | null;
 	config: Record<string, any>;
 }
 

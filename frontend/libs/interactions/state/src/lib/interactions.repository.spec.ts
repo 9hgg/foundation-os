@@ -123,4 +123,138 @@ describe('InteractionsRepository', () => {
 		repo.saveInteractionByToken$(interaction)?.subscribe();
 		expect(requestServiceMock.put$).toHaveBeenCalledWith('/api/interactions/by-token/tok-2', interaction);
 	});
+
+	it('saveInteractionByToken$ returns undefined and does not call the backend when the stored token is empty', () => {
+		const interaction: any = { id: 'inter-no-token', config: {} };
+		repo.interactionTokensAndKeys$_['inter-no-token'] = { token: '' };
+		const result = repo.saveInteractionByToken$(interaction);
+		expect(result).toBeUndefined();
+		expect(requestServiceMock.put$).not.toHaveBeenCalled();
+	});
+
+	it('getOrCreateInteraction$ fetches from the backend when the token is known but the interaction is not cached locally', () => {
+		const interaction = { id: 'inter-fetched', key: 'fetch-key', config: {} };
+		repo.interactionTokensAndKeys$_['inter-fetched'] = { key: 'fetch-key', token: 'tok-fetched' };
+		requestServiceMock.getBasic$.mockReturnValue(of({ result: interaction }));
+
+		let result: any;
+		repo.getOrCreateInteraction$('fetch-key').subscribe((v) => (result = v));
+
+		expect(requestServiceMock.getBasic$).toHaveBeenCalledWith('/api/interactions/by-token/tok-fetched');
+		expect(result).toEqual(interaction);
+		expect(repo.interactions['inter-fetched']).toEqual(interaction);
+	});
+
+	it('getOrCreateInteraction$ creates a new interaction when the backend has none for the known token', () => {
+		repo.interactionTokensAndKeys$_['inter-stale'] = { key: 'stale-key', token: 'tok-stale' };
+		requestServiceMock.getBasic$.mockReturnValue(of({ result: null }));
+		const created = { id: 'inter-new', key: 'stale-key', config: {} };
+		requestServiceMock.post$.mockReturnValue(of({ result: { interaction: created, interactionToken: 'tok-new' } }));
+
+		let result: any;
+		repo.getOrCreateInteraction$('stale-key').subscribe((v) => (result = v));
+
+		expect(requestServiceMock.post$).toHaveBeenCalledWith('/api/interactions/by-token/create', { key: 'stale-key' });
+		expect(result).toEqual(created);
+	});
+
+	it('getOrCreateInteraction$ recovers the interaction server-side when the user is authenticated', () => {
+		authTokensMock.getCurrentAuthToken.mockReturnValue('some-auth-token');
+		const interaction = { id: 'inter-user', key: 'user-key', config: {} };
+		requestServiceMock.post$.mockReturnValue(of({ result: { interaction, interactionToken: 'tok-user' } }));
+
+		let result: any;
+		repo.getOrCreateInteraction$('user-key').subscribe((v) => (result = v));
+
+		expect(requestServiceMock.post$).toHaveBeenCalledWith('/api/interactions/by-user/get-or-create', { key: 'user-key', forceNew: false });
+		expect(result).toEqual(interaction);
+		authTokensMock.getCurrentAuthToken.mockReturnValue(null);
+	});
+
+	it('_getOrCreateInteractionForUser$ throws when the backend returns no result', () => {
+		authTokensMock.getCurrentAuthToken.mockReturnValue('some-auth-token');
+		requestServiceMock.post$.mockReturnValue(of({ result: null }));
+
+		let error: any;
+		repo.getOrCreateInteraction$('missing-user-key').subscribe({ error: (e) => (error = e) });
+
+		expect(error).toBeInstanceOf(Error);
+		authTokensMock.getCurrentAuthToken.mockReturnValue(null);
+	});
+
+	it('setInteractionState$ patches matching interactions across interactionsByItems in place', () => {
+		repo.interactionsByItems.set({
+			'item-1': {
+				item: { id: 'item-1' } as any,
+				interactions: [{ id: 'inter-a', state: null } as any, { id: 'inter-b', state: null } as any],
+			},
+			'item-2': {
+				item: { id: 'item-2' } as any,
+				interactions: [{ id: 'inter-c', state: null } as any],
+			},
+		});
+		requestServiceMock.post$.mockReturnValue(of({ result: { id: 'inter-a', state: 'archived' } }));
+
+		repo.setInteractionState$('inter-a', 'archived').subscribe();
+
+		expect(requestServiceMock.post$).toHaveBeenCalledWith('/api/interactions/inter-a/state', { state: 'archived' });
+		const byItems = repo.interactionsByItems();
+		expect(byItems['item-1'].interactions).toEqual([
+			{ id: 'inter-a', state: 'archived' },
+			{ id: 'inter-b', state: null },
+		]);
+		expect(byItems['item-2'].interactions).toEqual([{ id: 'inter-c', state: null }]);
+	});
+
+	it('setInteractionState$ leaves interactionsByItems untouched when the backend returns no result', () => {
+		const before = { 'item-1': { item: { id: 'item-1' } as any, interactions: [{ id: 'inter-a', state: null } as any] } };
+		repo.interactionsByItems.set(before);
+		requestServiceMock.post$.mockReturnValue(of({ result: null }));
+
+		repo.setInteractionState$('inter-a', 'archived').subscribe();
+
+		expect(repo.interactionsByItems()).toEqual(before);
+	});
+
+	it('forgetInteractionForKey drops the stored token, cached interaction and pending request for that key', () => {
+		repo.interactionTokensAndKeys$_['inter-forget'] = { key: 'forget-key', token: 'tok-forget' };
+		repo.interactions['inter-forget'] = { id: 'inter-forget' } as any;
+
+		repo.forgetInteractionForKey('forget-key');
+
+		expect(repo.interactionTokensAndKeys$_['inter-forget']).toBeUndefined();
+		expect(repo.interactions['inter-forget']).toBeUndefined();
+	});
+
+	it('forgetInteractionForKey is a no-op when no stored session matches the key', () => {
+		expect(() => repo.forgetInteractionForKey('never-seen-key')).not.toThrow();
+	});
+
+	it('startNewInteractionForKey$ forgets the previous session and creates a fresh one when unauthenticated', () => {
+		repo.interactionTokensAndKeys$_['inter-old'] = { key: 'restart-key', token: 'tok-old' };
+		repo.interactions['inter-old'] = { id: 'inter-old' } as any;
+		authTokensMock.getCurrentAuthToken.mockReturnValue(null);
+		const created = { id: 'inter-restarted', key: 'restart-key', config: {} };
+		requestServiceMock.post$.mockReturnValue(of({ result: { interaction: created, interactionToken: 'tok-restarted' } }));
+
+		let result: any;
+		repo.startNewInteractionForKey$('restart-key').subscribe((v) => (result = v));
+
+		expect(repo.interactionTokensAndKeys$_['inter-old']).toBeUndefined();
+		expect(requestServiceMock.post$).toHaveBeenCalledWith('/api/interactions/by-token/create', { key: 'restart-key' });
+		expect(result).toEqual(created);
+	});
+
+	it('startNewInteractionForKey$ asks the server to force a brand-new interaction when authenticated', () => {
+		authTokensMock.getCurrentAuthToken.mockReturnValue('some-auth-token');
+		const created = { id: 'inter-forced', key: 'forced-key', config: {} };
+		requestServiceMock.post$.mockReturnValue(of({ result: { interaction: created, interactionToken: 'tok-forced' } }));
+
+		let result: any;
+		repo.startNewInteractionForKey$('forced-key').subscribe((v) => (result = v));
+
+		expect(requestServiceMock.post$).toHaveBeenCalledWith('/api/interactions/by-user/get-or-create', { key: 'forced-key', forceNew: true });
+		expect(result).toEqual(created);
+		authTokensMock.getCurrentAuthToken.mockReturnValue(null);
+	});
 });

@@ -1,17 +1,13 @@
 import { AsyncPipe } from '@angular/common';
 import { AppConfigService } from '@foundation/app/config';
 import { Article } from '@foundation/articles/models';
-import { ArticlesRepository } from '@foundation/articles/state';
+import { SupportService } from '@foundation/articles/state';
 import { ArticleTableComponent } from '@foundation/articles/ui';
-import { ConversationsRepository } from '@foundation/conversations/state';
 import { NotificationService } from '@foundation/notification';
 import { TranslateDirective, TranslationService } from '@foundation/translations/services';
-import { slugify } from '@foundation/utils';
 
 import { ChangeDetectionStrategy, Component, effect, inject, model, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { map, of, switchMap, tap } from 'rxjs';
-import { v4 as uuidv4 } from 'uuid';
 const DEBUG = true;
 
 @Component({
@@ -28,8 +24,7 @@ export class SupportListPageComponent {
 	private _notificationService = inject(NotificationService);
 	private _router = inject(Router);
 
-	private _articlesRepository = inject(ArticlesRepository);
-	private _conversationsRepository = inject(ConversationsRepository);
+	private _supportService = inject(SupportService);
 	public appConfigService = inject(AppConfigService);
 
 	articles = model<(Article | null)[]>([]);
@@ -60,52 +55,12 @@ export class SupportListPageComponent {
 		});
 	}
 
-	private _i18n_createNewArticleSentence = this._translationService.prep('Give a name to your request:');
 	public createNewArticle(kind: 'support' | 'backlog') {
-		const articleId = uuidv4();
-
-		this._notificationService
-			.prompt(undefined, this._i18n_createNewArticleSentence(), { width: '300px' })
-			.closed.pipe(
-				switchMap((promptResult) => {
-					if (!promptResult) return of(null);
-					const articleName = promptResult.value;
-
-					if (!articleName) return of(null);
-
-					const article: Article = {
-						id: articleId,
-						kind,
-						title: articleName,
-						slug: slugify(articleName) + '_' + articleId,
-						featured: false,
-						draft: kind == 'backlog' ? true : false,
-						tags: [],
-						config: {
-							commentsEnabled: true,
-						},
-					};
-					return this._articlesRepository.store.postObject$(article);
-				}),
-				switchMap((r) => {
-					if (r?.result?.data && kind === 'backlog') {
-						return this._articlesRepository.store.toggleAnonymousReadForObject$(articleId).pipe(map(() => r));
-					}
-					return of(r);
-				}),
-				switchMap((r) => {
-					if (r?.result?.data) {
-						return this._conversationsRepository.createConversationFor$(articleId, 'article', 'default').pipe(
-							tap((conversation) => {
-								console.log('Conversation created or retrieved:', conversation);
-								if (conversation) this._router.navigateByUrl('/host/dashboard/support/' + r.result.data.id);
-							})
-						);
-					}
-					return of(null);
-				})
-			)
-			.subscribe();
+		this._supportService
+			.createTicket$(kind)
+			.subscribe((article) => {
+				if (article) this._router.navigateByUrl('/host/dashboard/support/' + article.id);
+			});
 	}
 
 	public goToArticle(articleId: string) {

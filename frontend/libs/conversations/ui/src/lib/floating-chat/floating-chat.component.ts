@@ -3,15 +3,11 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { Component, ElementRef, Input, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Article } from '@foundation/articles/models';
-import { ArticlesRepository } from '@foundation/articles/state';
-import { ConversationsRepository } from '@foundation/conversations/state';
+import { ArticlesRepository, SupportService } from '@foundation/articles/state';
 import { TwCrossIcon, TwInfoCircleIcon } from '@foundation/icons';
 import { RepositoryTableComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { UsersRepository } from '@foundation/users/state';
-import { slugify } from '@foundation/utils';
-import { of, switchMap, tap } from 'rxjs';
-import { v4 as uuidv4 } from 'uuid';
 import { ChatDisplayerComponent } from '../chat-displayer/chat-displayer.component';
 
 type PositionPreset = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
@@ -38,7 +34,7 @@ export class FloatingChatComponent extends RepositoryTableComponent<Article, Art
 
 	// Repositories and Services
 	private _usersRepository = inject(UsersRepository);
-	private _conversationsRepository = inject(ConversationsRepository);
+	private _supportService = inject(SupportService);
 
 	// Signals for drag functionality
 	position = signal({ x: 0, y: 0 }); // Current absolute position
@@ -288,60 +284,19 @@ export class FloatingChatComponent extends RepositoryTableComponent<Article, Art
 	}
 
 	createNewSupportTicket(): void {
-		const articleId = uuidv4();
-
-		this._notificationService
-			.prompt(undefined, this._translationService.prep('Give a name to your request:')(), { width: '300px' })
-			.closed.pipe(
-				switchMap((promptResult) => {
-					if (!promptResult) return of(null);
-					const articleName = promptResult.value;
-
-					if (!articleName) return of(null);
-
-					// Start loading
-					this.isCreatingTicket.set(true);
-
-					const article: Article = {
-						id: articleId,
-						kind: 'support',
-						title: articleName,
-						slug: slugify(articleName) + '_' + articleId,
-						featured: false,
-						draft: false,
-						tags: [],
-						config: {
-							commentsEnabled: true,
-						},
-					};
-					return this._repository.store.postObject$(article);
-				}),
-				switchMap((r) => {
-					if (r?.result?.data) {
-						return this._conversationsRepository.createConversationFor$(articleId, 'article', 'default').pipe(
-							tap((conversation) => {
-								console.log('Conversation created or retrieved:', conversation);
-								if (conversation) {
-									// Set the new article as selected and refresh the list
-									this.selectedArticle.set(r.result.data);
-									this.refreshSupportTickets();
-								}
-								// Stop loading
-								this.isCreatingTicket.set(false);
-							})
-						);
-					}
-					// Stop loading if no result
-					this.isCreatingTicket.set(false);
-					return of(null);
-				})
-			)
+		this.isCreatingTicket.set(true);
+		this._supportService
+			.createTicket$('support')
 			.subscribe({
-				error: () => {
-					// Stop loading on error
-					this.isCreatingTicket.set(false);
-				},
-			});
+			next: (article) => {
+				if (article) {
+					this.selectedArticle.set(article);
+					this.refreshSupportTickets();
+				}
+				this.isCreatingTicket.set(false);
+			},
+			error: () => this.isCreatingTicket.set(false),
+		});
 	}
 
 	goToSupportPage(): void {

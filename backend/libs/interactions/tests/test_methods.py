@@ -1,11 +1,7 @@
-import pytest
 import uuid
 from unittest.mock import MagicMock, patch
-from libs.interactions.methods import get_interaction_by_token, _get_interactions_for
-from libs.interactions.models import Interaction
-from libs.users.models import User
-from libs.sessions.models import AppSession
-from libs.resource.resource import Resource
+
+from libs.interactions.methods import _get_interactions_for, get_interaction_by_token
 
 
 @patch("libs.interactions.methods.jwt")

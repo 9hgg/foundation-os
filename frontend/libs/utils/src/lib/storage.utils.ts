@@ -15,26 +15,42 @@ export interface StateStorage {
 	clear(): Async<void>;
 }
 
-function createStorage(storage: Storage | undefined): StateStorage | undefined {
+export function createStorage(storage: Storage | undefined): StateStorage | undefined {
 	if (!storage) {
 		return;
 	}
 
 	return {
 		getItem(key: string) {
-			const v = storage.getItem(key);
-			return of(v ? JSON.parse(v) : v);
+			try {
+				const v = storage.getItem(key);
+				return of(v ? JSON.parse(v) : v);
+			} catch {
+				return of(null);
+			}
 		},
 		setItem(key: string, value: Record<string, any>) {
-			storage.setItem(key, JSON.stringify(value));
-			return of(true);
+			try {
+				storage.setItem(key, JSON.stringify(value));
+				return of(true);
+			} catch {
+				return of(false);
+			}
 		},
 		removeItem(key: string) {
-			storage.removeItem(key);
-			return of(true);
+			try {
+				storage.removeItem(key);
+				return of(true);
+			} catch {
+				return of(false);
+			}
 		},
 		clear() {
-			storage.clear();
+			try {
+				storage.clear();
+			} catch {
+				// no-op — nothing to clear if storage rejects the call
+			}
 			return of(undefined);
 		},
 	};
@@ -53,7 +69,17 @@ const tryGetLocalStorage = () => {
 	}
 	return undefined;
 };
-export const localStorageStrategy = createStorage(tryGetLocalStorage())!;
+// used whenever the browser denies access to storage entirely (e.g. Safari private mode),
+// so callers can rely on localStorageStrategy/sessionStorageStrategy always being defined
+const noopStorage: StateStorage = {
+	getItem: () => of(null),
+	setItem: () => of(false),
+	removeItem: () => of(false),
+	clear: () => of(undefined),
+};
+
+const rawLocalStorage = createStorage(tryGetLocalStorage());
+export const localStorageStrategy: StateStorage = rawLocalStorage ?? noopStorage;
 
 const tryGetSessionStorage = () => {
 	try {
@@ -65,9 +91,10 @@ const tryGetSessionStorage = () => {
 	}
 	return undefined;
 };
-export const sessionStorageStrategy: StateStorage | undefined = createStorage(tryGetSessionStorage())!;
+const rawSessionStorage = createStorage(tryGetSessionStorage());
+export const sessionStorageStrategy: StateStorage = rawSessionStorage ?? noopStorage;
 
-export function getBestStorage(): StateStorage | undefined {
+export function getBestStorage(): StateStorage {
 	// We prefer localStorage if available, otherwise we use sessionStorage
-	return localStorageStrategy || sessionStorageStrategy;
+	return rawLocalStorage ?? rawSessionStorage ?? noopStorage;
 }

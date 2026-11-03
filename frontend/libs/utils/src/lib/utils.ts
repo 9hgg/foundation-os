@@ -1,7 +1,7 @@
 import { Signal, computed, effect } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { cloneDeep, merge, set } from 'lodash-es';
-import { Observable, debounceTime, filter, of, tap } from 'rxjs';
+import { cloneDeep, mergeWith, set } from 'lodash-es';
+import { Observable, debounceTime, filter, map, of, tap } from 'rxjs';
 
 import { BehaviorSubject, EMPTY, NEVER, Subject, Subscription, finalize, from, isObservable, shareReplay, startWith, switchMap, take } from 'rxjs';
 import { isEqual } from './equal.utils';
@@ -294,6 +294,27 @@ export function BehaviorSubjectReplayedFromObs<T>(initialValue: T, obs: Observab
 	return a;
 }
 
+/**
+ * Sent as a value to say that the key should go.
+ *
+ * A patch merges into what is stored, so leaving a key out means "leave it alone" and there is no
+ * way to ask for a removal. The backend reads this value the same way (REMOVE_VALUE, libs/utils).
+ */
+export const REMOVE_VALUE = '~null~';
+
+/** Applies the removals a patch asked for, so what is shown is what will be stored. */
+function dropRemovedKeys<V>(value: V): V {
+	if (Array.isArray(value)) return value.map((entry) => dropRemovedKeys(entry)) as V;
+	if (!value || typeof value !== 'object') return value;
+
+	const source = value as Record<string, unknown>;
+	for (const key of Object.keys(source)) {
+		if (source[key] === REMOVE_VALUE) delete source[key];
+		else source[key] = dropRemovedKeys(source[key]);
+	}
+	return value;
+}
+
 export class PatchableItem<T extends { id: string }> {
 	public itemId: Signal<string | null>;
 	public item$$$: BehaviorSubjectReplayedProxied<string | null, T | null>;
@@ -305,7 +326,12 @@ export class PatchableItem<T extends { id: string }> {
 	public patchedItem = computed<T | null>(() => {
 		const item = this._item();
 		if (!item) return null;
-		return merge(cloneDeep(item), this._itemPatch());
+		// A patch replaces arrays wholesale (patch semantics = replace, not lodash's
+		// default index-by-index array merge, which would keep stale trailing items
+		// when the patch shortens an array).
+		const merged = mergeWith(cloneDeep(item), this._itemPatch(), (_dest, src) => (Array.isArray(src) ? src : undefined));
+		// The saved item is what the server will hold once the patch reaches it, removals included.
+		return dropRemovedKeys(merged) as T;
 	});
 
 	constructor(
@@ -319,18 +345,29 @@ export class PatchableItem<T extends { id: string }> {
 		this.itemId = itemId;
 		this.item$$$ = new BehaviorSubjectReplayedProxied(buildItemObservable, initialItem);
 		this._item = toSignal<T | null>(this.item$$$.$, { initialValue: null });
+
+		// When the edited item changes, reset the local patch so in-progress edits
+		// don't leak onto the newly selected item. Any pending save already captured
+		// its target id at emit time (see the pipe below), so switching won't lose it.
+		let previousItemId: string | null = null;
 		effect(() => {
 			const itemId = this.itemId();
-			console.log('PatchableItem: setting itemId to', itemId);
+			if (previousItemId !== null && previousItemId !== itemId) {
+				this.itemPatch$$$.next({});
+			}
+			previousItemId = itemId;
 			this.item$$$.next(itemId);
 		});
 
 		this.itemPatch$$$
 			.pipe(
 				filter((patch) => Object.keys(patch).length > 0),
+				// Snapshot the target id at edit time, not when the debounced save
+				// fires — otherwise selecting another item mid-edit would save the
+				// pending patch onto the wrong item.
+				map((patch) => ({ patch, itemId: this.item$$$.value?.id ?? null })),
 				debounceTime(debounceTimeMs),
-				tap((patch) => {
-					const itemId = this.item$$$.value?.id;
+				tap(({ patch, itemId }) => {
 					if (!itemId) return;
 					saveItem(itemId, patch);
 				}),

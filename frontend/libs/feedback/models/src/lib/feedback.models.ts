@@ -2,7 +2,7 @@ export const FEEDBACK_INTERACTION_PREFIX = 'feedback';
 
 // ─── Per-kind block configs ──────────────────────────────────────────────────
 
-export type FeedbackKind = 'mcq' | 'text' | 'textarea' | 'file' | 'screenshot' | 'rating' | 'nps' | 'support-ticket';
+export type FeedbackKind = 'mcq' | 'text' | 'textarea' | 'file' | 'screenshot' | 'rating' | 'nps' | 'support-ticket' | 'cta';
 
 export interface FeedbackOption {
 	id: string;
@@ -80,6 +80,26 @@ export interface SupportTicketFeedbackBlock {
 	placeholder?: string;
 }
 
+/**
+ * An announcement with links out. Asks nothing -- what it measures is whether anyone clicked,
+ * which is the whole point: an interaction exists per person who saw it, and a response only
+ * exists for those who acted, so clicks over interactions is the click-through rate.
+ */
+export interface CtaFeedbackBlock {
+	kind: 'cta';
+	question: string;
+	description?: string;
+	links: CtaFeedbackLink[];
+}
+
+export interface CtaFeedbackLink {
+	id: string;
+	label: string;
+	url: string;
+	/** Leaves the app -- documentation, pricing. Opens in a new tab so the dashboard survives. */
+	external?: boolean;
+}
+
 export type FeedbackBlock =
 	| MCQFeedbackBlock
 	| TextFeedbackBlock
@@ -88,7 +108,8 @@ export type FeedbackBlock =
 	| ScreenshotFeedbackBlock
 	| RatingFeedbackBlock
 	| NPSFeedbackBlock
-	| SupportTicketFeedbackBlock;
+	| SupportTicketFeedbackBlock
+	| CtaFeedbackBlock;
 
 /**
  * Composable feedback config.
@@ -159,6 +180,12 @@ export interface SupportTicketFeedbackResponse {
 	title: string;
 }
 
+export interface CtaFeedbackResponse {
+	kind: 'cta';
+	/** Every link this person clicked, in order. Empty is impossible: no click, no response. */
+	clickedIds: string[];
+}
+
 export type FeedbackBlockResponse =
 	| MCQFeedbackResponse
 	| TextFeedbackResponse
@@ -167,7 +194,8 @@ export type FeedbackBlockResponse =
 	| ScreenshotFeedbackResponse
 	| RatingFeedbackResponse
 	| NPSFeedbackResponse
-	| SupportTicketFeedbackResponse;
+	| SupportTicketFeedbackResponse
+	| CtaFeedbackResponse;
 
 /**
  * The full feedback response, stored in `interaction.config.response`.
@@ -209,6 +237,10 @@ export function isRatingFeedbackResponse(value: FeedbackBlockResponse): value is
 
 export function isNPSFeedbackResponse(value: FeedbackBlockResponse): value is NPSFeedbackResponse {
 	return value.kind === 'nps';
+}
+
+export function isCtaFeedbackResponse(value: FeedbackBlockResponse): value is CtaFeedbackResponse {
+	return value.kind === 'cta';
 }
 
 export function isSupportTicketFeedbackResponse(value: FeedbackBlockResponse): value is SupportTicketFeedbackResponse {

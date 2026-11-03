@@ -16,7 +16,7 @@ T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)
 
 
-def instructor_query(
+def instructor_query[T: BaseModel](
     client: LLMClient,
     query: str,
     schema: type[T],

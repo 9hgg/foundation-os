@@ -1,6 +1,5 @@
 import datetime
 import uuid
-from typing import Optional
 
 import sqlalchemy as sa
 import sqlmodel
@@ -8,8 +7,7 @@ from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlmodel import Field
 
-from libs.mcp.display import ResourceDisplayProfile
-from libs.resource import ResourceWithConfig
+from libs.resource import ResourceDisplayProfile, ResourceWithConfig
 from libs.utils.types import BaseModelWithConfig
 
 
@@ -20,9 +18,9 @@ class ArticleConfig(BaseModelWithConfig):
     __private__ = True
     __category__ = "config"
 
-    images: Optional[dict[str, dict[str, str]]] = None
-    deltas: Optional[dict] = None  # Placeholder for Delta type
-    comments_enabled: Optional[bool] = False
+    images: dict[str, dict[str, str]] | None = None
+    deltas: dict | None = None  # Placeholder for Delta type
+    comments_enabled: bool | None = False
 
 
 class Article(ResourceWithConfig, table=True):
@@ -31,7 +29,7 @@ class Article(ResourceWithConfig, table=True):
     __title__ = "Article"
     __description__ = "An article object for blog support, knowledge management, tutorials, backlog items... "
     __config_type__ = ArticleConfig
-    __mcp_display__ = ResourceDisplayProfile(
+    __display_profile__ = ResourceDisplayProfile(
         kind="article",
         title_fields=("title", "slug", "id"),
         subtitle_fields=("summary",),
@@ -41,16 +39,18 @@ class Article(ResourceWithConfig, table=True):
     )
 
     title: str | None = Field(index=True, default=None)
-    slug: Optional[str] = Field(index=True, unique=True, default_factory=lambda: str(uuid.uuid4()))
-    summary: Optional[str] = Field(default=None)
-    content: Optional[str] = Field(default=None)
+    slug: str | None = Field(index=True, unique=True, default_factory=lambda: str(uuid.uuid4()))
+    summary: str | None = Field(default=None)
+    content: str | None = Field(default=None)
 
-    author_id: Optional[uuid.UUID] = Field(foreign_key="users.id", default=None)
+    author_id: uuid.UUID | None = Field(foreign_key="users.id", default=None)
 
     kind: str = "default"  # can also be 'support', 'backlog', 'assistant'
+    # None is live; 'archived' takes it out of the lists without deleting anything.
+    state: str | None = Field(default=None, index=True)
     draft: bool = True
     featured: bool = Field(default=False)
-    time_published: Optional[datetime.datetime] = sqlmodel.Field(
+    time_published: datetime.datetime | None = sqlmodel.Field(
         sa_type=sa.DateTime(timezone=True), nullable=True, default=None
     )
 
@@ -71,3 +71,9 @@ class Article(ResourceWithConfig, table=True):
 
 class AdminArticleFolderAssignment(BaseModelWithConfig):
     folder_id: uuid.UUID
+
+
+class SetArticleStateRequest(BaseModelWithConfig):
+    """What an admin asks of an article: None to bring it back, 'archived' to file it away."""
+
+    state: str | None = None

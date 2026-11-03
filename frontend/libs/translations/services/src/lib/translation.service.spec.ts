@@ -129,7 +129,7 @@ describe('TranslationService', () => {
 		});
 
 		it('should handle API error', () => {
-			const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+			const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 			requestServiceMock.post$.mockReturnValue(
 				of({
 					error: { title: 'Translation error' },
@@ -150,7 +150,7 @@ describe('TranslationService', () => {
 					result = r;
 				});
 
-			expect(alertSpy).toHaveBeenCalledWith('Translation error');
+			expect(consoleErrorSpy).toHaveBeenCalledWith('[TranslationService] translation request failed:', 'Translation error');
 			expect(result).toEqual([]);
 		});
 

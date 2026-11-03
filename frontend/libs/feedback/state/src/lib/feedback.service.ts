@@ -2,20 +2,15 @@ import { inject, Injectable } from '@angular/core';
 import { Interaction } from '@foundation/interactions/models';
 import { InteractionsRepository } from '@foundation/interactions/state';
 import { RequestService } from '@foundation/network/services';
-import { Article } from '@foundation/articles/models';
-import { ArticlesRepository } from '@foundation/articles/state';
-import { ConversationsRepository } from '@foundation/conversations/state';
-import { slugify } from '@foundation/utils';
+import { SupportService } from '@foundation/articles/state';
 import { FeedbackBlockResponse, FEEDBACK_INTERACTION_PREFIX } from '@foundation/feedback/models';
-import { catchError, map, Observable, of, switchMap } from 'rxjs';
-import { v4 as uuidv4 } from 'uuid';
+import { map, Observable, of, switchMap } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {
 	interactionsRepository = inject(InteractionsRepository);
 	private _requestService = inject(RequestService);
-	private _articlesRepository = inject(ArticlesRepository);
-	private _conversationsRepository = inject(ConversationsRepository);
+	private _supportService = inject(SupportService);
 
 	buildInteractionKey(slug: string): string {
 		return `${FEEDBACK_INTERACTION_PREFIX}.${slug}`;
@@ -82,34 +77,13 @@ export class FeedbackService {
 	}
 
 	/**
-	 * Create a support ticket (Article of kind 'support' + default Conversation).
-	 * Returns an observable that emits `true` on success or `false` on failure.
+	 * Create a support ticket from a feedback answer. Emits true on success.
+	 *
+	 * The ticket itself is SupportService's job -- this only keeps the boolean shape the widget
+	 * expects, since a feedback block cares whether it worked, not which article resulted.
 	 */
 	createSupportTicketFromFeedback$(title: string): Observable<boolean> {
-		const articleId = uuidv4();
-		const slugBase = slugify(title) || 'support-ticket';
-		const article: Article = {
-			id: articleId,
-			kind: 'support',
-			title,
-			slug: slugBase + '_' + articleId,
-			featured: false,
-			draft: false,
-			tags: [],
-			config: {
-				commentsEnabled: true,
-			},
-		};
-
-		return this._articlesRepository.store.postObject$(article).pipe(
-			switchMap((r) => {
-				if (!r?.result?.data) return of(false);
-				return this._conversationsRepository.createConversationFor$(articleId, 'article', 'default').pipe(
-					map(() => true),
-				);
-			}),
-			catchError(() => of(false)),
-		);
+		return this._supportService.createTicket$('support', title).pipe(map((article) => !!article));
 	}
 
 	private _saveConfigFlag(slug: string, key: string, value: unknown): void {

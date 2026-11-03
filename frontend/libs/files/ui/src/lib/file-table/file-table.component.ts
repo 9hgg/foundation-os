@@ -1,13 +1,13 @@
 /* eslint-disable @angular-eslint/prefer-inject */
 import { CdkMenu, CdkMenuItem, CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule } from '@angular/common';
-import { Attribute, ChangeDetectionStrategy, Component, inject, model, signal } from '@angular/core';
+import { Attribute, ChangeDetectionStrategy, Component, inject, input, model, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { EntityFile } from '@foundation/files/models';
 import { FilesRepository } from '@foundation/files/state';
 import { FoldersModals } from '@foundation/folders/modals';
 import { AccessService } from '@foundation/shared/access';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { OctetHumanReadablePipe } from '@foundation/utils';
 import { switchMap } from 'rxjs';
@@ -18,13 +18,14 @@ import { FileThumbnailComponent } from '../file-thumbnail/file-thumbnail.compone
 @Component({
 	selector: 'lib-file-table',
 	standalone: true,
-	imports: [CommonModule, TranslateDirective, TranslatePipe, ReactiveFormsModule, FormsModule, CdkMenuModule, CdkMenu, CdkMenuItem, OctetHumanReadablePipe, DownloadButtonComponent, FileThumbnailComponent, FileDisplayComponent],
+	imports: [TablePaginatorComponent, CommonModule, TranslateDirective, TranslatePipe, ReactiveFormsModule, FormsModule, CdkMenuModule, CdkMenu, CdkMenuItem, OctetHumanReadablePipe, DownloadButtonComponent, FileThumbnailComponent, FileDisplayComponent],
 	templateUrl: './file-table.component.html',
 	styleUrl: './file-table.component.css',
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	host: {
 		'(window:keydown.shift)': 'onShiftDown()',
 		'(window:keyup.shift)': 'onShiftUp()',
+		'[class.dense]': 'denseDisplay()',
 	},
 })
 export class FileTableComponent extends RepositoryTableComponent<EntityFile, FilesRepository> {
@@ -32,6 +33,9 @@ export class FileTableComponent extends RepositoryTableComponent<EntityFile, Fil
 	private _foldersModal = inject(FoldersModals);
 
 	folderId = model<string | null>(null);
+
+	/** Squeeze the rows, the head and the footer, for panes that cannot spare the height. */
+	denseDisplay = input<boolean>(false);
 
 	public shiftPressed = signal<boolean>(false);
 
@@ -51,7 +55,7 @@ export class FileTableComponent extends RepositoryTableComponent<EntityFile, Fil
 		super(
 			_repository,
 			{
-				pageSize: 10,
+				pageSize: 50,
 				orderingBy: {
 					direction: 'desc',
 					fieldName: 'time_created',

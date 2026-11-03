@@ -2,13 +2,15 @@ import os
 import shutil
 import typing
 from textwrap import dedent
+from urllib.parse import quote
 
+import structlog
 from pydantic import BaseModel, TypeAdapter
-
-from libs.logger import print, print_error, print_warning
 
 from ..models import StorageSettings
 from ._generic import GenericStorage
+
+logger = structlog.get_logger(__name__)
 
 
 class LocalStorageConfig(BaseModel):
@@ -35,8 +37,6 @@ class LocalStorage(GenericStorage):
             type="local",
             **kwargs,
         )
-
-        # print("LocalStorage.__init__", self.config.path)
 
     def get_upload_url(
         self,
@@ -70,7 +70,7 @@ class LocalStorage(GenericStorage):
 
         # check that the file exists
         if not self.exists_in_storage(storage_folder_path=storage_folder_path, alternative=alternative):
-            print_warning("LocalStorage.get_size: file does not exist")
+            logger.warning("storage_file_missing", operation="get_size")
             return 0
 
         size = 0
@@ -81,12 +81,12 @@ class LocalStorage(GenericStorage):
             # get the size of the file in the local storage
             size = os.path.getsize(storage_path)
         except Exception as e:
-            print_error("LocalStorage.get_size: error while getting size", e, storage_path)
+            logger.exception("storage_get_size_failed", operation="get_size", error_type=type(e).__name__)
             return 0
 
         return size
 
-    def upload(  #
+    def upload(  # noqa: C901
         self,
         *,
         local_path: str,
@@ -102,20 +102,20 @@ class LocalStorage(GenericStorage):
 
         # check that the local file exists
         if not os.path.exists(local_path):
-            print_warning("LocalStorage.upload: local file does not exist")
+            logger.warning("storage_local_file_missing", operation="upload")
             return False
 
         if content_type:
-            print("Content-Type header found:", content_type)
-            print_warning("LocalStorage.upload: Content-Type header is not used.")
+            logger.debug("storage_content_type_received", operation="upload", content_type=content_type)
+            logger.warning("storage_content_type_ignored", operation="upload")
 
         if content_range:
-            print("Content-Range header found:", content_range)
+            logger.debug("storage_content_range_received", operation="upload")
 
             try:
                 # Parse Content-Range header (format: "bytes start-end/total" or "bytes start-end")
                 if not content_range.startswith("bytes "):
-                    print_warning("LocalStorage.upload: invalid Content-Range format")
+                    logger.warning("storage_content_range_invalid", operation="upload", reason="format")
                     return False
 
                 range_part = content_range.split(" ")[1]
@@ -125,13 +125,13 @@ class LocalStorage(GenericStorage):
                 start_str, end_str = range_part.split("-")
 
                 if not start_str.isdigit() or not end_str.isdigit():
-                    print_warning("LocalStorage.upload: invalid Content-Range values")
+                    logger.warning("storage_content_range_invalid", operation="upload", reason="values")
                     return False
 
                 start = int(start_str)
                 end = int(end_str)  # end is typically inclusive in HTTP ranges
 
-                print(f"Content-Range parsed - start: {start}, end: {end}")
+                logger.debug("storage_content_range_parsed", operation="upload", start=start, end=end)
 
                 # Create directory if it doesn't exist
                 target_dir = os.path.join(self.config.path, storage_folder_path)
@@ -144,10 +144,10 @@ class LocalStorage(GenericStorage):
                     # For chunked uploads, local_path contains only the chunk data
                     # We should read from the beginning of the file, not seek to start position
                     chunk = f.read()
-                    print(f"Read {len(chunk)} bytes from source file {local_path}")
+                    logger.debug("storage_chunk_read", operation="upload", byte_count=len(chunk))
 
                     if len(chunk) == 0:
-                        print_warning("LocalStorage.upload: no data read from source file")
+                        logger.warning("storage_chunk_empty", operation="upload")
                         return False
 
                 # Write the chunk to the target file at the correct position
@@ -159,11 +159,11 @@ class LocalStorage(GenericStorage):
                         total_part = content_range.split("/")[1]
                         if total_part.isdigit():
                             total_size = int(total_part)
-                            print(f"Total file size from Content-Range: {total_size}")
+                            logger.debug("storage_total_size_detected", operation="upload", total_size=total_size)
 
                     if total_size:
                         # Create file with correct size (pre-allocate)
-                        print(f"Pre-allocating file with size: {total_size}")
+                        logger.debug("storage_file_preallocated", operation="upload", total_size=total_size)
                         with open(target_path, "wb") as f_out:
                             f_out.seek(total_size - 1)
                             f_out.write(b"\0")  # Write a null byte at the end
@@ -171,7 +171,7 @@ class LocalStorage(GenericStorage):
                             os.fsync(f_out.fileno())
                     else:
                         # No total size available, create empty file and let it grow
-                        print("No total size in Content-Range, creating empty file")
+                        logger.debug("storage_file_created", operation="upload", reason="missing_total_size")
                         with open(target_path, "wb") as f_out:
                             pass  # Just create the file
 
@@ -181,32 +181,32 @@ class LocalStorage(GenericStorage):
                     f_out.write(chunk)
                     f_out.flush()
                     os.fsync(f_out.fileno())
-                    print(f"Wrote {len(chunk)} bytes at position {start}")
+                    logger.debug("storage_chunk_written", operation="upload", byte_count=len(chunk), start=start)
 
                     # Check and log current file size
                     current_size = f_out.tell()
                     f_out.seek(0, 2)  # Seek to end
                     actual_size = f_out.tell()
-                    print(f"File position after write: {current_size}, actual file size: {actual_size}")
+                    logger.debug("storage_file_size_checked", operation="upload", position=current_size, actual_size=actual_size)
 
             except (ValueError, IndexError, OSError) as e:
-                print_error(f"LocalStorage.upload: error processing Content-Range: {e}")
+                logger.exception("storage_content_range_failed", operation="upload", error_type=type(e).__name__)
                 return False
             else:
-                print(f"LocalStorage.upload: chunk written successfully (bytes {start}-{end})")
+                logger.info("storage_chunk_upload_complete", operation="upload", start=start, end=end)
                 return True
 
         # check that the storage file does not exist
         if self.exists_in_storage(storage_folder_path=storage_folder_path, alternative=alternative):
             if force:
-                print_warning(
+                logger.warning(
                     dedent(
                         "LocalStorage.upload: storage file already exists,\
                           but force is set to True, so we will overwrite it"
                     )
                 )
             else:
-                print_warning("LocalStorage.upload: storage file already exists")
+                logger.warning("storage_file_exists", operation="upload")
                 return False
 
         # create the folder if necessary
@@ -234,14 +234,14 @@ class LocalStorage(GenericStorage):
 
         # check that the file exists in the local storage
         if not self.exists_in_storage(storage_folder_path=storage_folder_path, alternative=alternative):
-            print_warning("LocalStorage.download: file does not exist")
+            logger.warning("storage_file_missing", operation="download")
             return None
 
         # check that the local file does not exist
         if local_path:
             if self.exists_locally(local_path):
                 if force:
-                    print_warning(
+                    logger.warning(
                         dedent(
                             "LocalStorage.download: local file already exists,\
                               but force is set to True, so we will overwrite it: "
@@ -249,7 +249,7 @@ class LocalStorage(GenericStorage):
                         )
                     )
                 else:
-                    print_warning("LocalStorage.download: local file already exists", local_path)
+                    logger.warning("storage_local_file_exists", operation="download")
                     return local_path
         else:
             local_path = self.get_temporary_local_path()
@@ -266,6 +266,7 @@ class LocalStorage(GenericStorage):
         storage_folder_path: str,
         alternative: str = "original",
         download: bool = False,
+        filename: str | None = None,
     ) -> tuple[str, float] | None:
         """
         Read the local file and return a base64 string
@@ -273,12 +274,15 @@ class LocalStorage(GenericStorage):
 
         # check that the file exists in the local storage
         if not self.exists_in_storage(storage_folder_path=storage_folder_path, alternative=alternative):
-            print_warning("LocalStorage.get_download_url: file does not exist")
+            logger.warning("storage_file_missing", operation="get_download_url")
             return None
 
         if download:
+            # read-from-local reads `filename` off the query string, so carry the caller's name
+            # across the redirect or the browser falls back to the stored name.
+            name_query = ("&filename=" + quote(filename)) if filename else ""
             return (
-                ("/api/files/storage/read-from-local/" + file_id + "/" + alternative + "?download=true"),
+                ("/api/files/storage/read-from-local/" + file_id + "/" + alternative + "?download=true" + name_query),
                 60 * 60 * 24,  # 24 hours
             )
 
@@ -321,7 +325,7 @@ class LocalStorage(GenericStorage):
 
         # check that the file exists in the local storage
         if not self.exists_in_storage(storage_folder_path=storage_folder_path, alternative=alternative):
-            print_warning("LocalStorage.get_bytes_range: file does not exist")
+            logger.warning("storage_file_missing", operation="get_bytes_range")
             return blob, bytes_range, end_reached
 
         # get the bytes range of the file in the local storage
@@ -330,7 +334,7 @@ class LocalStorage(GenericStorage):
             bytes_range = f.read(end - start)
             end_reached = f.tell() < end
             if end_reached:
-                print("End reached f.tell()< end:", f.tell(), end)
+                logger.debug("storage_bytes_range_end_reached", position=f.tell(), end=end)
             return blob, bytes_range, end_reached
 
     def get_files_in_folder(

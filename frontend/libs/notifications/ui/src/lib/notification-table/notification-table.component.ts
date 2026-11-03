@@ -9,7 +9,7 @@ import { TwArchiveIcon } from '@foundation/icons';
 import { Filter } from '@foundation/network/store';
 import { Notification } from '@foundation/notifications/models';
 import { NotificationsRepository } from '@foundation/notifications/state';
-import { BehaviorType, RepositoryTableComponent } from '@foundation/table/ui';
+import { BehaviorType, RepositoryTableComponent, TablePaginatorComponent } from '@foundation/table/ui';
 import { TranslateDirective, TranslatePipe } from '@foundation/translations/services';
 import { UserPillComponent } from '@foundation/users/ui';
 import { DateAsAgoPipe } from '@foundation/utils';
@@ -26,6 +26,7 @@ const EXCLUDE_ARCHIVED_FILTER: Filter = {
 	selector: 'lib-notification-table',
 	standalone: true,
 	imports: [
+		TablePaginatorComponent,
 		//
 		CommonModule,
 		TranslateDirective,
@@ -54,7 +55,7 @@ export class NotificationTableComponent extends RepositoryTableComponent<Notific
 		super(
 			_repository,
 			{
-				pageSize: 5,
+				pageSize: 10,
 				orderingBy: {
 					direction: 'desc',
 					fieldName: 'time_created',
@@ -123,6 +124,13 @@ export class NotificationTableComponent extends RepositoryTableComponent<Notific
 		}
 
 		switch (notification.kind) {
+			// Neither has a message to land on: the article itself is the destination.
+			case 'feature_request':
+			case 'ticket': {
+				this._articlesRepository.goToArticle(notification.targetId);
+				break;
+			}
+
 			case 'comment':
 			case 'reaction':
 			case 'mention':

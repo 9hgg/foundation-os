@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { BehaviorSubject, of, Subject } from 'rxjs';
 import { RequestService } from '@foundation/network/services';
 import { NotificationService } from '@foundation/notification';
 import { TranslationService } from '@foundation/translations/services';
@@ -141,8 +141,22 @@ describe('ArticlesRepository', () => {
 	});
 
 	describe('goToArticle()', () => {
+		it('waits for the article instead of giving up on the store\'s initial null', () => {
+			// getObjectByIdPullOnce$$$ seeds its subject with null and emits the article once the pull
+			// lands. Sampling that first value used to log "Article not found" and navigate nowhere.
+			const subject = new BehaviorSubject<unknown>(null);
+			vi.spyOn(repository.store, 'getObjectByIdPullOnce$$$').mockReturnValue({ $: subject.asObservable() } as never);
+
+			repository.goToArticle('article-1');
+			expect(routerMock.navigate).not.toHaveBeenCalled();
+
+			subject.next({ id: 'article-1', title: 'Article', kind: 'default', config: {} });
+
+			expect(routerMock.navigate).toHaveBeenCalledWith(['/', 'host', 'dashboard', 'articles', 'article-1'], { fragment: undefined });
+		});
+
 		it('navigates support articles to the support route with a message fragment', () => {
-			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of({ id: 'article-1', title: 'Support', kind: 'support', config: {} }));
+			vi.spyOn(repository.store, 'getObjectByIdPullOnce$$$').mockReturnValue({ $: of({ id: 'article-1', title: 'Support', kind: 'support', config: {} }) } as never);
 
 			repository.goToArticle('article-1', { messageId: 'message-1' });
 
@@ -152,7 +166,7 @@ describe('ArticlesRepository', () => {
 		});
 
 		it('opens regular articles in a new tab when requested', () => {
-			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of({ id: 'article-1', title: 'Article', kind: 'default', config: {} }));
+			vi.spyOn(repository.store, 'getObjectByIdPullOnce$$$').mockReturnValue({ $: of({ id: 'article-1', title: 'Article', kind: 'default', config: {} }) } as never);
 
 			repository.goToArticle('article-1', { inNewTab: true, messageId: 'message-1' });
 
@@ -160,7 +174,7 @@ describe('ArticlesRepository', () => {
 		});
 
 		it('navigates regular articles to the editor when requested', () => {
-			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of({ id: 'article-1', title: 'Article', kind: 'default', config: {} }));
+			vi.spyOn(repository.store, 'getObjectByIdPullOnce$$$').mockReturnValue({ $: of({ id: 'article-1', title: 'Article', kind: 'default', config: {} }) } as never);
 
 			repository.goToArticle('article-1', { toEditor: true });
 
@@ -168,7 +182,7 @@ describe('ArticlesRepository', () => {
 		});
 
 		it('navigates regular articles to the reader route by default', () => {
-			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of({ id: 'article-1', title: 'Article', kind: 'default', config: {} }));
+			vi.spyOn(repository.store, 'getObjectByIdPullOnce$$$').mockReturnValue({ $: of({ id: 'article-1', title: 'Article', kind: 'default', config: {} }) } as never);
 
 			repository.goToArticle('article-1', { messageId: 'message-1' });
 
@@ -178,7 +192,8 @@ describe('ArticlesRepository', () => {
 		});
 
 		it('does not navigate when the article is missing', () => {
-			vi.spyOn(repository.store, 'getObjectById$$$').mockReturnValue(of(null));
+			// A missing article, or one the caller cannot read, is a subject that never emits a value.
+			vi.spyOn(repository.store, 'getObjectByIdPullOnce$$$').mockReturnValue({ $: of(null) } as never);
 
 			repository.goToArticle('missing-article');
 

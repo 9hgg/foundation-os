@@ -170,7 +170,7 @@ def test_update_after_upload_file_not_found(
     except Exception as e:
         # Debugging purposes
         print(e)
-        raise e
+        raise
 
     assert response.status_code == 200
     data = response.json()

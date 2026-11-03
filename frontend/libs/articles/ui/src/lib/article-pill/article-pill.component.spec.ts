@@ -22,7 +22,7 @@ describe('article-pill.component', () => {
 					provide: ArticlesRepository,
 					useValue: {
 						store: {
-							getObjectById$$$: vi.fn(() => of(article)),
+							getObjectByIdPullOnce$$$: vi.fn(() => of(article)),
 						},
 					},
 				},
@@ -43,7 +43,7 @@ describe('article-pill.component', () => {
 		TestBed.overrideProvider(ArticlesRepository, {
 			useValue: {
 				store: {
-					getObjectById$$$: vi.fn(() =>
+					getObjectByIdPullOnce$$$: vi.fn(() =>
 						of({ ...article, title: undefined, summary: 'Summary fallback that is long' })
 					),
 				},
@@ -62,7 +62,7 @@ describe('article-pill.component', () => {
 		TestBed.overrideProvider(ArticlesRepository, {
 			useValue: {
 				store: {
-					getObjectById$$$: vi.fn(() => of({ ...article, title: undefined, summary: undefined })),
+					getObjectByIdPullOnce$$$: vi.fn(() => of({ ...article, title: undefined, summary: undefined })),
 				},
 			},
 		});

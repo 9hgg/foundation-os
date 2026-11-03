@@ -955,11 +955,10 @@ def _count_block_changes(stmt: str) -> int:
         first = head[0]
         if line_paren_depth == 0 and first in _BLOCK_OPEN_KEYWORDS:
             opens += 1
-        elif line_paren_depth == 0 and first == "end":
-            if len(head) > 1:
-                target = head[1].split(maxsplit=1)[0].rstrip(";")
-                if target in _BLOCK_CLOSE_KEYWORDS:
-                    closes += 1
+        elif line_paren_depth == 0 and first == "end" and len(head) > 1:
+            target = head[1].split(maxsplit=1)[0].rstrip(";")
+            if target in _BLOCK_CLOSE_KEYWORDS:
+                closes += 1
         paren_depth += line.count("(") - line.count(")")
     return opens - closes
 

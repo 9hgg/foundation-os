@@ -117,6 +117,8 @@ def test_admin_resend_mail(
     mail_id = uuid.uuid4()
     mail = MagicMock()
     mail.id = mail_id
+    mail.recipients = ["dest@example.com"]
+    mail.subject = "Your invoice"
     mock_mail_by_id.return_value = mail
 
     app.dependency_overrides[get_deps] = lambda: (admin_user, None, mock_translator)
@@ -128,10 +130,66 @@ def test_admin_resend_mail(
     mock_mail_patch.assert_called_once_with(obj_id=mail_id, update_dict={"status": "pending"})
     mock_create_task.assert_called_once_with(
         method_name="send_email",
-        title="send_email",
-        description="Re-send email",
+        title="Re-send email",
+        description="To dest@example.com — Your invoice",
         kwargs={"mail_id": mail_id},
     )
     mock_launch_tasks_processing.assert_called_once()
 
     app.dependency_overrides = {}
+
+
+@patch("libs.mails.api.launch_tasks_processing")
+@patch("libs.mails.api.TasksManager.create_task")
+@patch("libs.mails.api.add_mail_to_db")
+@patch("libs.mails.api.render_email_template")
+def test_send_rumble_studio_transactional_email(
+    mock_render_email_template,
+    mock_add_mail_to_db,
+    mock_create_task,
+    mock_launch_tasks_processing,
+    client,
+):
+    mock_render_email_template.return_value = "<html>rendered</html>"
+    mail = MagicMock()
+    mail.id = uuid.uuid4()
+    mock_add_mail_to_db.return_value = mail
+
+    response = client.post(
+        "/api/mails/rumble-studio/send-transactional",
+        json={
+            "from_addr": "Rumble Studio <contact@rumble.studio>",
+            "to_addr": "user@example.com",
+            "subject": "Password less connection",
+            "title": "Hi there,",
+            "body": "Click the link to reset your password.",
+            "link": "https://app.rumble.studio/reset",
+            "action": "Connect",
+            "bottom": "Copyright Rumble Studio",
+        },
+        headers={"X-Rumble-Secret": "rmbl-stdio-2026-9f3a7c1e5b8d4021"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    mock_render_email_template.assert_called_once()
+    assert mock_render_email_template.call_args.args[0] == "transactional_rumble_studio.html"
+    mock_add_mail_to_db.assert_called_once()
+    mock_create_task.assert_called_once()
+    mock_launch_tasks_processing.assert_called_once()
+
+
+def test_send_rumble_studio_transactional_email_rejects_bad_secret(client):
+    response = client.post(
+        "/api/mails/rumble-studio/send-transactional",
+        json={
+            "from_addr": "Rumble Studio <contact@rumble.studio>",
+            "to_addr": "user@example.com",
+            "subject": "Password less connection",
+            "title": "Hi there,",
+            "body": "Click the link to reset your password.",
+        },
+        headers={"X-Rumble-Secret": "wrong-secret"},
+    )
+
+    assert response.status_code == 401

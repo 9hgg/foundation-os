@@ -76,6 +76,50 @@
 												<span [translate]>Edit Article</span>
 											</button>
 										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="copyConversation()"
+												class="flex items-center gap-2"
+											>
+												<svg
+													class="h-4 w-4"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+													></path>
+												</svg>
+												<span [translate]>Copy conversation</span>
+											</button>
+										</li>
+										<li cdkMenuItem>
+											<button
+												(click)="copyConnectAsLink()"
+												[disabled]="!canConnectAsAuthor()"
+												[title]="canConnectAsAuthor() ? '' : ('This resource records no author to connect as.' | translate | async) ?? ''"
+												class="flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
+											>
+												<svg
+													class="h-4 w-4"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5m4.5-4.5l1.5-1.5a4 4 0 115.656 5.656l-3 3a4 4 0 01-5.656 0"
+													></path>
+												</svg>
+												<span [translate]>Copy "connect as" link</span>
+											</button>
+										</li>
 										<li [cdkMenuTriggerFor]="prefixSubmenu">
 											<button class="flex items-center justify-between gap-2">
 												<div class="flex items-center gap-2">
@@ -276,6 +320,18 @@
 													</button>
 												</li>
 
+												@if (canConnectAsMessageAuthor()(message.authorId)) {
+													<li>
+														<button
+															(click)="copyConnectAsLinkFor(message.authorId!)"
+															cdkMenuItem
+															[translate]
+														>
+															Copy "connect as" link
+														</button>
+													</li>
+												}
+
 												<li>
 													<button
 														(click)="removeComment(message.id)"
@@ -342,7 +398,8 @@
 								<div class="bg-base-100 border-base-200 absolute right-1 bottom-1 flex items-center space-x-1 rounded-full border p-1 shadow-md">
 									<!-- Summary of reactions -->
 									@for (summary of message.reactionsSummary; track summary.emoji) {
-										<span
+										<button
+											type="button"
 											class="badge badge-sm cursor-pointer transition-transform hover:scale-105"
 											(click)="setReaction(message, summary.emoji)"
 											[ngClass]="{
@@ -352,7 +409,7 @@
 											title="{{ summary.emoji }} {{ summary.count }}"
 										>
 											{{ summary.emoji }} {{ summary.count > 1 ? summary.count : '' }}
-										</span>
+										</button>
 									}
 									<!-- Add reaction button -->
 									<button
@@ -434,6 +491,12 @@
 			}
 			<span id="bottom-anchor"></span>
 
+			<!-- A suspended conversation keeps everything above and takes nothing more. -->
+			@if (conversation && conversation.status !== 'active') {
+				<div class="border-base-200 bg-base-200/40 text-base-content/60 mt-8 rounded-lg border p-4 text-center text-sm">
+					<span [translate]>This conversation is closed. You can still read it, but no new message can be posted.</span>
+				</div>
+			} @else {
 			<!-- Reply Form -->
 			<form
 				class="mt-8"
@@ -519,6 +582,7 @@
 					</div>
 				</div>
 			</form>
+			}
 		</div>
 	</section>
 }

@@ -18,7 +18,7 @@ export class DeliverableJsonPageComponent {
 	public deliverableId = model<string | null>(null);
 
 	deliverable$$$ = new BehaviorSubjectReplayedProxied<string | null, Deliverable | null>((id: string | null) => {
-		return id ? this._deliverablesRepository.store.getObjectById$$$(id).$ : of(null);
+		return id ? this._deliverablesRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	constructor() {

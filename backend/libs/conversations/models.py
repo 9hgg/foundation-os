@@ -1,11 +1,9 @@
 import uuid
-from typing import Optional
 
 import sqlmodel
 from sqlalchemy.dialects.postgresql import JSONB
 
-from libs.mcp.display import ResourceDisplayProfile
-from libs.resource import ResourceWithConfig
+from libs.resource import ResourceDisplayProfile, ResourceWithConfig
 from libs.utils.types import BaseModelWithConfig
 
 
@@ -15,9 +13,9 @@ class ConversationConfig(BaseModelWithConfig):
     This can include settings like available reactions, rich text support, etc.
     """
 
-    available_reactions: Optional[list[str]] = None  # e.g., ["👍", "👎", "❤️"]
+    available_reactions: list[str] | None = None  # e.g., ["👍", "👎", "❤️"]
     display_reactions: bool = True  # Whether to display reactions
-    rich_text: Optional[bool] = None  # Whether to allow rich text formatting
+    rich_text: bool | None = None  # Whether to allow rich text formatting
 
 
 class Conversation(ResourceWithConfig, table=True):
@@ -31,7 +29,7 @@ class Conversation(ResourceWithConfig, table=True):
     __title__ = "Conversation"
     __description__ = "A conversation object for chat support, comments on articles, backlog, etc..."
     __config_type__ = ConversationConfig
-    __mcp_display__ = ResourceDisplayProfile(
+    __display_profile__ = ResourceDisplayProfile(
         kind="conversation",
         title_fields=("title", "key", "id"),
         status_fields=("status",),
@@ -53,7 +51,7 @@ class Conversation(ResourceWithConfig, table=True):
         default="active",
         nullable=False,
     )
-    title: Optional[str] = None
+    title: str | None = None
     config: ConversationConfig = sqlmodel.Field(
         sa_type=JSONB, nullable=False, default_factory=lambda: ConversationConfig()
     )

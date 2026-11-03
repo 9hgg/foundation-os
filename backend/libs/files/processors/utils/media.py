@@ -2,16 +2,16 @@ import contextlib
 import json
 import re
 import subprocess
-import sys
-import traceback
 
-from libs.logger import print, print_error
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
-def analyze_local_file_with_ffprobe(file_path):
+def analyze_local_file_with_ffprobe(file_path):  # noqa: C901
     # parse ffprobe data
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 "ffprobe",
                 "-print_format",
@@ -21,8 +21,7 @@ def analyze_local_file_with_ffprobe(file_path):
                 "-i",
                 file_path,
             ],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
+            capture_output=True,
             text=True,
         )
 
@@ -61,10 +60,12 @@ def analyze_local_file_with_ffprobe(file_path):
                 if stream["codec_type"] == "audio":
                     sample_rate = int(stream["sample_rate"])
                     break
-        except Exception:
-            # print("probe error:", e)
-            # traceback.print_exc()
-            pass
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.debug(
+                "media_metadata_field_unavailable",
+                field="sample_rate",
+                error_type=type(exc).__name__,
+            )
 
         # channels
         channels = None
@@ -75,10 +76,12 @@ def analyze_local_file_with_ffprobe(file_path):
                     channels = int(stream["channels"])
                     channel_layout = stream["channel_layout"]
                     break
-        except Exception:
-            # print("probe error:", e)
-            # traceback.print_exc()
-            pass
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.debug(
+                "media_metadata_field_unavailable",
+                field="channels",
+                error_type=type(exc).__name__,
+            )
 
         # bit depth
         bit_depth = None
@@ -87,10 +90,12 @@ def analyze_local_file_with_ffprobe(file_path):
                 if stream["codec_type"] == "audio":
                     bit_depth = int(float(stream.get("bits_per_raw_sample")))
                     break
-        except Exception:
-            pass
-            # print("probe error:", e)
-            # traceback.print_exc()
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.debug(
+                "media_metadata_field_unavailable",
+                field="bit_depth",
+                error_type=type(exc).__name__,
+            )
 
         # bit rate
         bit_rate = None
@@ -99,10 +104,12 @@ def analyze_local_file_with_ffprobe(file_path):
                 if stream["codec_type"] == "audio":
                     bit_rate = float(stream["bit_rate"])
                     break
-        except Exception:
-            pass
-            # print("probe error:", e)
-            # traceback.print_exc()
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.debug(
+                "media_metadata_field_unavailable",
+                field="bit_rate",
+                error_type=type(exc).__name__,
+            )
 
         width = None
         height = None
@@ -112,12 +119,14 @@ def analyze_local_file_with_ffprobe(file_path):
                     width = float(stream["width"])
                     height = float(stream["height"])
                     break
-        except Exception:
-            pass
-            # print("probe error:", e)
-            # traceback.print_exc()
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.debug(
+                "media_metadata_field_unavailable",
+                field="dimensions",
+                error_type=type(exc).__name__,
+            )
 
-        return {
+        return {  # noqa: TRY300
             "kind_from_ffmpeg": kind_from_ffmpeg,
             # "extension": extension,
             "has_video": has_video,
@@ -134,23 +143,18 @@ def analyze_local_file_with_ffprobe(file_path):
             "height": height,
         }
 
-    except Exception as e:
-        # trace
-        traceback.print_exc()
-        sys.stdout.flush()
-        print_error("Error while parsing ffprobe")
-        print(e)
+    except Exception:
+        logger.exception("local_media_analysis_failed")
         return None
 
 
 def get_video_duration_with_ffmpeg_null(file_path):
-    print("Trying to get duration through ffmpeg-null trick")
+    logger.debug("ffmpeg_duration_fallback_started")
     try:
         # Run ffmpeg with null output to get the duration from the log
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             ["ffmpeg", "-i", file_path, "-f", "null", "-"],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
+            capture_output=True,
             text=True,
         )
 
@@ -168,5 +172,6 @@ def get_video_duration_with_ffmpeg_null(file_path):
             return total_seconds
         else:
             return None
-    except:  # noqa
+    except Exception as exc:
+        logger.warning("ffmpeg_duration_fallback_failed", error_type=type(exc).__name__)
         return None

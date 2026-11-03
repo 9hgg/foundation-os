@@ -1,11 +1,14 @@
-import pytest
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import MagicMock
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from libs.endpoints.endpoints import create_crud_endpoints
 from libs.utils.deps import get_deps
+
 from .conftest import EndpointResource
 
 
@@ -39,8 +42,8 @@ def test_crud_endpoints_options_coverage(mock_deps, mock_db):
         id=uuid.uuid4(),
         name="test",
         size="100",
-        time_created=datetime.now(timezone.utc),
-        time_updated=datetime.now(timezone.utc),
+        time_created=datetime.now(UTC),
+        time_updated=datetime.now(UTC),
     )
     mock_query.limit.return_value.offset.return_value.all.return_value = [mock_res]
 

@@ -1,4 +1,5 @@
 
+import structlog
 from fastapi import Request
 from jose import jwt
 from jose.exceptions import JWEError
@@ -8,13 +9,14 @@ import libs.utils.emails
 import libs.utils.tokens
 from libs.db import context_db
 from libs.i18n.methods import SimpleTranslator
-from libs.logger import print
 from libs.users.config import USER_SETTINGS
 from libs.users.models import User
 from libs.utils.types import EndpointError, EndpointOutput
 
 from . import models
 from .constants import RESET_PASSWORD_CONTEXT_KEY
+
+logger = structlog.get_logger(__name__)
 
 
 def action_user_reset_password(
@@ -94,9 +96,7 @@ def action_user_reset_password(
     if reset_password_link.startswith("https://local"):
         reset_password_link = reset_password_link.replace("https://local", "http://local")
 
-    print("reset_password_link", reset_password_link)
-    print("token", token)
-    print("user_db", user_db)
+    logger.debug("password_reset_prepared", user_id=user_db.id)
 
     # link DB
 
@@ -191,7 +191,7 @@ def action_user_reset_password_claim(
             )
         )
 
-    print("user_db", user_db)
+    logger.debug("user_loaded", user_id=user_db.id)
 
     password = kv.get("password")
     if password is None:

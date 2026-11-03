@@ -38,6 +38,13 @@ export class PlayButtonComponent {
 	buttonHeight = input<string | null>(null);
 	buttonWidth = input<string | null>(null);
 
+	/**
+	 * Force how the media is played back, regardless of the underlying file's `kind`.
+	 * Audio-only contexts (e.g. a mic recording stored as a `video/webm` blob) pass
+	 * `'audio'` so the player doesn't pop up the floating video preview.
+	 */
+	mediaType = input<'audio' | 'video' | null>(null);
+
 	// set in the constructor
 	oneFileplaylist = signal<PlaylistDetails | null>(null);
 
@@ -55,7 +62,9 @@ export class PlayButtonComponent {
 
 		if (!playlist) return;
 
-		this.playlistService.setPlaylist(playlist, true, 0);
+		const playlistWithCurrentTheme = this._withCurrentTheme(playlist);
+		this.oneFileplaylist.set(playlistWithCurrentTheme);
+		this.playlistService.setPlaylist(playlistWithCurrentTheme, true, 0, 0);
 	}
 
 	pauseFile() {
@@ -71,30 +80,8 @@ export class PlayButtonComponent {
 				// filter((f) => !!f)
 			),
 			toObservable(this.alternative),
-			toObservable(this.textColor).pipe(
-				map((textColor) => {
-					let computedTextColor = textColor ?? 'inherit';
-					if (!computedTextColor || computedTextColor === 'auto' || computedTextColor === 'inherit' || computedTextColor === 'transparent') {
-						computedTextColor = getInheritedTextColor(this._el.nativeElement);
-					}
-					if (computedTextColor === 'rgba(0, 0, 0, 0)') {
-						computedTextColor = 'black';
-					}
-					return computedTextColor;
-				})
-			),
-			toObservable(this.backgroundColor).pipe(
-				map((backgroundColor) => {
-					let computedBackgroundColor = backgroundColor ?? 'inherit';
-					if (!computedBackgroundColor || computedBackgroundColor === 'auto' || computedBackgroundColor === 'inherit' || computedBackgroundColor === 'transparent') {
-						computedBackgroundColor = getInheritedBackgroundColor(this._el.nativeElement);
-					}
-					if (computedBackgroundColor === 'rgba(0, 0, 0, 0)') {
-						computedBackgroundColor = 'white';
-					}
-					return computedBackgroundColor;
-				})
-			),
+			toObservable(this.textColor),
+			toObservable(this.backgroundColor),
 			toObservable(this.borderColor),
 			toObservable(this.medialUrl),
 			toObservable(this.title),
@@ -105,20 +92,20 @@ export class PlayButtonComponent {
 				map(([entityFile, alternative, textColor, backgroundColor, borderColor, medialUrl, title]) => {
 					console.log({ entityFile, alternative, textColor, backgroundColor, borderColor, medialUrl, title });
 
+					const theme = this._resolveVisibleButtonTheme();
+
 					if (medialUrl) {
 						const playlist: PlaylistDetails = {
 							title: 'player',
 							id: 'player',
-							theme: {
-								backgroundColor,
-								textColor,
-							},
+							theme,
 							items: [
 								{
 									id: medialUrl,
 									title: title ?? '',
 									mediaUrl: convertToUrl(medialUrl),
 									mediaType: 'audio',
+									theme,
 								},
 							],
 						};
@@ -130,16 +117,14 @@ export class PlayButtonComponent {
 						const playlist: PlaylistDetails = {
 							title: 'player',
 							id: 'player',
-							theme: {
-								backgroundColor,
-								textColor,
-							},
+							theme,
 							items: [
 								{
 									id: entityFile.id,
 									title: title ?? entityFile.publicFilename ?? entityFile.originalFilename ?? '',
 									mediaUrl: convertToUrl(entityFile, alternative),
-									mediaType: entityFile.kind,
+									mediaType: this.mediaType() ?? entityFile.kind,
+									theme,
 								},
 							],
 						};
@@ -173,5 +158,57 @@ export class PlayButtonComponent {
 		}
 		// For other color formats, return as-is
 		return color;
+	}
+
+	private _withCurrentTheme(playlist: PlaylistDetails): PlaylistDetails {
+		const theme = this._resolveVisibleButtonTheme();
+		return {
+			...playlist,
+			theme,
+			items: playlist.items.map((item) => ({
+				...item,
+				theme,
+			})),
+		};
+	}
+
+	private _resolveVisibleButtonTheme(): { backgroundColor: string; textColor: string } {
+		const rawBackgroundColor = this.backgroundColor() || 'var(--color-primary)';
+		const rawTextColor = this.textColor() || 'var(--color-primary-content)';
+		return {
+			backgroundColor: this._resolveColor(rawBackgroundColor, getInheritedBackgroundColor(this._el.nativeElement), '#f43f5e'),
+			textColor: this._resolveColor(rawTextColor, getInheritedTextColor(this._el.nativeElement), '#ffffff'),
+		};
+	}
+
+	private _resolveColor(color: string, inheritedColor: string, finalFallback: string): string {
+		let resolvedColor = color?.trim() || '';
+
+		const cssVariableName = this._extractCssVariableName(resolvedColor);
+		if (cssVariableName) {
+			const cssVariableValue = getComputedStyle(this._el.nativeElement).getPropertyValue(cssVariableName).trim();
+			if (cssVariableValue) {
+				resolvedColor = cssVariableValue;
+			}
+		}
+
+		if (this._needsFallbackColor(resolvedColor)) {
+			resolvedColor = inheritedColor;
+		}
+
+		if (resolvedColor === 'rgba(0, 0, 0, 0)') {
+			return finalFallback;
+		}
+
+		return resolvedColor || finalFallback;
+	}
+
+	private _needsFallbackColor(color: string): boolean {
+		return !color || color === 'auto' || color === 'inherit' || color === 'transparent';
+	}
+
+	private _extractCssVariableName(color: string): string | null {
+		const match = /^var\(\s*(--[^,\s)]+)/.exec(color);
+		return match?.[1] ?? null;
 	}
 }

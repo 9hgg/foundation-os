@@ -1,3 +1,4 @@
+import contextlib
 import uuid
 from typing import Any
 
@@ -43,10 +44,8 @@ def _derive_state_from_task(
     if task.artifacts and isinstance(task.artifacts, dict):
         rv = task.artifacts.get("return_value")
         if isinstance(rv, dict) and rv.get("message_id"):
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 message_id = uuid.UUID(rv["message_id"])
-            except (ValueError, TypeError):
-                pass
 
     return AssistantProcessState(
         conversation_id=uuid.UUID(conversation_id),

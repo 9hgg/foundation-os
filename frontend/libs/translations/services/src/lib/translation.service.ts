@@ -1,8 +1,9 @@
+import { AppConfigService } from '@foundation/app/config';
 import { RequestService } from '@foundation/network/services';
 import { BehaviorSubjectReplayed, StateStorage, localStorageStrategy } from '@foundation/utils';
 import { Injectable, inject } from '@angular/core';
 import { cloneDeep } from 'lodash-es';
-import { NEVER, Observable, combineLatest, debounceTime, from, map, of, shareReplay, startWith, switchMap, take, tap } from 'rxjs';
+import { NEVER, Observable, combineLatest, debounceTime, filter, from, map, of, shareReplay, startWith, switchMap, take, tap } from 'rxjs';
 
 const DEBUG = false;
 const DEFAULT_LANG_CODE: string = 'en';
@@ -53,11 +54,16 @@ interface Translations {
 })
 export class TranslationService {
 	private _requestService = inject(RequestService);
+	private _appConfig = inject(AppConfigService);
 	currentLangCode$$$ = new BehaviorSubjectReplayed<string>(DEFAULT_LANG_CODE);
 	availableTranslations$$$ = new BehaviorSubjectReplayed<Translations>({});
 	missingTranslations$$$ = new BehaviorSubjectReplayed<SentenceToTranslate[]>([]);
 
-	private _verifiedTranslations = new Set<string>();
+	// hash -> epoch ms of last verification. Persisted to localStorage so an app
+	// reload does not re-verify every visible cached string (the first-load burst).
+	private _verifiedTranslations = new Map<string, number>();
+	private readonly _verificationTtlMs = 7 * 24 * 60 * 60 * 1000; // re-verify at most once per 7 days
+	private readonly _verifiedStoreName = 'translation_verified';
 	translationsToVerify$$$ = new BehaviorSubjectReplayed<SentenceToTranslate[]>([]);
 
 	constructor() {
@@ -67,6 +73,20 @@ export class TranslationService {
 		from(storage.getItem(storeName)).subscribe((value) => {
 			if (value) {
 				this.availableTranslations$$$.next(value);
+			}
+		});
+
+		// restore verification timestamps so reloads don't re-verify everything
+		from(storage.getItem<Record<string, number>>(this._verifiedStoreName)).subscribe((value) => {
+			if (value) {
+				const now = Date.now();
+				const entries: Array<[string, number]> = [];
+				for (const [key, ts] of Object.entries(value)) {
+					if (now - ts < this._verificationTtlMs) {
+						entries.push([key, ts]);
+					}
+				}
+				this._verifiedTranslations = new Map(entries);
 			}
 		});
 
@@ -110,6 +130,9 @@ export class TranslationService {
 						const uniqueTranslationsToVerify = translationsToVerify.filter((v, i, a) => a.findIndex((t) => t.inputSentence === v.inputSentence && t.langCode === v.langCode && t.inputLanguage === v.inputLanguage && t.translationContext === v.translationContext) === i);
 						// clear the list for next batch
 						this.translationsToVerify$$$.next([]);
+						// persist verification timestamps (debounced by this pipe) so a
+						// reload doesn't re-verify the whole page again.
+						localStorageStrategy.setItem(this._verifiedStoreName, Object.fromEntries(this._verifiedTranslations));
 						return this.requestTranslations$(uniqueTranslationsToVerify);
 					}
 					return NEVER;
@@ -132,15 +155,26 @@ export class TranslationService {
 		from(storage.getItem<{ code: string }>('translation_lang')).subscribe((stored) => {
 			if (stored?.code) {
 				this.currentLangCode$$$.next(stored.code);
-			} else {
-				// Fallback to browser language if no stored language
-				const preferredLanguages = navigator.languages;
-				for (const lang of preferredLanguages) {
-					const langCode = lang.split('-')[0]; // Get the language code (e.g., "en" from "en-US")
-					this.currentLangCode$$$.next(langCode);
-					break;
-				}
+				return;
 			}
+
+			// Fallback to browser language if no stored language
+			const preferredLanguages = navigator.languages;
+			for (const lang of preferredLanguages) {
+				const langCode = lang.split('-')[0]; // Get the language code (e.g., "en" from "en-US")
+				this.currentLangCode$$$.next(langCode);
+				break;
+			}
+
+			// If the app declares its own default display language (environment.defaultLangCode),
+			// prefer it over the browser guess once the app config becomes available.
+			this._appConfig.config$
+				.pipe(
+					map((config) => config?.environment?.defaultLangCode),
+					filter((defaultLangCode): defaultLangCode is string => !!defaultLangCode),
+					take(1)
+				)
+				.subscribe((defaultLangCode) => this.currentLangCode$$$.next(defaultLangCode));
 		});
 	}
 
@@ -162,7 +196,14 @@ export class TranslationService {
 		return this._requestService.post$<SentenceTranslated[], SentenceToTranslate[]>('/api/translations/translate/multiple', sentencesToTranslate).pipe(
 			map((response) => {
 				if (response.error) {
-					alert(response.error.title);
+					console.error('[TranslationService] translation request failed:', response.error.title);
+					// Un-mark verification for this failed batch so the next render can
+					// retry, instead of being suppressed for the whole TTL.
+					for (const sentence of sentencesToTranslate) {
+						const verificationHash = this._convertSentenceToTranslateToHash(sentence) + '_' + sentence.langCode + '_' + sentence.inputLanguage;
+						this._verifiedTranslations.delete(verificationHash);
+					}
+					localStorageStrategy.setItem(this._verifiedStoreName, Object.fromEntries(this._verifiedTranslations));
 					return [];
 				}
 				if (DEBUG) console.log('%c[TranslationService] requestTranslations$', 'color: cyan', response);
@@ -228,6 +269,13 @@ export class TranslationService {
 				let sentenceToTranslate: string = translatableSentence.inputSentence;
 				if (translatableSentence.rpbt) {
 					sentenceToTranslate = this.fillPlaceholders(translatableSentence.inputSentence, translatableSentence.kv ?? {});
+				}
+
+				// Identity translation: the requested language is the sentence's own
+				// authoring language, so there is nothing to translate. Return the
+				// (placeholder-filled) source directly and never enqueue a backend request.
+				if (targetLangCode === inputLanguage) {
+					return of(this.fillPlaceholders(translatableSentence.inputSentence, translatableSentence.kv ?? {}));
 				}
 
 				const sentenceToTranslateHash = this._convertSentenceToTranslateToHash(translatableSentence);
@@ -331,10 +379,13 @@ export class TranslationService {
 	 */
 	public triggerVerification(translatableSentence: SentenceToTranslate) {
 		const hash = this._convertSentenceToTranslateToHash(translatableSentence) + '_' + translatableSentence.langCode + '_' + translatableSentence.inputLanguage;
-		if (this._verifiedTranslations.has(hash)) {
+		// Only re-verify a cached translation once per TTL. Persisted across reloads,
+		// so opening the app no longer re-requests every visible cached string.
+		const lastVerified = this._verifiedTranslations.get(hash);
+		if (lastVerified !== undefined && Date.now() - lastVerified < this._verificationTtlMs) {
 			return;
 		}
-		this._verifiedTranslations.add(hash);
+		this._verifiedTranslations.set(hash, Date.now());
 		this.translationsToVerify$$$.next([...this.translationsToVerify$$$.value, translatableSentence]);
 	}
 

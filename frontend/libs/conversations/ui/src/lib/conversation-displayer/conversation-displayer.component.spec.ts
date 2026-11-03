@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ConversationDisplayerComponent } from './conversation-displayer.component';
-import { NotificationService } from '@foundation/notification';
+import { ClipboardService, NotificationService } from '@foundation/notification';
 import { ConversationsRepository } from '@foundation/conversations/state';
 import { MessagesRepository } from '@foundation/messages/state';
 import { UsersRepository } from '@foundation/users/state';
@@ -28,6 +28,7 @@ const notificationMock = {
 const conversationsRepoMock = {
 	store: {
 		getObjectById$$$: vi.fn().mockReturnValue({ $: of(null) }),
+		getObjectByIdPullOnce$$$: vi.fn().mockReturnValue({ $: of(null) }),
 		postObject$: vi.fn().mockReturnValue(of({ result: { data: { id: 'conv-1' } } })),
 	},
 	getConversationFor$: vi.fn().mockReturnValue(of(null)),
@@ -54,8 +55,11 @@ const articlesRepoMock = {
 	},
 };
 
+const clipboardMock = { copy: vi.fn().mockReturnValue(of(true)) };
+
 const usersRepoMock = {
 	currentProfile: vi.fn().mockReturnValue({ id: 'user-1', email: 'test@test.com' }),
+	getConnectAsLink$: vi.fn().mockReturnValue(of('https://spoken.systems/?authToken=token')),
 	userIdsToDetails: vi.fn().mockReturnValue({}),
 	fetchAndCacheUserDetails: vi.fn(),
 	fetchUsersDetails: vi.fn(),
@@ -88,6 +92,9 @@ describe('ConversationDisplayerComponent', () => {
 		messagesRepoMock.store.save.mockReturnValue(of({ result: { id: 'msg-1' } }));
 		messagesRepoMock.toggleReaction$.mockReturnValue(of({ result: { message: { id: 'msg-1' } } }));
 		usersRepoMock.currentProfile.mockReturnValue({ id: 'user-1', email: 'test@test.com' });
+		usersRepoMock.getConnectAsLink$.mockReturnValue(of('https://spoken.systems/?authToken=token'));
+		clipboardMock.copy.mockReturnValue(of(true));
+		accessServiceMock.checkAdmin$.mockReturnValue(of(false));
 		usersRepoMock.userIdsToDetails.mockReturnValue({});
 		messagesRepoMock.convenientListOfExtraMessages.mockReturnValue({});
 		articlesRepoMock.store.getObjectByIdPullOnce$$$.mockReturnValue(of({ id: 'article-1', title: 'Original title', config: {} }));
@@ -96,6 +103,7 @@ describe('ConversationDisplayerComponent', () => {
 			imports: [ConversationDisplayerComponent],
 			providers: [
 				{ provide: NotificationService, useValue: notificationMock },
+				{ provide: ClipboardService, useValue: clipboardMock },
 				{ provide: ConversationsRepository, useValue: conversationsRepoMock },
 				{ provide: MessagesRepository, useValue: messagesRepoMock },
 				{ provide: UsersRepository, useValue: usersRepoMock },
@@ -281,7 +289,7 @@ describe('ConversationDisplayerComponent', () => {
 			component.conversation$$$.$$$.next({ id: 'conv-1', resourceId: 'res-1', resourceKind: 'article', conversationKey: 'default', config: {} });
 			component.newCommentContent.set('Hello');
 			component.replyingToMessage.set({ id: 'reply-1' } as never);
-			const goToPageSpy = vi.spyOn(component.messagesPaginator, 'goToPage').mockImplementation(() => {});
+			const goToPageSpy = vi.spyOn(component.messagesPaginator, 'goToPage').mockImplementation(() => undefined);
 
 			component.postComment();
 
@@ -379,6 +387,66 @@ describe('ConversationDisplayerComponent', () => {
 		});
 	});
 
+	// A conversation can hold several people, so the top menu connects as the author of the
+	// resource itself -- never as whoever happened to post first.
+	describe('connect-as', () => {
+		const buildAsAdmin = (authorId?: string) => {
+			accessServiceMock.checkAdmin$.mockReturnValue(of(true));
+			const fixture = TestBed.createComponent(ConversationDisplayerComponent);
+			fixture.componentRef.setInput('resourceKind', 'article');
+			fixture.componentRef.setInput('resourceId', 'res-1');
+			if (authorId) fixture.componentRef.setInput('resourceAuthorId', authorId);
+			fixture.detectChanges();
+			return fixture.componentInstance;
+		};
+
+		it('copies the link of the resource author', () => {
+			const admin = buildAsAdmin('author-9');
+
+			admin.copyConnectAsLink();
+
+			expect(usersRepoMock.getConnectAsLink$).toHaveBeenCalledWith('author-9');
+			expect(clipboardMock.copy).toHaveBeenCalledWith('https://spoken.systems/?authToken=token', expect.anything());
+		});
+
+		it('offers nothing when the resource records no author', () => {
+			const admin = buildAsAdmin();
+
+			expect(admin.canConnectAsAuthor()).toBe(false);
+			admin.copyConnectAsLink();
+
+			expect(usersRepoMock.getConnectAsLink$).not.toHaveBeenCalled();
+		});
+
+		it('offers the author only to an admin', () => {
+			componentRef.setInput('resourceAuthorId', 'author-9');
+
+			expect(component.canConnectAsAuthor()).toBe(false);
+		});
+
+		it('offers a message author to an admin, but never myself', () => {
+			const admin = buildAsAdmin('author-9');
+
+			expect(admin.canConnectAsMessageAuthor()('user-2')).toBe(true);
+			expect(admin.canConnectAsMessageAuthor()('user-1')).toBe(false);
+			expect(admin.canConnectAsMessageAuthor()(null)).toBe(false);
+		});
+
+		it('offers no message author to a non-admin', () => {
+			expect(component.canConnectAsMessageAuthor()('user-2')).toBe(false);
+		});
+
+		it('warns when a link cannot be built', () => {
+			usersRepoMock.getConnectAsLink$.mockReturnValue(of(null));
+			const admin = buildAsAdmin('author-9');
+
+			admin.copyConnectAsLinkFor('author-9');
+
+			expect(notificationMock.snackError).toHaveBeenCalled();
+			expect(clipboardMock.copy).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('article admin actions', () => {
 		it('opens the article builder when editing an article', () => {
 			const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
@@ -402,8 +470,28 @@ describe('ConversationDisplayerComponent', () => {
 			component.addPrefixToTitle('[SOLVED]');
 
 			expect(articlesRepoMock.store.getObjectByIdPullOnce$$$).toHaveBeenCalledWith('res-1');
-			expect(articlesRepoMock.store.save).toHaveBeenCalledWith(expect.objectContaining({ title: '[SOLVED] Original title', slug: 'solved-original-title' }));
+			expect(articlesRepoMock.store.save).toHaveBeenCalledWith(expect.objectContaining({ title: '[SOLVED] Original title', slug: 'solved-original-title_article-1' }));
 			expect(notificationMock.success).toHaveBeenCalledWith('translated');
+		});
+
+		// Two tickets can share a title -- auto-titled ones do, until their first message renames
+		// them -- so slugify(title) alone is not unique. article-1 exists purely to prove the
+		// slug is keyed off *its own* id, not a fixed string.
+		it('keys the new slug to the article being prefixed, not just its title', () => {
+			articlesRepoMock.store.getObjectByIdPullOnce$$$.mockReturnValue(of({ id: 'article-2', title: 'Original title', config: {} }));
+
+			component.addPrefixToTitle('[SOLVED]');
+
+			expect(articlesRepoMock.store.save).toHaveBeenCalledWith(expect.objectContaining({ slug: 'solved-original-title_article-2' }));
+		});
+
+		it('reports the error instead of a false success when the save is rejected', () => {
+			articlesRepoMock.store.save.mockReturnValue(of({ error: { title: 'Conflict', description: 'a unique field is already taken' } }));
+
+			component.addPrefixToTitle('[SOLVED]');
+
+			expect(notificationMock.snackError).toHaveBeenCalledWith('a unique field is already taken');
+			expect(notificationMock.success).not.toHaveBeenCalled();
 		});
 
 		it('does not add a duplicate prefix', () => {
@@ -415,10 +503,19 @@ describe('ConversationDisplayerComponent', () => {
 			expect(articlesRepoMock.store.save).not.toHaveBeenCalled();
 		});
 
-		it('navigates to the admin user page', () => {
+		it('opens the admin user page in a new tab, keeping the conversation open', () => {
+			const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+			// ...Once, so the shared routerMock defaults survive for the tests after this one
+			// (vi.clearAllMocks in beforeEach clears calls, not implementations).
+			routerMock.createUrlTree.mockReturnValueOnce('tree');
+			routerMock.serializeUrl.mockReturnValueOnce('/admin/users/user-1/builder');
+
 			component.goToAdminUserPage('user-1');
 
-			expect(routerMock.navigate).toHaveBeenCalledWith(['/', 'admin', 'users', 'user-1', 'builder']);
+			expect(routerMock.createUrlTree).toHaveBeenCalledWith(['/', 'admin', 'users', 'user-1', 'builder']);
+			expect(openSpy).toHaveBeenCalledWith('/admin/users/user-1/builder', '_blank');
+			expect(routerMock.navigate).not.toHaveBeenCalled();
+			openSpy.mockRestore();
 		});
 	});
 });

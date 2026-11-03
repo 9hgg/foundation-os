@@ -9,7 +9,6 @@
 # from libs.acl.models import Who
 # from libs.files.models import File as FileModel
 # from libs.files.storage.methods import get_file_storage
-# from libs.logger import print_warning
 
 # from .models import Contributor
 

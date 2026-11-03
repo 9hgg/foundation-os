@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import tempfile
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pytest
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from libs.ml import (
     ClassificationTarget,
     DatasetSample,
     FeatureVectorInput,
-    JSONClassificationDataset,
-    JsonInput,
     MultiLabelClassificationTarget,
     RegressionTarget,
     TextClassificationDataset,
@@ -32,15 +29,11 @@ from libs.ml.evaluation.plots import (
     print_precision_recall_table,
     save_precision_recall_curves,
 )
-from libs.ml.methods.keyword_classifier import KeywordMultiLabelTextClassifier, KeywordTextClassifier
+from libs.ml.methods.keyword_classifier import KeywordMultiLabelTextClassifier
 from libs.ml.methods.sklearn.fv import LinearFeatureVectorRegressor
-from libs.ml.methods.sklearn.json import LogisticRegressionJsonClassifier
 from libs.ml.methods.sklearn.text import LogisticRegressionTextClassifier
-from libs.ml.models import Label
-from libs.ml.models import ClassificationPrediction
+from libs.ml.models import ClassificationPrediction, Label
 from libs.ml.registry import TaskFormalism
-from libs.ml.targets import RegressionTarget
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 # ─── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -196,7 +189,7 @@ def test_evaluate_classifier_ignores_null_predictions() -> None:
 
 def test_evaluate_multilabel_classifier_returns_metrics() -> None:
     dataset = _text_ml_dataset(20)
-    labeled = dataset.labeled_samples()
+    dataset.labeled_samples()
     rules = {"pos": ["good", "excellent"], "neg": ["bad", "terrible"]}
     clf = KeywordMultiLabelTextClassifier(rules=rules)
 
@@ -254,8 +247,8 @@ _Y_PRED = np.array([[1, 0], [0, 1], [1, 0], [0, 1], [1, 0]])
 
 def test_print_multilabel_confusion_runs(capsys: Any) -> None:
     print_multilabel_confusion(_Y_TRUE, _Y_PRED, _LABEL_NAMES)
-    captured = capsys.readouterr()
-    assert "pos" in captured.out or "neg" in captured.out or True  # Rich may buffer
+    capsys.readouterr()
+    assert True  # Rich may buffer
 
 
 def test_print_precision_recall_curves_runs() -> None:

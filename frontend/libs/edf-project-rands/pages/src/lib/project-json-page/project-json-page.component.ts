@@ -23,7 +23,7 @@ export class ProjectJsonPageComponent {
 	public projectId = model<string | null>(null);
 
 	project$$$ = new BehaviorSubjectReplayedProxied<string | null, Project | null>((id: string | null) => {
-		return id ? this._projectsRepository.store.getObjectById$$$(id,true).$ : of(null);
+		return id ? this._projectsRepository.store.getObjectByIdPullOnce$$$(id).$ : of(null);
 	}, null);
 
 	constructor() {

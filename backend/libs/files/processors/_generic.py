@@ -1,13 +1,15 @@
 import contextlib
 import os
 
+import structlog
 from sqlalchemy.orm import Session
 
 from libs.files.storage import GenericStorage
-from libs.logger import print, print_warning
 
 from ..models import ExtraDetailsFile, File, FileAlternative
 from ..storage import get_file_storage
+
+logger = structlog.get_logger(__name__)
 
 
 class NoStorageAvailableError(Exception):
@@ -61,7 +63,7 @@ class GenericProcessor:
             return self.storage
 
         if self.file_db.storage_id is None:
-            print_warning("File has no storage")
+            logger.warning("file_processor_storage_missing", file_id=str(self.file_db.id))
             return None
 
         self.storage = get_file_storage(self.file_db.storage_id, _db=_db)
@@ -77,7 +79,7 @@ class GenericProcessor:
             return None
 
         if self.file_db.storage_folder_path is None:
-            print_warning("File has no storage folder path")
+            logger.warning("file_processor_storage_path_missing", file_id=str(self.file_db.id))
             return None
 
         extension = self.file_db.extension
@@ -93,7 +95,7 @@ class GenericProcessor:
         alternative = storage.get_original_alternative(storage_folder_path=self.file_db.storage_folder_path)
 
         if alternative is None:
-            print_warning("File has no original alternative")
+            logger.warning("file_processor_original_missing", file_id=str(self.file_db.id))
             return None
 
         local_path = storage.download(
@@ -104,10 +106,10 @@ class GenericProcessor:
         )
 
         if local_path is None:
-            print_warning("Error while downloading file")
+            logger.warning("file_processor_download_failed", file_id=str(self.file_db.id))
             return None
 
-        print("Downloaded file to:", local_path)
+        logger.debug("file_processor_downloaded", file_id=str(self.file_db.id))
         self.file_downloaded = True
         self.local_path = local_path
 

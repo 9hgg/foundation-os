@@ -7,9 +7,8 @@ mock_babel = MagicMock()
 sys.modules["babel"] = mock_babel
 sys.modules["babel.dates"] = mock_babel.dates
 
-import pytest
 from libs.utils.methods import deep_update
-from libs.utils.time.time import convert_period_to_wrapping_months, convert_month_to_str, format_datetime
+from libs.utils.time.time import convert_month_to_str, convert_period_to_wrapping_months, format_datetime
 
 
 def test_deep_update():
@@ -67,7 +66,7 @@ def test_convert_month_to_str():
 
 
 def test_format_datetime():
-    dt = datetime.datetime(2023, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
+    dt = datetime.datetime(2023, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
 
     # Mock babel.dates.format_datetime
     mock_babel.dates.format_datetime.return_value = "formatted_date"

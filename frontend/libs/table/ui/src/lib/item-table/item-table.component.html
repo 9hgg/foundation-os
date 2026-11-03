@@ -180,29 +180,6 @@
 			</tbody>
 		</table>
 
-		@if (paginatorState.totalNumberOfPages > 1) {
-			<section name="table-footer">
-				<!-- Previous Button -->
-				<button
-					(click)="paginatorState.hasPrev ? paginator.previousPage() : null"
-					[translate]
-					[disabled]="!paginatorState.hasPrev"
-					class="btn-primary"
-				>
-					Previous
-				</button>
-				<!-- Pagination Info -->
-				<span class="text-sm text-gray-600"> <span [translate]>Page</span> {{ paginatorState.currentPage }} / {{ paginatorState.totalNumberOfPages }} [ {{ paginatorState.totalNumberOfItems }}] </span>
-				<!-- Next Button -->
-				<button
-					(click)="paginatorState.hasNext ? paginator.nextPage() : null"
-					[translate]
-					[disabled]="!paginatorState.hasNext"
-					class="btn-primary"
-				>
-					Next
-				</button>
-			</section>
-		}
+		<lib-table-paginator [paginator]="paginator" />
 	</div>
 }

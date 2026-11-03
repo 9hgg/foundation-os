@@ -47,7 +47,7 @@ describe('UploadButtonComponent', () => {
 
 		fixture.componentInstance.handleFileInputEvent({ target: { files: fileList } } as unknown as Event);
 
-		expect(filesRepository.handleFileList$).toHaveBeenCalledWith(fileList, { elementRef: expect.any(ElementRef) });
+		expect(filesRepository.handleFileList$).toHaveBeenCalledWith(fileList, { elementRef: expect.any(ElementRef), folderId: undefined });
 		expect(emitSpy).toHaveBeenCalledWith([file]);
 	});
 
@@ -55,7 +55,7 @@ describe('UploadButtonComponent', () => {
 		const fixture = TestBed.createComponent(UploadButtonComponent);
 		fixture.detectChanges();
 		const button = fixture.componentInstance.button().nativeElement;
-		const clickSpy = vi.spyOn(button, 'click').mockImplementation(() => {});
+		const clickSpy = vi.spyOn(button, 'click').mockImplementation(() => undefined);
 
 		fixture.componentInstance.simulateClick();
 		fixture.componentRef.setInput('openOnClick', false);
